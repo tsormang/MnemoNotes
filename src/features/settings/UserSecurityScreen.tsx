@@ -5,8 +5,8 @@ const roles = Object.keys(rolePermissions) as AppRole[]
 
 export function UserSecurityScreen() {
   return (
-    <section className="content-section">
-      <div className="section-heading">
+    <section className="content-section content-section--embedded">
+      <div className="section-heading section-heading--compact">
         <div>
           <p className="eyebrow">Security</p>
           <h1>Roles and permissions</h1>

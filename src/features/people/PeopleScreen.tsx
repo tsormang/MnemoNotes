@@ -4,8 +4,8 @@ import { roleLabels } from '../../lib/access-control'
 
 export function PeopleScreen() {
   return (
-    <section className="content-section">
-      <div className="section-heading">
+    <section className="content-section content-section--embedded">
+      <div className="section-heading section-heading--compact">
         <div>
           <p className="eyebrow">Users and personnel</p>
           <h1>Pharmacy team access</h1>

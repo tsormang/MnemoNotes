@@ -1,0 +1,27 @@
+---
+description: Vite + TypeScript frontend conventions and env handling
+globs: "{vite.config.*,tsconfig*.json,src/**/*.{ts,tsx},*.env*}"
+alwaysApply: false
+---
+
+# Vite & TypeScript
+
+## Tooling
+
+- Vite 8 + `@vitejs/plugin-react`; entry `src/main.tsx` → `AppProviders` → `App`
+- Lint with `oxlint`; test with `vitest` (`pnpm test` / `pnpm test:run`)
+- Path/env typing via `src/vite-env.d.ts` — extend when adding `VITE_*` vars
+
+## Env
+
+- Copy `.env.example` → `.env.local`
+- Only `VITE_`-prefixed vars reach the client
+- Guard missing config with `isSupabaseConfigured` / nullable `supabase` from `src/lib/supabase.ts`
+- Never put service-role or admin passwords in Vite env
+
+## Code style
+
+- Strict TypeScript; prefer domain types from `src/types/domain.ts` (and generated DB types when wired)
+- Keep providers in `src/app/providers.tsx` (QueryClient + BrowserRouter)
+- Prefer small, focused modules over deep abstraction layers
+- Match existing import style and feature-folder layout

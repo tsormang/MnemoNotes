@@ -13,7 +13,8 @@
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:reset": "supabase db reset",
-    "supabase:types": "supabase gen types --lang typescript --local > src/lib/database.types.ts"
+    "supabase:types": "supabase gen types --lang typescript --local > src/lib/database.types.ts",
+    "admin:create": "node scripts/create-platform-admin.mjs"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",

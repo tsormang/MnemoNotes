@@ -1,0 +1,35 @@
+---
+description: Supabase schema, RLS, Edge Functions, and auth conventions
+globs: supabase/**/*.{sql,ts,toml}
+alwaysApply: false
+---
+
+# Supabase
+
+## Schema
+
+- Migrations live in `supabase/migrations/` (timestamp-prefixed). Prefer additive migrations.
+- Multi-tenant via `organizations` + `organization_members`; pharmacy extras in `pharmacy_profiles`
+- Enums and permissions are defined in SQL — extend them carefully and seed `role_permissions`
+- Regenerate types after schema changes: `pnpm supabase:types` → `src/lib/database.types.ts`
+
+## Security
+
+- RLS is mandatory on tenant tables; policies must enforce org membership and role permissions
+- Browser client uses publishable/anon key only (`VITE_SUPABASE_*`)
+- Service role only in Edge Functions / trusted scripts (`scripts/create-platform-admin.mjs`)
+- Platform admin actions: verify JWT + `platform_admins` row before privileged work (see `admin-records`)
+
+## Edge Functions
+
+- Deno + `@supabase/supabase-js`; CORS for browser callers
+- Use user-scoped client for auth checks; service client only after authorization
+- Owner registration and personnel invitation belong in Edge Functions, not direct client inserts that bypass trust boundaries
+
+## Local workflow
+
+```bash
+pnpm supabase:start
+pnpm supabase:reset
+pnpm supabase:types
+```

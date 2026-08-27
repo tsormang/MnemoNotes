@@ -1,0 +1,31 @@
+---
+description: React UI patterns for MnemoNotes shell, calendar, and modals
+globs: src/**/*.{tsx,css}
+alwaysApply: false
+---
+
+# React & UI
+
+## Shell
+
+- Primary surface is the calendar (`PharmacyCalendar`). Keep the viewport calendar-first.
+- App chrome is a single top bar: logo + name left; icon-only actions right.
+- Put People, Security, Notifications, Create, Search in modals via `Modal` — not new full-page nav clutter.
+
+## Components
+
+- Functional components only; colocate feature code under `src/features/<name>/`
+- Use existing CSS variables from `src/index.css` (`--color-*`, `--event-*`, `--radius-*`)
+- Icons: `lucide-react`. Forms: React Hook Form + Zod (`src/lib/validation.ts` patterns)
+- Server/async state: TanStack Query. Do not introduce Redux or new UI libraries.
+
+## Calendar
+
+- FullCalendar plugins already in use (daygrid, timegrid, list, multimonth, interaction)
+- Event kinds: `shift` | `note` | `task` with matching `.event-*` classes
+- Preserve mobile usability (dvh shell, touch-friendly icon targets)
+
+## Don't
+
+- Add Tailwind, CSS-in-JS, or card-heavy dashboards in the main app shell
+- Route secondary tools as permanent side panels competing with the calendar

@@ -2,6 +2,13 @@ export type AppRole = 'developer_admin' | 'owner' | 'manager' | 'personnel' | 'v
 
 export type AppPermission =
   | 'platform.admin'
+  | 'platform.users.read'
+  | 'platform.users.update'
+  | 'platform.users.delete'
+  | 'platform.tenants.read'
+  | 'platform.tenants.update'
+  | 'platform.tenants.delete'
+  | 'platform.records.hard_delete'
   | 'organization.read'
   | 'organization.update'
   | 'users.invite'

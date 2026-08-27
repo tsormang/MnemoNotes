@@ -1,0 +1,33 @@
+---
+description: MnemoNotes product context, stack, and architecture constraints
+alwaysApply: true
+---
+
+# MnemoNotes
+
+Pharmacy-first scheduling and operations notes (shifts, personnel, reminders, acknowledgements). Keep the scheduling model generic enough for other shift-based businesses later.
+
+## Stack
+
+- Vite + React 19 + TypeScript
+- Supabase (Auth, Postgres, RLS, Realtime, Edge Functions)
+- FullCalendar, TanStack Query, React Router, RHF + Zod
+- Plain CSS (no Tailwind). Vitest + Testing Library. Package manager: pnpm
+
+## Roles
+
+`developer_admin` | `owner` | `manager` | `personnel` | `viewer`
+
+Permission source of truth: `src/lib/access-control.ts` and Supabase `role_permissions` / RLS. Keep frontend checks aligned with backend policies.
+
+## Architecture
+
+- Feature folders under `src/features/*`; shared UI in `src/components`
+- Calendar-first shell: top app bar; extra UI in modals/popups (`Modal`)
+- Demo data is OK until Supabase is wired; prefer live paths via Edge Functions for owner registration and personnel invites (service-role / trusted server work)
+- Never expose service-role keys in the browser; never commit secrets
+- Platform admin hard-deletes and auth status changes go through `supabase/functions/admin-records`
+
+## When implementing
+
+Prefer extending existing screens/patterns over new frameworks or UI kits. After schema changes: `pnpm supabase:types`.

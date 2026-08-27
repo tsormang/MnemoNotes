@@ -10,6 +10,13 @@ create type public.notification_status as enum ('queued', 'sent', 'delivered', '
 create type public.notification_trigger as enum ('before_start', 'at_start', 'during', 'before_end', 'after_end');
 create type public.app_permission as enum (
   'platform.admin',
+  'platform.users.read',
+  'platform.users.update',
+  'platform.users.delete',
+  'platform.tenants.read',
+  'platform.tenants.update',
+  'platform.tenants.delete',
+  'platform.records.hard_delete',
   'organization.read',
   'organization.update',
   'users.invite',

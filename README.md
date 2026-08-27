@@ -33,6 +33,8 @@ Initial workflows:
 - Personnel assignment
 - Before/during/after notification rules
 - Audit-ready role and permission model
+- Platform Admin list views for users, personnel, shifts, notes, pharmacies, and audit history
+- Active/inactive user operations and hard-delete actions through a service-role Edge Function
 
 ## Getting Started
 
@@ -49,13 +51,38 @@ pnpm supabase:reset
 pnpm supabase:types
 ```
 
+## Platform Admin Setup
+
+Create the Developer Admin account through a trusted local shell or deployment secret store. Do not commit real passwords.
+
+PowerShell example:
+
+```powershell
+$env:SUPABASE_URL="http://127.0.0.1:54321"
+$env:SUPABASE_SERVICE_ROLE_KEY="<service-role-key>"
+$env:ADMIN_EMAIL="<developer-admin-email>"
+$env:ADMIN_PASSWORD="<developer-admin-password>"
+pnpm admin:create
+```
+
+The script creates or updates the Supabase Auth user, writes the profile row, and inserts the user into `platform_admins`.
+
+Admin-only hard deletes and Auth user status changes belong behind:
+
+```bash
+supabase functions serve admin-records
+```
+
 ## Important Paths
 
 - `src/App.tsx`: routes and app shell
 - `src/features/calendar/PharmacyCalendar.tsx`: initial pharmacy calendar surface
 - `src/features/auth/AuthScreens.tsx`: login, owner registration, invite acceptance placeholders
+- `src/features/admin/AdminConsole.tsx`: Developer Admin tabbed list views
 - `src/lib/access-control.ts`: frontend role and permission map
 - `supabase/migrations/20260827100000_initial_pharmacy_security.sql`: initial schema and RLS policies
+- `supabase/functions/admin-records/index.ts`: service-role platform-admin actions
+- `scripts/create-platform-admin.mjs`: secure local setup for the Developer Admin account
 - `supabase/seed.sql`: default permission seed data
 
 ## Development Notes

@@ -1,0 +1,452 @@
+.app-shell {
+  display: grid;
+  grid-template-columns: 268px minmax(0, 1fr);
+  min-height: 100vh;
+  background: #f5f7f9;
+}
+
+.sidebar {
+  background: #16211e;
+  color: #f7fbf8;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 24px 18px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: #2fa36b;
+  color: #fff;
+}
+
+.brand strong,
+.brand span {
+  display: block;
+}
+
+.brand strong {
+  color: #fff;
+  font-size: 17px;
+}
+
+.brand span {
+  color: #9fb5aa;
+  font-size: 13px;
+}
+
+.sidebar nav {
+  display: grid;
+  gap: 6px;
+}
+
+.sidebar a {
+  color: #cbd9d2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 7px;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.sidebar a.active,
+.sidebar a:hover {
+  background: #21332e;
+  color: #fff;
+}
+
+.main-surface {
+  min-width: 0;
+  padding: 20px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 62px;
+  padding: 0 4px 18px;
+}
+
+.topbar strong {
+  color: #17211d;
+  font-size: 18px;
+}
+
+.eyebrow {
+  color: #547066;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  margin: 0 0 4px;
+  text-transform: uppercase;
+}
+
+.icon-only,
+.icon-button,
+.auth-form button {
+  border: 0;
+  border-radius: 7px;
+  background: #1f7a53;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+
+.icon-only {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: 14px;
+}
+
+.calendar-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 18px;
+  align-items: start;
+}
+
+.calendar-panel,
+.operations-panel,
+.content-section,
+.auth-card,
+.admin-card {
+  background: #fff;
+  border: 1px solid #dfe7e3;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgb(23 33 29 / 7%);
+}
+
+.calendar-panel {
+  min-width: 0;
+  padding: 18px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.section-heading h1,
+.auth-card h1,
+.admin-card h1 {
+  color: #17211d;
+  font-size: 28px;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.status-pill,
+.supabase-notice,
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 999px;
+  color: #24654a;
+  background: #eaf7f1;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.operations-panel {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+}
+
+.operations-panel h2,
+.role-card h2 {
+  color: #17211d;
+  font-size: 20px;
+  margin: 0;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.metric {
+  border: 1px solid #dfe7e3;
+  border-radius: 7px;
+  padding: 12px;
+}
+
+.metric span,
+.timeline-item p,
+.role-card p,
+.auth-card p,
+.admin-card p {
+  color: #60746d;
+  font-size: 14px;
+}
+
+.metric strong {
+  color: #17211d;
+  display: block;
+  font-size: 24px;
+  margin-top: 4px;
+}
+
+.timeline-list {
+  display: grid;
+  gap: 10px;
+}
+
+.timeline-item {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.timeline-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+}
+
+.timeline-icon.shift {
+  background: #e8f1ff;
+  color: #245fa8;
+}
+
+.timeline-icon.note {
+  background: #fff4db;
+  color: #916515;
+}
+
+.timeline-icon.task {
+  background: #ffe8e5;
+  color: #a83a2f;
+}
+
+.timeline-item h3,
+.notification-card h3 {
+  color: #17211d;
+  font-size: 15px;
+  margin: 0 0 3px;
+}
+
+.notification-card {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 10px;
+  color: #1f7a53;
+  border: 1px solid #cce9db;
+  border-radius: 8px;
+  padding: 14px;
+  background: #f4fbf8;
+}
+
+.fc {
+  font-size: 14px;
+}
+
+.fc .fc-toolbar-title {
+  color: #17211d;
+  font-size: 20px;
+}
+
+.fc .fc-button-primary {
+  background: #1f7a53;
+  border-color: #1f7a53;
+}
+
+.event-shift {
+  background: #2f74c0;
+  border-color: #2f74c0;
+}
+
+.event-note {
+  background: #b57c20;
+  border-color: #b57c20;
+}
+
+.event-task {
+  background: #b94b3d;
+  border-color: #b94b3d;
+}
+
+.content-section {
+  padding: 20px;
+}
+
+.table-shell {
+  overflow: auto;
+  border: 1px solid #dfe7e3;
+  border-radius: 8px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  border-bottom: 1px solid #e8eeeb;
+  padding: 13px 14px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+th {
+  color: #547066;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.status.invited {
+  background: #fff4db;
+  color: #916515;
+}
+
+.role-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.role-card {
+  border: 1px solid #dfe7e3;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.role-card ul {
+  display: grid;
+  gap: 7px;
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+}
+
+.role-card li {
+  color: #344a42;
+  font-size: 13px;
+}
+
+.auth-page,
+.admin-page {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background: #eef4f1;
+}
+
+.auth-card,
+.admin-card {
+  width: min(100%, 460px);
+  padding: 28px;
+}
+
+.auth-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 18px;
+  border-radius: 8px;
+  background: #eaf7f1;
+  color: #1f7a53;
+}
+
+.auth-form {
+  display: grid;
+  gap: 14px;
+  margin: 22px 0;
+}
+
+.auth-form label {
+  color: #344a42;
+  display: grid;
+  gap: 7px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.auth-form input {
+  border: 1px solid #cfdad5;
+  border-radius: 7px;
+  color: #17211d;
+  font: inherit;
+  min-height: 42px;
+  padding: 0 12px;
+}
+
+.auth-form button {
+  min-height: 44px;
+}
+
+.field-error {
+  color: #a83a2f;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.invite-card {
+  align-items: center;
+  background: #f4fbf8;
+  border: 1px solid #cce9db;
+  border-radius: 8px;
+  color: #1f7a53;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 32px minmax(0, 1fr);
+  margin-top: 22px;
+  padding: 14px;
+}
+
+.admin-card {
+  text-align: center;
+}
+
+.admin-card svg {
+  color: #1f7a53;
+}
+
+@media (max-width: 980px) {
+  .app-shell,
+  .calendar-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

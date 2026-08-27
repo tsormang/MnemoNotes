@@ -1,0 +1,61 @@
+import type { AppPermission, AppRole } from '../types/domain'
+
+export const roleLabels: Record<AppRole, string> = {
+  developer_admin: 'Developer Admin',
+  owner: 'Owner',
+  manager: 'Manager',
+  personnel: 'Personnel',
+  viewer: 'Viewer',
+}
+
+export const rolePermissions: Record<AppRole, AppPermission[]> = {
+  developer_admin: [
+    'platform.admin',
+    'organization.read',
+    'users.invite',
+    'users.disable',
+    'roles.manage',
+    'audit.read',
+  ],
+  owner: [
+    'organization.read',
+    'organization.update',
+    'users.invite',
+    'users.disable',
+    'roles.manage',
+    'locations.manage',
+    'personnel.manage',
+    'shifts.read',
+    'shifts.create',
+    'shifts.update',
+    'shifts.delete',
+    'shifts.assign',
+    'notes.read',
+    'notes.create',
+    'notes.update',
+    'notes.delete',
+    'notes.acknowledge',
+    'notifications.manage',
+    'audit.read',
+  ],
+  manager: [
+    'organization.read',
+    'users.invite',
+    'personnel.manage',
+    'shifts.read',
+    'shifts.create',
+    'shifts.update',
+    'shifts.assign',
+    'notes.read',
+    'notes.create',
+    'notes.update',
+    'notes.acknowledge',
+    'notifications.manage',
+  ],
+  personnel: ['organization.read', 'shifts.read', 'notes.read', 'notes.acknowledge'],
+  viewer: ['organization.read', 'shifts.read', 'notes.read'],
+}
+
+export function can(role: AppRole, permission: AppPermission) {
+  return rolePermissions[role].includes(permission)
+}

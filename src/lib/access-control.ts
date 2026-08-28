@@ -37,6 +37,7 @@ export const rolePermissions: Record<AppRole, AppPermission[]> = {
     'notes.acknowledge',
     'notifications.manage',
     'audit.read',
+    'stats.read',
   ],
   owner: [
     'organization.read',
@@ -58,6 +59,7 @@ export const rolePermissions: Record<AppRole, AppPermission[]> = {
     'notes.acknowledge',
     'notifications.manage',
     'audit.read',
+    'stats.read',
   ],
   manager: [
     'organization.read',
@@ -72,6 +74,7 @@ export const rolePermissions: Record<AppRole, AppPermission[]> = {
     'notes.update',
     'notes.acknowledge',
     'notifications.manage',
+    'stats.read',
   ],
   personnel: ['organization.read', 'shifts.read', 'notes.read', 'notes.acknowledge'],
   viewer: ['organization.read', 'shifts.read', 'notes.read'],

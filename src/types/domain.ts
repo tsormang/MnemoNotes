@@ -28,6 +28,7 @@ export type AppPermission =
   | 'notes.acknowledge'
   | 'notifications.manage'
   | 'audit.read'
+  | 'stats.read'
 
 export type CalendarItemKind = 'shift' | 'note' | 'task'
 

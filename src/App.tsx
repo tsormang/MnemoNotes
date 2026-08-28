@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   Bell,
   CalendarDays,
   ClipboardList,
@@ -8,7 +9,7 @@ import {
   Users,
 } from 'lucide-react'
 import { useCallback, useState } from 'react'
-import { Navigate, NavLink, Outlet, Route, Routes } from 'react-router-dom'
+import { Navigate, NavLink, Outlet, Route, Routes, useNavigate } from 'react-router-dom'
 import './App.css'
 import { Modal } from './components/Modal'
 import { AdminConsole } from './features/admin/AdminConsole'
@@ -29,8 +30,9 @@ import { PharmacyCalendar } from './features/calendar/PharmacyCalendar'
 import { PeopleScreen } from './features/people/PeopleScreen'
 import { AuditLogScreen } from './features/audit/AuditLogScreen'
 import { UserSecurityScreen } from './features/settings/UserSecurityScreen'
+import { StatsPanel } from './features/stats/StatsPanel'
 
-type ShellModal = 'search' | 'security' | 'notifications' | null
+type ShellModal = 'search' | 'security' | 'notifications' | 'stats' | null
 
 function App() {
   return (
@@ -84,12 +86,14 @@ function App() {
 }
 
 function AppShell() {
+  const navigate = useNavigate()
   const [openModal, setOpenModal] = useState<ShellModal>(null)
   const closeModal = useCallback(() => setOpenModal(null), [])
   const { membership, isOwner } = useWorkspace()
   const canManagePersonnel = useCan('personnel.manage')
   const canManageRoles = useCan('roles.manage')
   const canReadAudit = useCan('audit.read')
+  const canReadStats = useCan('stats.read')
   const showPeopleLink = isOwner || canManagePersonnel || canManageRoles
   const showSecondaryNav = showPeopleLink || canReadAudit
   const {
@@ -104,6 +108,16 @@ function AppShell() {
   const { organizationId } = useWorkspace()
   const personnelQuery = usePersonnelList(organizationId)
   const canCreateEvents = useCan('shifts.create') || useCan('notes.create')
+
+  const handleStatsDrillDown = useCallback(
+    ({ personnelId }: { personnelId: string; fullName: string }) => {
+      setPersonnelFilterId(personnelId)
+      setKindFilter('shift')
+      closeModal()
+      navigate('/app/calendar')
+    },
+    [closeModal, navigate, setKindFilter, setPersonnelFilterId],
+  )
 
   return (
     <div className="app-shell">
@@ -153,6 +167,16 @@ function AppShell() {
             >
               <ClipboardList size={19} aria-hidden="true" />
             </NavLink>
+          ) : null}
+          {canReadStats ? (
+            <button
+              className="icon-ghost"
+              type="button"
+              aria-label="Workforce statistics"
+              onClick={() => setOpenModal('stats')}
+            >
+              <BarChart3 size={19} aria-hidden="true" />
+            </button>
           ) : null}
           <button
             className="icon-ghost"
@@ -251,6 +275,10 @@ function AppShell() {
         variant="panel"
       >
         <NotificationsPanel />
+      </Modal>
+
+      <Modal open={openModal === 'stats'} onClose={closeModal} title="Workforce statistics" wide>
+        <StatsPanel onDrillDown={handleStatsDrillDown} />
       </Modal>
 
       <CalendarEventModal />

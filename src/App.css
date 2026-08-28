@@ -980,6 +980,223 @@
   justify-content: flex-end;
 }
 
+/* ——— Workforce statistics ——— */
+
+.stats-panel {
+  display: grid;
+  gap: 20px;
+}
+
+.stats-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: end;
+}
+
+.stats-range-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+}
+
+.stats-range-controls label {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.stats-export-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.stats-range-label {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.stats-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.stats-summary-card {
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  background: var(--color-surface);
+}
+
+.stats-summary-card span {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.stats-summary-card strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 24px;
+  color: var(--color-text);
+}
+
+.stats-summary-card--warn strong {
+  color: var(--color-danger);
+}
+
+.stats-section h3,
+.stats-section h4 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.stats-bar-chart {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.stats-bar-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(0, 2fr) auto auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.stats-bar-chart--compact .stats-bar-row {
+  grid-template-columns: minmax(100px, 0.8fr) minmax(0, 2fr) auto;
+}
+
+.stats-bar-label {
+  min-width: 0;
+}
+
+.stats-bar-label span {
+  display: block;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stats-bar-label small {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.stats-bar-track {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--color-border);
+  overflow: hidden;
+}
+
+.stats-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-brand);
+}
+
+.stats-bar-fill--daily {
+  background: var(--event-shift-border);
+}
+
+.stats-bar-fill--role {
+  background: var(--color-brand-bright);
+}
+
+.stats-bar-value {
+  font-size: 13px;
+  color: var(--color-text-subtle);
+  min-width: 42px;
+  text-align: right;
+}
+
+.stats-drill-button {
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-brand);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.stats-table-wrap {
+  overflow-x: auto;
+}
+
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.stats-table th,
+.stats-table td {
+  border-bottom: 1px solid var(--color-border);
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.stats-table th {
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.stats-print-root {
+  display: grid;
+  gap: 18px;
+}
+
+.stats-print-header h3 {
+  margin: 0;
+}
+
+.stats-print-header p {
+  margin: 4px 0 0;
+  color: var(--color-text-muted);
+}
+
+.stats-print-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.stats-print-summary div {
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  padding: 10px;
+}
+
+.stats-print-summary span {
+  display: block;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.stats-print-summary strong {
+  font-size: 20px;
+}
+
+.stats-table--print th,
+.stats-table--print td {
+  font-size: 12px;
+}
+
 .timeline-icon {
   display: grid;
   place-items: center;
@@ -1932,6 +2149,40 @@ th {
 }
 
 @media print {
+  body.stats-print-mode .app-shell {
+    display: none !important;
+  }
+
+  body.stats-print-mode .modal-root {
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    padding: 0 !important;
+  }
+
+  body.stats-print-mode .modal-backdrop,
+  body.stats-print-mode .modal-header,
+  body.stats-print-mode .print-preview-actions {
+    display: none !important;
+  }
+
+  body.stats-print-mode .modal-dialog,
+  body.stats-print-mode .modal-dialog--wide,
+  body.stats-print-mode .modal-body {
+    box-shadow: none !important;
+    border: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  body.stats-print-mode .stats-print-root {
+    display: block !important;
+  }
+
   .app-bar,
   .calendar-utility-ribbon,
   .event-series-menu,

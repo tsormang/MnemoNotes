@@ -21,6 +21,7 @@ export const tenantPermissions: AppPermission[] = [
   'notes.acknowledge',
   'notifications.manage',
   'audit.read',
+  'stats.read',
 ]
 
 export const permissionLabels: Record<AppPermission, string> = {
@@ -51,12 +52,13 @@ export const permissionLabels: Record<AppPermission, string> = {
   'notes.acknowledge': 'Acknowledge notes',
   'notifications.manage': 'Manage notifications',
   'audit.read': 'Read audit log',
+  'stats.read': 'Read workforce statistics',
 }
 
 export const permissionGroups: Array<{ label: string; permissions: AppPermission[] }> = [
   {
     label: 'Organization',
-    permissions: ['organization.read', 'organization.update', 'locations.manage', 'audit.read'],
+    permissions: ['organization.read', 'organization.update', 'locations.manage', 'audit.read', 'stats.read'],
   },
   {
     label: 'People',

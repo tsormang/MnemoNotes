@@ -23,6 +23,7 @@ export const defaultCompanyRoles: DefaultCompanyRole[] = [
       'notes.update',
       'notes.acknowledge',
       'notifications.manage',
+      'stats.read',
     ],
   },
   {

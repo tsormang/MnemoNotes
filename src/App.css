@@ -995,6 +995,19 @@
   min-width: 0;
 }
 
+.timeline-item__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.timeline-item__dismiss {
+  width: 32px;
+  height: 32px;
+}
+
 .notifications-toolbar {
   display: flex;
   flex-wrap: wrap;

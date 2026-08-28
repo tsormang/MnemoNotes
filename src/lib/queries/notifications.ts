@@ -15,6 +15,7 @@ export interface InAppNotification {
   scheduledFor: string
   status: 'queued' | 'sent' | 'delivered' | 'failed' | 'acknowledged' | 'expired'
   triggerKind: NotificationTrigger
+  offsetMinutes: number
 }
 
 export interface PendingAcknowledgement {
@@ -43,7 +44,7 @@ export function useInAppNotifications(
         )
         .eq('organization_id', organizationId)
         .eq('recipient_user_id', userId)
-        .in('status', ['queued', 'sent', 'delivered'])
+        .in('status', ACTIVE_NOTIFICATION_STATUSES)
         .order('scheduled_for', { ascending: true })
         .limit(50)
 
@@ -67,6 +68,7 @@ export function useInAppNotifications(
           scheduledFor: row.scheduled_for,
           status: row.status as InAppNotification['status'],
           triggerKind: rule?.trigger_kind ?? 'at_start',
+          offsetMinutes: Number(payload.offsetMinutes ?? 0),
         }
       })
     },
@@ -118,6 +120,113 @@ export function usePendingAcknowledgements(
         }))
     },
     enabled: Boolean(organizationId && userId && isSupabaseConfigured),
+  })
+}
+
+export function useMarkNotificationsSurfaced(organizationId: string | null, userId: string | null) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (jobIds: string[]) => {
+      if (!organizationId || !userId || !supabase || jobIds.length === 0) return
+
+      const { error } = await supabase
+        .from('notification_jobs')
+        .update({ status: 'sent', updated_at: new Date().toISOString() })
+        .in('id', jobIds)
+        .eq('organization_id', organizationId)
+        .eq('recipient_user_id', userId)
+        .eq('status', 'delivered')
+
+      if (error) throw error
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['notifications', organizationId, userId] })
+    },
+  })
+}
+
+export function useDismissNotificationJob(organizationId: string | null, userId: string | null) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (jobId: string) => {
+      await dismissNotificationJobs(organizationId, userId, [jobId])
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['notifications', organizationId, userId] })
+    },
+  })
+}
+
+export function useDismissNotificationJobs(organizationId: string | null, userId: string | null) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (jobIds: string[]) => {
+      await dismissNotificationJobs(organizationId, userId, jobIds)
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['notifications', organizationId, userId] })
+    },
+  })
+}
+
+async function dismissNotificationJobs(
+  organizationId: string | null,
+  userId: string | null,
+  jobIds: string[],
+) {
+  if (!organizationId || !userId || !supabase) {
+    throw new Error('Organization is not available.')
+  }
+
+  if (jobIds.length === 0) return
+
+  const { error } = await supabase
+    .from('notification_jobs')
+    .update({ status: 'expired', updated_at: new Date().toISOString() })
+    .in('id', jobIds)
+    .eq('organization_id', organizationId)
+    .eq('recipient_user_id', userId)
+
+  if (error) throw error
+}
+
+export function useExpireStaleNotificationJobs(
+  organizationId: string | null,
+  userId: string | null,
+  calendarItems: CalendarItem[],
+) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (notifications: InAppNotification[]) => {
+      if (!organizationId || !userId || !supabase || notifications.length === 0) return
+
+      const staleIds = notifications
+        .filter((notification) => {
+          if (notification.requiresAcknowledgement) return false
+          const item = calendarItems.find((entry) => entry.id === notification.calendarItemId)
+          return item && new Date(item.endsAt).getTime() <= Date.now()
+        })
+        .map((notification) => notification.id)
+
+      if (staleIds.length === 0) return
+
+      const { error } = await supabase
+        .from('notification_jobs')
+        .update({ status: 'expired', updated_at: new Date().toISOString() })
+        .in('id', staleIds)
+        .eq('organization_id', organizationId)
+        .eq('recipient_user_id', userId)
+        .in('status', ACTIVE_NOTIFICATION_STATUSES)
+
+      if (error) throw error
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['notifications', organizationId, userId] })
+    },
   })
 }
 
@@ -195,8 +304,35 @@ export function formatNotificationTiming(
   }
 }
 
+export const ACTIVE_NOTIFICATION_STATUSES: InAppNotification['status'][] = [
+  'queued',
+  'sent',
+  'delivered',
+]
+
 export function isNotificationDue(scheduledFor: string): boolean {
   return new Date(scheduledFor).getTime() <= Date.now()
+}
+
+/** Jobs that should appear in the panel badge and "due now" list. */
+export function isActiveDueNotification(
+  notification: InAppNotification,
+  calendarItems: CalendarItem[] = [],
+): boolean {
+  if (!ACTIVE_NOTIFICATION_STATUSES.includes(notification.status)) return false
+  if (!isNotificationDue(notification.scheduledFor)) return false
+
+  if (!notification.requiresAcknowledgement) {
+    const item = calendarItems.find((entry) => entry.id === notification.calendarItemId)
+    if (item && new Date(item.endsAt).getTime() <= Date.now()) return false
+  }
+
+  return true
+}
+
+/** Jobs that should auto-popup (not yet surfaced this session cycle). */
+export function shouldPopupNotification(notification: InAppNotification): boolean {
+  return notification.status === 'delivered' && isNotificationDue(notification.scheduledFor)
 }
 
 /** Skip notifications already surfaced as toasts or desktop popups. */
@@ -251,6 +387,7 @@ export function getDemoNotifications(): InAppNotification[] {
         scheduledFor: scheduledFor.toISOString(),
         status: 'delivered' as const,
         triggerKind: offset < 0 ? 'before_start' : offset === 0 ? 'at_start' : 'during',
+        offsetMinutes: Math.abs(offset),
       }
     }),
   )

@@ -10,7 +10,7 @@ export interface NotificationToast {
 interface ToastStackProps {
   toasts: NotificationToast[]
   onOpen: (notification: InAppNotification) => void
-  onDismiss: (toastId: string) => void
+  onDismiss: (notification: InAppNotification) => void
   onAcknowledge?: (calendarItemId: string) => void
 }
 
@@ -50,7 +50,7 @@ export function ToastStack({ toasts, onOpen, onDismiss, onAcknowledge }: ToastSt
               className="icon-ghost toast-card__dismiss"
               type="button"
               aria-label="Dismiss notification"
-              onClick={() => onDismiss(toast.id)}
+              onClick={() => onDismiss(toast.notification)}
             >
               <X size={16} aria-hidden="true" />
             </button>

@@ -1,28 +1,44 @@
-import { Bell, Check, Clock, Monitor, RefreshCw, ShieldAlert } from 'lucide-react'
+import { Bell, Check, Clock, Monitor, RefreshCw, ShieldAlert, X } from 'lucide-react'
 import { format } from 'date-fns'
 import { useAuth } from '../auth/AuthProvider'
 import { useWorkspace } from '../auth/WorkspaceProvider'
 import { useNotifications } from '../notifications/NotificationProvider'
 import { calendarItems as demoCalendarItems } from '../../data/demo'
+import { getCalendarItemDisplayLabel } from '../../lib/calendar-display'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import {
+  formatNotificationTiming,
   getDemoNotifications,
   getDemoPendingAcknowledgements,
-  isNotificationDue,
+  isActiveDueNotification,
   useAcknowledgeCalendarItem,
   useInAppNotifications,
   usePendingAcknowledgements,
   useRefreshNotifications,
+  type InAppNotification,
 } from '../../lib/queries/notifications'
-import { useCalendarItems } from '../../lib/queries/workspace'
+import { useCalendarItems, usePersonnelList } from '../../lib/queries/workspace'
+import type { CalendarItem } from '../../types/domain'
+
+function notificationLabel(
+  notification: InAppNotification,
+  calendarItems: CalendarItem[],
+  personnel: { id: string; fullName: string }[],
+): string {
+  const item = calendarItems.find((entry) => entry.id === notification.calendarItemId)
+  if (item) return getCalendarItemDisplayLabel(item, personnel)
+  return notification.title || `${notification.kind} reminder`
+}
 
 export function NotificationsPanel() {
   const { user } = useAuth()
   const { organizationId } = useWorkspace()
   const calendarQuery = useCalendarItems(organizationId)
+  const personnelQuery = usePersonnelList(organizationId)
   const calendarItems = isSupabaseConfigured
     ? (calendarQuery.data ?? [])
     : demoCalendarItems
+  const personnel = personnelQuery.data ?? []
   const notificationsQuery = useInAppNotifications(organizationId, user?.id ?? null)
   const pendingAcksQuery = usePendingAcknowledgements(
     organizationId,
@@ -31,7 +47,14 @@ export function NotificationsPanel() {
   )
   const acknowledgeItem = useAcknowledgeCalendarItem(organizationId, user?.id ?? null)
   const refreshNotifications = useRefreshNotifications()
-  const { desktopPermission, requestDesktopPermission } = useNotifications()
+  const {
+    desktopPermission,
+    requestDesktopPermission,
+    openNotificationAndDismiss,
+    clearNotification,
+    clearAllDueNotifications,
+    isClearingNotifications,
+  } = useNotifications()
 
   const notifications = isSupabaseConfigured
     ? (notificationsQuery.data ?? [])
@@ -40,15 +63,19 @@ export function NotificationsPanel() {
   const pendingAcks = isSupabaseConfigured
     ? (pendingAcksQuery.data ?? [])
     : getDemoPendingAcknowledgements(demoCalendarItems)
-  const dueNotifications = notifications.filter((item) => isNotificationDue(item.scheduledFor))
-  const upcomingNotifications = notifications.filter((item) => !isNotificationDue(item.scheduledFor))
+  const activeDueNotifications = notifications.filter((item) =>
+    isActiveDueNotification(item, calendarItems),
+  )
+  const upcomingNotifications = notifications.filter(
+    (item) => !isActiveDueNotification(item, calendarItems) && item.status !== 'expired',
+  )
 
   return (
     <div className="notifications-panel">
       <div className="metric-grid">
         <div className="metric">
           <span>Due now</span>
-          <strong>{dueNotifications.length}</strong>
+          <strong>{activeDueNotifications.length}</strong>
         </div>
         <div className="metric">
           <span>Upcoming</span>
@@ -86,6 +113,17 @@ export function NotificationsPanel() {
             <span className="notifications-status notifications-status--muted">
               Desktop alerts blocked in browser settings
             </span>
+          ) : null}
+          {activeDueNotifications.length > 0 ? (
+            <button
+              className="button-secondary button-secondary--compact"
+              type="button"
+              disabled={isClearingNotifications}
+              onClick={() => void clearAllDueNotifications()}
+            >
+              <X size={16} aria-hidden="true" />
+              Clear due
+            </button>
           ) : null}
           <button
             className="button-secondary button-secondary--compact"
@@ -131,10 +169,10 @@ export function NotificationsPanel() {
 
       <div className="timeline-list">
         <p className="eyebrow">Due now</p>
-        {dueNotifications.length === 0 ? (
+        {activeDueNotifications.length === 0 ? (
           <p className="modal-hint">No notifications are due right now.</p>
         ) : (
-          dueNotifications.map((item) => (
+          activeDueNotifications.map((item) => (
             <article className="timeline-item" key={item.id}>
               <div className={`timeline-icon ${item.kind}`}>
                 {item.requiresAcknowledgement ? (
@@ -143,12 +181,45 @@ export function NotificationsPanel() {
                   <Clock size={18} aria-hidden="true" />
                 )}
               </div>
-              <div>
-                <h3>{item.title}</h3>
+              <div className="timeline-item__body">
+                <h3>{notificationLabel(item, calendarItems, personnel)}</h3>
                 <p>
-                  {format(new Date(item.scheduledFor), 'EEE d MMM, HH:mm')}
+                  {formatNotificationTiming(
+                    item.scheduledFor,
+                    item.triggerKind,
+                    item.offsetMinutes,
+                  )}
                   {item.requiresAcknowledgement ? ' · acknowledgement required' : ''}
                 </p>
+              </div>
+              <div className="timeline-item__actions">
+                {item.requiresAcknowledgement ? (
+                  <button
+                    className="button-primary button-primary--compact"
+                    type="button"
+                    disabled={acknowledgeItem.isPending}
+                    onClick={() => void acknowledgeItem.mutateAsync(item.calendarItemId)}
+                  >
+                    <Check size={16} aria-hidden="true" />
+                    Ack
+                  </button>
+                ) : null}
+                <button
+                  className="button-secondary button-secondary--compact"
+                  type="button"
+                  onClick={() => openNotificationAndDismiss(item)}
+                >
+                  Open
+                </button>
+                <button
+                  className="icon-ghost timeline-item__dismiss"
+                  type="button"
+                  aria-label="Dismiss notification"
+                  disabled={isClearingNotifications}
+                  onClick={() => clearNotification(item)}
+                >
+                  <X size={16} aria-hidden="true" />
+                </button>
               </div>
             </article>
           ))
@@ -163,9 +234,15 @@ export function NotificationsPanel() {
               <div className={`timeline-icon ${item.kind}`}>
                 <Clock size={18} aria-hidden="true" />
               </div>
-              <div>
-                <h3>{item.title}</h3>
-                <p>{format(new Date(item.scheduledFor), 'EEE d MMM, HH:mm')}</p>
+              <div className="timeline-item__body">
+                <h3>{notificationLabel(item, calendarItems, personnel)}</h3>
+                <p>
+                  {formatNotificationTiming(
+                    item.scheduledFor,
+                    item.triggerKind,
+                    item.offsetMinutes,
+                  )}
+                </p>
               </div>
             </article>
           ))}
@@ -177,8 +254,8 @@ export function NotificationsPanel() {
         <div>
           <h3>Notification engine</h3>
           <p>
-            Calendar saves sync reminder rules. Jobs are materialized by the schedule-notifications
-            Edge Function and appear here when due.
+            Reminders appear when due. Open or dismiss clears them from the bell; acknowledgements
+            stay until you confirm.
           </p>
         </div>
       </div>

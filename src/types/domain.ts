@@ -102,6 +102,7 @@ export interface CalendarItem {
   assignedPersonnelIds: string[]
   priority: 'low' | 'normal' | 'high' | 'critical'
   noteCategory?: string
+  seriesId?: string
   notificationOffsets: number[]
   requiresAcknowledgement: boolean
 }

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { personnel as demoPersonnel, pharmacyLocations as demoLocations, calendarItems as demoCalendarItems } from '../../data/demo'
+import { parseSeriesId } from '../calendar-series'
 import { isSupabaseConfigured, supabase } from '../supabase'
 import type {
   AppPermission,
@@ -251,6 +252,7 @@ export function useCalendarItems(organizationId: string | null) {
           priority: (row.priority as CalendarItem['priority']) ?? 'normal',
           noteCategory:
             typeof metadata.noteCategory === 'string' ? metadata.noteCategory : undefined,
+          seriesId: parseSeriesId(metadata),
           notificationOffsets: Array.isArray(metadata.notificationOffsets)
             ? metadata.notificationOffsets.map(Number)
             : [],

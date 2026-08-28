@@ -171,6 +171,7 @@ function CalendarEventModalContent({
         ...values,
         locationId: defaultLocationId,
         id: editingItem?.id,
+        seriesId: editingItem?.seriesId,
         timezone: orgQuery.data?.timezone,
       })
       onClose()

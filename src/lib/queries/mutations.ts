@@ -1,5 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { AppPermission, CalendarItem } from '../../types/domain'
+import {
+  buildDuplicateTargets,
+  getSeriesSiblings,
+  type CalendarSeriesViewContext,
+  type SeriesDuplicateMode,
+} from '../calendar-series'
 import { supabase } from '../supabase'
 import type { CalendarItemInput, CompanyRoleInput } from '../validation'
 
@@ -200,12 +206,16 @@ export function useUpdatePersonnel(organizationId: string | null) {
 type CalendarItemMutationInput = CalendarItemInput & {
   id?: string
   timezone?: string
+  seriesId?: string
 }
 
-function buildCalendarMetadata(values: CalendarItemInput) {
+function buildCalendarMetadata(values: CalendarItemInput, seriesId?: string) {
   const metadata: Record<string, unknown> = {}
   if (values.noteCategory?.trim()) {
     metadata.noteCategory = values.noteCategory.trim()
+  }
+  if (seriesId) {
+    metadata.seriesId = seriesId
   }
   return metadata
 }
@@ -266,7 +276,7 @@ export function useUpsertCalendarItem(organizationId: string | null, userId: str
         timezone: values.timezone ?? 'Europe/Athens',
         priority: values.priority,
         requires_acknowledgement: values.requiresAcknowledgement,
-        metadata: buildCalendarMetadata(values),
+        metadata: buildCalendarMetadata(values, values.seriesId),
         updated_at: new Date().toISOString(),
       }
 
@@ -318,6 +328,7 @@ export function useUpsertCalendarItem(organizationId: string | null, userId: str
         assignedPersonnelIds: values.assignedPersonnelIds,
         priority: values.priority,
         noteCategory: values.noteCategory,
+        seriesId: values.seriesId,
         notificationOffsets: [],
         requiresAcknowledgement: values.requiresAcknowledgement,
       }
@@ -335,6 +346,173 @@ export function useUpsertCalendarItem(organizationId: string | null, userId: str
       if (context?.previous) {
         queryClient.setQueryData(queryKey, context.previous)
       }
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey })
+    },
+  })
+}
+
+async function fetchItemMetadata(
+  organizationId: string,
+  itemId: string,
+): Promise<Record<string, unknown>> {
+  if (!supabase) throw new Error('Supabase is not configured.')
+
+  const { data, error } = await supabase
+    .from('calendar_items')
+    .select('metadata')
+    .eq('id', itemId)
+    .eq('organization_id', organizationId)
+    .single()
+
+  if (error) throw error
+  return (data.metadata ?? {}) as Record<string, unknown>
+}
+
+async function setItemSeriesId(organizationId: string, itemId: string, seriesId: string) {
+  if (!supabase) throw new Error('Supabase is not configured.')
+
+  const metadata = await fetchItemMetadata(organizationId, itemId)
+  const { error } = await supabase
+    .from('calendar_items')
+    .update({
+      metadata: { ...metadata, seriesId },
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', itemId)
+    .eq('organization_id', organizationId)
+
+  if (error) throw error
+}
+
+function cloneInputFromItem(
+  item: CalendarItem,
+  startsAt: string,
+  endsAt: string,
+  seriesId: string,
+  timezone?: string,
+): CalendarItemMutationInput {
+  return {
+    kind: item.kind,
+    title: item.title,
+    description: item.description,
+    startsAt,
+    endsAt,
+    locationId: item.locationId,
+    assignedPersonnelIds: item.assignedPersonnelIds,
+    priority: item.priority,
+    noteCategory: item.noteCategory ?? '',
+    requiresAcknowledgement: item.requiresAcknowledgement,
+    seriesId,
+    timezone,
+  }
+}
+
+async function insertCalendarItemClone(
+  organizationId: string,
+  userId: string | null,
+  values: CalendarItemMutationInput,
+): Promise<string> {
+  if (!supabase) throw new Error('Supabase is not configured.')
+
+  const row = {
+    organization_id: organizationId,
+    location_id: values.locationId,
+    kind: values.kind,
+    title: values.kind === 'shift' ? '' : values.title.trim(),
+    description: calendarItemDescription(values),
+    starts_at: values.startsAt,
+    ends_at: values.endsAt,
+    timezone: values.timezone ?? 'Europe/Athens',
+    priority: values.priority,
+    requires_acknowledgement: values.requiresAcknowledgement,
+    metadata: buildCalendarMetadata(values, values.seriesId),
+    created_by: userId,
+    updated_at: new Date().toISOString(),
+  }
+
+  const { data, error } = await supabase.from('calendar_items').insert(row).select('id').single()
+  if (error) throw error
+
+  if (values.kind === 'shift' && values.assignedPersonnelIds.length > 0) {
+    await syncShiftAssignments(
+      organizationId,
+      data.id,
+      values.assignedPersonnelIds,
+      userId ?? undefined,
+    )
+  }
+
+  return data.id
+}
+
+export type CalendarSeriesAction =
+  | { type: 'duplicate'; mode: SeriesDuplicateMode }
+  | { type: 'delete-series-except' }
+
+export function useCalendarSeriesActions(organizationId: string | null, userId: string | null) {
+  const queryClient = useQueryClient()
+  const queryKey = ['calendar-items', organizationId]
+
+  return useMutation({
+    mutationFn: async ({
+      action,
+      item,
+      viewContext,
+      timezone,
+      allItems,
+    }: {
+      action: CalendarSeriesAction
+      item: CalendarItem
+      viewContext: CalendarSeriesViewContext
+      timezone?: string
+      allItems: CalendarItem[]
+    }) => {
+      if (!organizationId || !supabase) {
+        throw new Error('Organization is not available.')
+      }
+
+      if (action.type === 'delete-series-except') {
+        if (!item.seriesId) {
+          throw new Error('This event is not part of a series.')
+        }
+
+        const siblings = getSeriesSiblings(allItems, item)
+        const idsToDelete = siblings.filter((entry) => entry.id !== item.id).map((entry) => entry.id)
+        if (idsToDelete.length === 0) {
+          throw new Error('No other instances to delete.')
+        }
+
+        const { error } = await supabase
+          .from('calendar_items')
+          .delete()
+          .in('id', idsToDelete)
+          .eq('organization_id', organizationId)
+
+        if (error) throw error
+        return { created: 0, deleted: idsToDelete.length }
+      }
+
+      const targets = buildDuplicateTargets(item, action.mode, viewContext, allItems)
+      if (targets.length === 0) {
+        throw new Error('No new copies to create — those days may already have an instance.')
+      }
+
+      const seriesId = item.seriesId ?? crypto.randomUUID()
+      if (!item.seriesId) {
+        await setItemSeriesId(organizationId, item.id, seriesId)
+      }
+
+      for (const target of targets) {
+        await insertCalendarItemClone(
+          organizationId,
+          userId,
+          cloneInputFromItem(item, target.startsAt, target.endsAt, seriesId, timezone),
+        )
+      }
+
+      return { created: targets.length, deleted: 0 }
     },
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey })

@@ -3,10 +3,11 @@ import interactionPlugin from '@fullcalendar/interaction'
 import FullCalendar from '@fullcalendar/react'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import clsx from 'clsx'
-import { format } from 'date-fns'
+import { addDays, format, startOfWeek } from 'date-fns'
 import { ChevronLeft, ChevronRight, MoonStar } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, useCallback } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useAuth } from '../auth/AuthProvider'
 import { useWorkspace } from '../auth/WorkspaceProvider'
 import {
   FULL_DAY_END,
@@ -20,9 +21,15 @@ import { itemHasShiftConflict } from '../../lib/calendar-conflicts'
 import { defaultEventEnd, normalizeEventRange } from '../../lib/calendar-datetime'
 import {
   canCreateAnyCalendarItem,
+  canCreateKind,
+  canDeleteKind,
   canEditCalendarItem,
 } from '../../lib/calendar-permissions'
-import { useUpdateCalendarItemTimes } from '../../lib/queries/mutations'
+import {
+  useCalendarSeriesActions,
+  useUpdateCalendarItemTimes,
+  type CalendarSeriesAction,
+} from '../../lib/queries/mutations'
 import {
   useCalendarItems,
   useOrganization,
@@ -32,6 +39,11 @@ import {
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 import type { CalendarItem, CalendarItemKind, Personnel } from '../../types/domain'
 import { filterCalendarItems, useCalendarShell } from './CalendarShellContext'
+import {
+  attachEventSeriesMenuTriggers,
+  EventSeriesMenu,
+  type EventSeriesMenuState,
+} from './EventSeriesMenu'
 
 const time24h = {
   hour: '2-digit' as const,
@@ -174,6 +186,7 @@ function CalendarUtilityRibbon({
 }
 
 export function PharmacyCalendar() {
+  const { user } = useAuth()
   const { organizationId, can } = useWorkspace()
   const { searchQuery, kindFilter, personnelFilterId, openCreateEvent, openEditEvent } =
     useCalendarShell()
@@ -182,14 +195,23 @@ export function PharmacyCalendar() {
   const personnelQuery = usePersonnelList(organizationId)
   const weekOverridesQuery = useWeekOverrides(organizationId)
   const updateTimes = useUpdateCalendarItemTimes(organizationId)
+  const seriesActions = useCalendarSeriesActions(organizationId, user?.id ?? null)
   const queryClient = useQueryClient()
 
   const calendarRef = useRef<FullCalendar>(null)
+  const suppressEventClickUntilRef = useRef(0)
+  const seriesMenuCleanupRef = useRef(new Map<string, () => void>())
   const [initialView] = useState(getInitialView)
   const [activeView, setActiveView] = useState<CalendarViewId>(initialView)
-  const [visibleDate, setVisibleDate] = useState(() => new Date())
+  const [calendarDate, setCalendarDate] = useState(() => new Date())
+  const [visibleRange, setVisibleRange] = useState(() => {
+    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 })
+    return { start: weekStart, end: addDays(weekStart, 7) }
+  })
   const [viewTitle, setViewTitle] = useState('Calendar')
   const [weekStartKey, setWeekStartKey] = useState(() => getWeekStartKey(new Date()))
+  const [seriesMenu, setSeriesMenu] = useState<EventSeriesMenuState | null>(null)
+  const [seriesMenuError, setSeriesMenuError] = useState<string | null>(null)
 
   const workingDayStart = orgQuery.data?.workingDayStart ?? '07:00'
   const workingDayEnd = orgQuery.data?.workingDayEnd ?? '21:00'
@@ -249,6 +271,52 @@ export function PharmacyCalendar() {
 
   const canEditCalendar = isSupabaseConfigured && canCreateAnyCalendarItem(can)
 
+  const suppressEventClick = useCallback(() => {
+    suppressEventClickUntilRef.current = Date.now() + 400
+  }, [])
+
+  const closeSeriesMenu = useCallback(() => {
+    setSeriesMenu(null)
+    setSeriesMenuError(null)
+  }, [])
+
+  const openSeriesMenu = useCallback((item: CalendarItem, x: number, y: number) => {
+    setSeriesMenuError(null)
+    setSeriesMenu({ item, x, y })
+  }, [])
+
+  const handleSeriesAction = useCallback(
+    async (action: CalendarSeriesAction) => {
+      if (!seriesMenu) return
+
+      setSeriesMenuError(null)
+      try {
+        await seriesActions.mutateAsync({
+          action,
+          item: seriesMenu.item,
+          viewContext: {
+            activeView,
+            visibleRange,
+            calendarDate,
+          },
+          timezone: orgQuery.data?.timezone,
+          allItems: calendarItems,
+        })
+        closeSeriesMenu()
+      } catch (error) {
+        setSeriesMenuError(error instanceof Error ? error.message : 'Could not update event series.')
+      }
+    },
+    [seriesMenu, seriesActions, activeView, visibleRange, calendarDate, orgQuery.data?.timezone, calendarItems, closeSeriesMenu],
+  )
+
+  const canOpenSeriesMenu = useCallback(
+    (item: CalendarItem) =>
+      isSupabaseConfigured &&
+      (canCreateKind(can, item.kind) || canDeleteKind(can, item.kind)),
+    [can],
+  )
+
   const events = useMemo(
     () =>
       filteredItems.map((item) => {
@@ -276,12 +344,16 @@ export function PharmacyCalendar() {
   const getApi = () => calendarRef.current?.getApi()
 
   const handleDatesSet = (arg: {
-    view: { type: string; title: string; currentStart: Date }
+    start: Date
+    end: Date
+    view: { type: string; title: string; calendar: { getDate: () => Date } }
   }) => {
     setActiveView(arg.view.type as CalendarViewId)
-    setVisibleDate(arg.view.currentStart)
+    setVisibleRange({ start: arg.start, end: arg.end })
+    const anchor = arg.view.calendar.getDate()
+    setCalendarDate(anchor)
     setViewTitle(arg.view.title)
-    setWeekStartKey(getWeekStartKey(arg.view.currentStart))
+    setWeekStartKey(getWeekStartKey(anchor))
   }
 
   const handleToggleNightShift = () => {
@@ -305,6 +377,7 @@ export function PharmacyCalendar() {
   }
 
   const handleEventClick = (arg: { event: { extendedProps: Record<string, unknown> } }) => {
+    if (Date.now() < suppressEventClickUntilRef.current) return
     const item = arg.event.extendedProps.item as CalendarItem
     openEditEvent(item)
   }
@@ -370,7 +443,7 @@ export function PharmacyCalendar() {
         ref={calendarRef}
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
         initialView={activeView}
-        initialDate={visibleDate}
+        initialDate={calendarDate}
         headerToolbar={false}
         locale="en-GB"
         eventTimeFormat={time24h}
@@ -391,6 +464,24 @@ export function PharmacyCalendar() {
         eventClick={handleEventClick}
         eventDrop={handleEventDrop}
         eventResize={handleEventResize}
+        eventDidMount={(info) => {
+          const item = info.event.extendedProps.item as CalendarItem | undefined
+          if (!item) return
+
+          const cleanup = attachEventSeriesMenuTriggers(
+            info.el,
+            item,
+            canOpenSeriesMenu(item),
+            ({ x, y }) => openSeriesMenu(item, x, y),
+            suppressEventClick,
+          )
+          seriesMenuCleanupRef.current.set(info.event.id, cleanup)
+        }}
+        eventWillUnmount={(info) => {
+          const cleanup = seriesMenuCleanupRef.current.get(info.event.id)
+          cleanup?.()
+          seriesMenuCleanupRef.current.delete(info.event.id)
+        }}
         eventContent={(arg) => {
           // selectMirror placeholder events have no extendedProps — skip custom chip.
           if (arg.isMirror) return true
@@ -412,6 +503,17 @@ export function PharmacyCalendar() {
         windowResize={() => {
           calendarRef.current?.getApi().updateSize()
         }}
+      />
+
+      <EventSeriesMenu
+        menu={seriesMenu}
+        allItems={calendarItems}
+        canCreate={seriesMenu ? canCreateKind(can, seriesMenu.item.kind) : false}
+        canDelete={seriesMenu ? canDeleteKind(can, seriesMenu.item.kind) : false}
+        isPending={seriesActions.isPending}
+        errorMessage={seriesMenuError}
+        onClose={closeSeriesMenu}
+        onAction={handleSeriesAction}
       />
     </div>
   )

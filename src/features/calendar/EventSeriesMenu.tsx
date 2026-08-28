@@ -145,7 +145,7 @@ const LONG_PRESS_MS = 500
 
 export function attachEventSeriesMenuTriggers(
   element: HTMLElement,
-  item: CalendarItem,
+  _item: CalendarItem,
   canOpen: boolean,
   onOpen: (coords: { x: number; y: number }) => void,
   onSuppressClick: () => void,

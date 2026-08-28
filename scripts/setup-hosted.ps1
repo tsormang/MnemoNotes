@@ -158,7 +158,8 @@ else {
       @{ Name = "admin-provision-company"; Public = $false },
       @{ Name = "admin-invite-owner"; Public = $false },
       @{ Name = "invite-personnel"; Public = $false },
-      @{ Name = "accept-invite"; Public = $true }
+      @{ Name = "accept-invite"; Public = $true },
+      @{ Name = "schedule-notifications"; Public = $false }
     )
 
     foreach ($fn in $functions) {

@@ -16,6 +16,7 @@ const functions = [
   { name: 'admin-invite-owner', public: false },
   { name: 'invite-personnel', public: false },
   { name: 'accept-invite', public: true },
+  { name: 'schedule-notifications', public: false },
 ]
 
 function runSupabase(args) {

@@ -68,27 +68,35 @@ The script creates or updates the Supabase Auth user, writes the profile row, an
 
 Sign in as Developer Admin, open `/admin`, and use **Pharmacies → Create company** to provision a tenant and owner account. There is no public owner self-registration route.
 
-Trusted Edge Functions for Phase 1:
+Trusted Edge Functions:
 
 ```bash
-supabase functions serve admin-provision-company invite-personnel accept-invite admin-records
+supabase functions serve admin-provision-company invite-personnel accept-invite admin-records schedule-notifications
 ```
+
+Optional production monitoring: set `VITE_SENTRY_DSN` in `.env.local` to enable Sentry error capture (wired through `src/lib/logger.ts`).
 
 ## Important Paths
 
 - `src/App.tsx`: routes, guards, and app shell
-- `src/features/calendar/PharmacyCalendar.tsx`: live read-only calendar surface
+- `src/features/calendar/PharmacyCalendar.tsx`: live calendar with create/edit, drag/drop, resize, and print
+- `src/features/calendar/NotificationsPanel.tsx`: in-app notifications and acknowledgements
 - `src/features/auth/AuthProvider.tsx` and `WorkspaceProvider.tsx`: session and permission context
 - `src/features/auth/AuthScreens.tsx`: login and invite acceptance
 - `src/features/admin/AdminConsole.tsx`: Developer Admin provisioning and list views
+- `src/features/people/CompanyRolesMatrix.tsx`: company role CRUD and permission matrix
 - `src/lib/access-control.ts`: static owner/platform permission bundles
 - `src/lib/queries/workspace.ts`: TanStack Query hooks for org, personnel, and calendar data
+- `src/lib/queries/notifications.ts`: notification jobs and acknowledgement hooks
+- `src/lib/logger.ts` and `src/lib/sentry.ts`: developer logging and optional Sentry
 - `supabase/migrations/20260827130000_company_roles.sql`: custom company roles and invite tokens
+- `supabase/migrations/20260828120000_notifications_acknowledgements.sql`: acknowledgement table and notification rule sync trigger
 - `supabase/functions/admin-provision-company/index.ts`: platform admin company provisioning
 - `supabase/functions/invite-personnel/index.ts` and `accept-invite/index.ts`: personnel invite flow
+- `supabase/functions/schedule-notifications/index.ts`: materialize in-app notification jobs from rules
 - `supabase/functions/admin-records/index.ts`: service-role platform-admin actions
 - `scripts/create-platform-admin.mjs`: secure local setup for the Developer Admin account
 
 ## Development Notes
 
-When Supabase is not configured, the app falls back to demo data so the product shape remains visible. With Supabase configured, `/app` requires authentication and calendar/personnel data loads through RLS-safe queries.
+When Supabase is not configured, the app falls back to demo data so the product shape remains visible. With Supabase configured, `/app` requires authentication and calendar/personnel data loads through RLS-safe queries. Use the calendar ribbon print action for a print-friendly schedule layout.

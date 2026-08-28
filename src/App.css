@@ -860,9 +860,18 @@
 
 .timeline-item {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr);
+  grid-template-columns: 38px minmax(0, 1fr) auto;
   gap: 10px;
   align-items: start;
+}
+
+.timeline-item__body {
+  min-width: 0;
+}
+
+.notifications-toolbar {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .timeline-icon {
@@ -1740,5 +1749,45 @@ th {
 
   .app-bar-actions {
     margin-left: auto;
+  }
+}
+
+@media print {
+  .app-bar,
+  .calendar-utility-ribbon,
+  .event-series-menu,
+  .modal-backdrop,
+  .modal-panel {
+    display: none !important;
+  }
+
+  .app-shell,
+  .app-main,
+  .calendar-fill,
+  .calendar-print-root,
+  .fc {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  .app-shell {
+    display: block;
+  }
+
+  .app-main {
+    padding: 0;
+  }
+
+  .fc-event {
+    break-inside: avoid;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .fc .fc-timegrid-slot,
+  .fc .fc-daygrid-day {
+    break-inside: avoid;
   }
 }

@@ -4,7 +4,7 @@ import FullCalendar from '@fullcalendar/react'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import clsx from 'clsx'
 import { addDays, format, startOfWeek } from 'date-fns'
-import { ChevronLeft, ChevronRight, MoonStar } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MoonStar, Printer } from 'lucide-react'
 import { useMemo, useRef, useState, useCallback } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthProvider'
@@ -124,6 +124,7 @@ function CalendarUtilityRibbon({
   onToday,
   onChangeView,
   onToggleNightShift,
+  onPrint,
 }: {
   title: string
   activeView: CalendarViewId
@@ -134,6 +135,7 @@ function CalendarUtilityRibbon({
   onToday: () => void
   onChangeView: (view: CalendarViewId) => void
   onToggleNightShift: () => void
+  onPrint: () => void
 }) {
   const nightShiftLabel = nightShiftEnabled
     ? `Night shifts on · ${nightShiftHint}`
@@ -156,6 +158,16 @@ function CalendarUtilityRibbon({
       <h2 className="calendar-utility-ribbon__title">{title}</h2>
 
       <div className="calendar-utility-ribbon__tools">
+        <button
+          type="button"
+          className="calendar-ribbon-btn"
+          aria-label="Print calendar"
+          title="Print calendar"
+          onClick={onPrint}
+        >
+          <Printer size={18} aria-hidden="true" />
+        </button>
+
         <button
           type="button"
           className={clsx('calendar-ribbon-toggle', nightShiftEnabled && 'is-active')}
@@ -425,7 +437,7 @@ export function PharmacyCalendar() {
   }
 
   return (
-    <div className="calendar-fill" aria-label="Pharmacy operations calendar">
+    <div className="calendar-fill calendar-print-root" aria-label="Pharmacy operations calendar">
       <CalendarUtilityRibbon
         title={viewTitle}
         activeView={activeView}
@@ -436,6 +448,7 @@ export function PharmacyCalendar() {
         onToday={() => getApi()?.today()}
         onChangeView={(view) => getApi()?.changeView(view)}
         onToggleNightShift={handleToggleNightShift}
+        onPrint={() => window.print()}
       />
 
       <FullCalendar

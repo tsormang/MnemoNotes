@@ -6,6 +6,7 @@ import {
   type CalendarSeriesViewContext,
   type SeriesDuplicateMode,
 } from '../calendar-series'
+import { defaultNotificationOffsets } from '../notification-schedule'
 import { supabase } from '../supabase'
 import type { CalendarItemInput, CompanyRoleInput } from '../validation'
 
@@ -210,7 +211,12 @@ type CalendarItemMutationInput = CalendarItemInput & {
 }
 
 function buildCalendarMetadata(values: CalendarItemInput, seriesId?: string) {
-  const metadata: Record<string, unknown> = {}
+  const metadata: Record<string, unknown> = {
+    notificationOffsets: defaultNotificationOffsets({
+      kind: values.kind,
+      requiresAcknowledgement: values.requiresAcknowledgement,
+    }),
+  }
   if (values.noteCategory?.trim()) {
     metadata.noteCategory = values.noteCategory.trim()
   }

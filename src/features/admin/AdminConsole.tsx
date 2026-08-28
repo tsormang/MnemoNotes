@@ -31,6 +31,7 @@ import {
 } from '../../lib/queries/workspace'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import { provisionCompanySchema, type ProvisionCompanyInput } from '../../lib/validation'
+import { Modal } from '../../components/Modal'
 import { SignOutButton } from '../auth/AuthScreens'
 import { WorkingDaySettings } from '../settings/WorkingDaySettings'
 
@@ -67,6 +68,7 @@ export function AdminConsole() {
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [resendError, setResendError] = useState<string | null>(null)
   const [resendingOrgId, setResendingOrgId] = useState<string | null>(null)
+  const [createCompanyOpen, setCreateCompanyOpen] = useState(false)
   const queryClient = useQueryClient()
 
   const orgsQuery = useOrganizationsAdminList(activeTab === 'companies' || activeTab === 'calendar')
@@ -129,12 +131,27 @@ export function AdminConsole() {
         ownerEmail: '',
         ownerPassword: '',
       })
+      setCreateCompanyOpen(false)
       await queryClient.invalidateQueries({ queryKey: ['admin-organizations'] })
       await queryClient.invalidateQueries({ queryKey: ['admin-companies'] })
     } catch (error) {
       setProvisionError(error instanceof Error ? error.message : 'Could not provision company.')
     }
   })
+
+  const closeCreateCompanyModal = () => {
+    setCreateCompanyOpen(false)
+    setProvisionError(null)
+    provisionForm.reset({
+      organizationName: '',
+      timezone: 'Europe/Athens',
+      ownerName: '',
+      ownerEmail: '',
+      ownerPassword: '',
+    })
+  }
+
+  const companies = companiesQuery.data ?? []
 
   const onResendOwnerInvite = async (organizationId: string, ownerName: string | null, ownerEmail: string | null) => {
     setResendError(null)
@@ -215,102 +232,166 @@ export function AdminConsole() {
             <div className="admin-list-header">
               <div>
                 <h2>Companies</h2>
-                <p>Create a company workspace and send the owner a registration invite.</p>
+                <p>
+                  {companiesQuery.isLoading
+                    ? 'Loading companies…'
+                    : `${companies.length} ${companies.length === 1 ? 'company' : 'companies'} registered`}
+                </p>
               </div>
-            </div>
-
-            <form className="create-event-form" onSubmit={onProvision}>
-              <label>
-                Company name
-                <input type="text" {...provisionForm.register('organizationName')} />
-              </label>
-              <label>
-                Owner name
-                <input type="text" {...provisionForm.register('ownerName')} />
-              </label>
-              <label>
-                Owner email
-                <input type="email" {...provisionForm.register('ownerEmail')} />
-              </label>
-              <label>
-                Timezone
-                <input type="text" {...provisionForm.register('timezone')} />
-              </label>
-              <label>
-                Owner password (optional, local dev only)
-                <input
-                  type="password"
-                  placeholder="Leave blank to send a registration invite"
-                  {...provisionForm.register('ownerPassword')}
-                />
-              </label>
-              {provisionError ? <p className="field-error">{provisionError}</p> : null}
-              {resendError ? <p className="field-error">{resendError}</p> : null}
-              {provisionSuccess ? <p className="modal-hint">{provisionSuccess}</p> : null}
-              {inviteLink ? (
-                <div className="invite-card">
-                  <Mail size={24} aria-hidden="true" />
-                  <p>Owner registration link</p>
-                  <code>{inviteLink}</code>
-                </div>
-              ) : null}
-              <button className="icon-button" type="submit" disabled={provisionForm.formState.isSubmitting}>
+              <button
+                className="icon-button"
+                type="button"
+                onClick={() => {
+                  setProvisionError(null)
+                  setCreateCompanyOpen(true)
+                }}
+              >
                 <Plus size={16} aria-hidden="true" />
-                {provisionForm.formState.isSubmitting ? 'Creating…' : 'Create company & invite owner'}
+                Create company
               </button>
-            </form>
-
-            <div className="admin-table-shell">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Company</th>
-                    <th>Owner</th>
-                    <th>Timezone</th>
-                    <th>Owner status</th>
-                    <th>Updated</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(companiesQuery.data ?? []).map((company) => (
-                    <tr key={company.id}>
-                      <td>{company.name}</td>
-                      <td>
-                        {company.ownerName ? (
-                          <>
-                            <strong>{company.ownerName}</strong>
-                            {company.ownerEmail ? <span className="admin-cell-subtle">{company.ownerEmail}</span> : null}
-                          </>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <td>{company.timezone}</td>
-                      <td>
-                        <span className={`admin-status ${company.ownerStatus}`}>{company.ownerStatus}</span>
-                      </td>
-                      <td>{formatDate(company.updatedAt)}</td>
-                      <td>
-                        {company.ownerStatus === 'invited' ? (
-                          <button
-                            className="icon-button"
-                            type="button"
-                            disabled={resendingOrgId === company.id}
-                            onClick={() =>
-                              void onResendOwnerInvite(company.id, company.ownerName, company.ownerEmail)
-                            }
-                          >
-                            <Mail size={15} aria-hidden="true" />
-                            {resendingOrgId === company.id ? 'Sending…' : 'Resend invite'}
-                          </button>
-                        ) : null}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
+
+            {provisionSuccess ? (
+              <div className="admin-notice">
+                <p>{provisionSuccess}</p>
+                {inviteLink ? (
+                  <div className="invite-card">
+                    <Mail size={24} aria-hidden="true" />
+                    <div>
+                      <p>Owner registration link</p>
+                      <code>{inviteLink}</code>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            {resendError ? <p className="admin-notice admin-notice--error">{resendError}</p> : null}
+
+            {companiesQuery.isLoading ? (
+              <p className="admin-empty-state">Loading companies…</p>
+            ) : companiesQuery.isError ? (
+              <p className="admin-empty-state admin-empty-state--error">
+                {readQueryError(companiesQuery.error, 'Could not load companies.')}
+              </p>
+            ) : companies.length === 0 ? (
+              <div className="admin-empty-state">
+                <Building2 size={32} aria-hidden="true" />
+                <strong>No companies yet</strong>
+                <p>Create a company workspace and invite an owner to get started.</p>
+                <button
+                  className="icon-button"
+                  type="button"
+                  onClick={() => {
+                    setProvisionError(null)
+                    setCreateCompanyOpen(true)
+                  }}
+                >
+                  <Plus size={16} aria-hidden="true" />
+                  Create company
+                </button>
+              </div>
+            ) : (
+              <div className="admin-table-shell">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Company</th>
+                      <th>Owner</th>
+                      <th>Timezone</th>
+                      <th>Owner status</th>
+                      <th>Updated</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {companies.map((company) => (
+                      <tr key={company.id}>
+                        <td>{company.name}</td>
+                        <td>
+                          {company.ownerName ? (
+                            <>
+                              <strong>{company.ownerName}</strong>
+                              {company.ownerEmail ? (
+                                <span className="admin-cell-subtle">{company.ownerEmail}</span>
+                              ) : null}
+                            </>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                        <td>{company.timezone}</td>
+                        <td>
+                          <span className={`admin-status ${company.ownerStatus}`}>{company.ownerStatus}</span>
+                        </td>
+                        <td>{formatDate(company.updatedAt)}</td>
+                        <td>
+                          {company.ownerStatus === 'invited' ? (
+                            <button
+                              className="icon-button"
+                              type="button"
+                              disabled={resendingOrgId === company.id}
+                              onClick={() =>
+                                void onResendOwnerInvite(company.id, company.ownerName, company.ownerEmail)
+                              }
+                            >
+                              <Mail size={15} aria-hidden="true" />
+                              {resendingOrgId === company.id ? 'Sending…' : 'Resend invite'}
+                            </button>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <Modal
+              open={createCompanyOpen}
+              onClose={closeCreateCompanyModal}
+              title="Create company"
+              wide
+            >
+              <p className="modal-hint">
+                Creates a new company workspace and sends the owner a registration invite.
+              </p>
+              <form className="create-event-form" onSubmit={onProvision}>
+                <label>
+                  Company name
+                  <input type="text" {...provisionForm.register('organizationName')} />
+                </label>
+                <label>
+                  Owner name
+                  <input type="text" {...provisionForm.register('ownerName')} />
+                </label>
+                <label>
+                  Owner email
+                  <input type="email" {...provisionForm.register('ownerEmail')} />
+                </label>
+                <label>
+                  Timezone
+                  <input type="text" {...provisionForm.register('timezone')} />
+                </label>
+                <label>
+                  Owner password (optional, local dev only)
+                  <input
+                    type="password"
+                    placeholder="Leave blank to send a registration invite"
+                    {...provisionForm.register('ownerPassword')}
+                  />
+                </label>
+                {provisionError ? <p className="field-error">{provisionError}</p> : null}
+                <div className="modal-actions">
+                  <button className="icon-button" type="button" onClick={closeCreateCompanyModal}>
+                    Cancel
+                  </button>
+                  <button className="icon-button" type="submit" disabled={provisionForm.formState.isSubmitting}>
+                    <Plus size={16} aria-hidden="true" />
+                    {provisionForm.formState.isSubmitting ? 'Creating…' : 'Create & invite owner'}
+                  </button>
+                </div>
+              </form>
+            </Modal>
           </div>
         ) : activeTab === 'calendar' ? (
           <div className="admin-list-panel" role="tabpanel">
@@ -420,6 +501,14 @@ export function AdminConsole() {
 function formatDate(value: string | null | undefined) {
   if (!value) return '—'
   return formatDateTime24(value)
+}
+
+function readQueryError(error: unknown, fallback: string) {
+  if (error instanceof Error) return error.message
+  if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
+    return error.message
+  }
+  return fallback
 }
 
 function readJoinedName(value: { name: string } | { name: string }[] | null | undefined) {

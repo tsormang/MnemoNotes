@@ -370,6 +370,17 @@ export interface AdminCompanyRow {
   inviteExpiresAt: string | null
 }
 
+async function fetchProfileNames(userIds: string[]): Promise<Map<string, string>> {
+  if (!supabase || userIds.length === 0) return new Map()
+
+  const uniqueIds = [...new Set(userIds)]
+  const { data, error } = await supabase.from('profiles').select('id, full_name').in('id', uniqueIds)
+
+  if (error) throw error
+
+  return new Map((data ?? []).map((row) => [row.id, row.full_name]))
+}
+
 export function useCompaniesAdminList(enabled: boolean) {
   return useQuery({
     queryKey: ['admin-companies'],
@@ -385,7 +396,7 @@ export function useCompaniesAdminList(enabled: boolean) {
 
       const { data: owners, error: ownerError } = await supabase
         .from('organization_members')
-        .select('organization_id, status, profiles(full_name)')
+        .select('organization_id, status, user_id')
         .eq('role', 'owner')
 
       if (ownerError) throw ownerError
@@ -397,16 +408,12 @@ export function useCompaniesAdminList(enabled: boolean) {
 
       if (inviteError) throw inviteError
 
+      const profileNames = await fetchProfileNames((owners ?? []).map((row) => row.user_id))
+
       return (organizations ?? []).map((org) => {
         const ownerMember = (owners ?? []).find((row) => row.organization_id === org.id)
         const pendingInvite = (pendingInvites ?? []).find((row) => row.organization_id === org.id)
-
-        const profileName =
-          ownerMember?.profiles &&
-          typeof ownerMember.profiles === 'object' &&
-          'full_name' in ownerMember.profiles
-            ? String(ownerMember.profiles.full_name)
-            : null
+        const profileName = ownerMember ? (profileNames.get(ownerMember.user_id) ?? null) : null
 
         let ownerStatus: AdminCompanyRow['ownerStatus'] = 'missing'
         if (ownerMember?.status === 'active') {
@@ -458,13 +465,19 @@ export function useOrganizationMembersAdminList(enabled: boolean) {
     queryFn: async () => {
       if (!supabase) return []
 
-      const { data, error } = await supabase
+      const { data: members, error } = await supabase
         .from('organization_members')
-        .select('id, organization_id, user_id, role, status, updated_at, organizations(name), profiles(full_name)')
+        .select('id, organization_id, user_id, role, status, updated_at, organizations(name)')
         .order('updated_at', { ascending: false })
 
       if (error) throw error
-      return data ?? []
+
+      const profileNames = await fetchProfileNames((members ?? []).map((row) => row.user_id))
+
+      return (members ?? []).map((member) => ({
+        ...member,
+        profiles: profileNames.has(member.user_id) ? { full_name: profileNames.get(member.user_id)! } : null,
+      }))
     },
     enabled: enabled && isSupabaseConfigured,
   })

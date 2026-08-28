@@ -31,6 +31,8 @@ export function StatsPanel({ onDrillDown }: StatsPanelProps) {
   )
 
   const report = useMemo(() => {
+    if (!range) return null
+
     const personnel = (personnelQuery.data ?? []).map((person) => ({
       id: person.id,
       fullName: person.fullName,
@@ -45,12 +47,14 @@ export function StatsPanel({ onDrillDown }: StatsPanelProps) {
     })
   }, [calendarQuery.data, personnelQuery.data, range])
 
-  const maxPersonHours = Math.max(...report.personnelRows.map((row) => row.shiftHours), 1)
-  const maxDailyHours = Math.max(...report.dailyShiftHours.map((row) => row.hours), 1)
-  const maxRoleHours = Math.max(...report.roleHours.map((row) => row.hours), 1)
+  const maxPersonHours = Math.max(...(report?.personnelRows ?? []).map((row) => row.shiftHours), 1)
+  const maxDailyHours = Math.max(...(report?.dailyShiftHours ?? []).map((row) => row.hours), 1)
+  const maxRoleHours = Math.max(...(report?.roleHours ?? []).map((row) => row.hours), 1)
   const loading = calendarQuery.isLoading || personnelQuery.isLoading
+  const statsReady = Boolean(range && report)
 
   const handleExportCsv = () => {
+    if (!report) return
     downloadStatsCsv(report, membership?.organizationName ?? 'Workspace')
   }
 
@@ -94,21 +98,34 @@ export function StatsPanel({ onDrillDown }: StatsPanelProps) {
         </div>
 
         <div className="stats-export-actions">
-          <button type="button" className="icon-button" onClick={handleExportCsv} disabled={loading}>
+          <button type="button" className="icon-button" onClick={handleExportCsv} disabled={loading || !statsReady}>
             <Download size={16} aria-hidden="true" />
             CSV
           </button>
-          <button type="button" className="icon-button" onClick={() => setPrintOpen(true)} disabled={loading}>
+          <button
+            type="button"
+            className="icon-button"
+            onClick={() => setPrintOpen(true)}
+            disabled={loading || !statsReady}
+          >
             <Printer size={16} aria-hidden="true" />
             PDF
           </button>
         </div>
       </div>
 
-      <p className="stats-range-label">{report.rangeLabel}</p>
+      <p className="stats-range-label">
+        {range ? formatStatsRangeLabel(range) : 'Custom range'}
+      </p>
 
-      {loading ? <p className="modal-hint">Loading workforce data…</p> : null}
+      {!range ? (
+        <p className="modal-hint">Select a start and end date to view statistics.</p>
+      ) : loading ? (
+        <p className="modal-hint">Loading workforce data…</p>
+      ) : null}
 
+      {statsReady && report ? (
+        <>
       <div className="stats-summary-grid">
         <article className="stats-summary-card">
           <span>Shift hours</span>
@@ -254,13 +271,17 @@ export function StatsPanel({ onDrillDown }: StatsPanelProps) {
           </table>
         </div>
       </section>
+        </>
+      ) : null}
 
-      <StatsPrintPreview
-        open={printOpen}
-        onClose={() => setPrintOpen(false)}
-        organizationName={membership?.organizationName ?? 'Workspace'}
-        report={report}
-      />
+      {report ? (
+        <StatsPrintPreview
+          open={printOpen}
+          onClose={() => setPrintOpen(false)}
+          organizationName={membership?.organizationName ?? 'Workspace'}
+          report={report}
+        />
+      ) : null}
     </div>
   )
 }

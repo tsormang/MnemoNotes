@@ -2163,6 +2163,58 @@ th {
   background: #fff3f1;
 }
 
+.admin-notice {
+  border-bottom: 1px solid var(--color-border);
+  padding: 14px 16px;
+}
+
+.admin-notice p {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.admin-notice .invite-card {
+  margin-top: 12px;
+}
+
+.admin-notice--error {
+  color: var(--color-danger);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 48px 24px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.admin-empty-state svg {
+  color: var(--color-brand);
+}
+
+.admin-empty-state strong {
+  color: var(--color-text);
+  font-size: 16px;
+}
+
+.admin-empty-state--error {
+  color: var(--color-danger);
+}
+
+.modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 /* ——— Mobile ——— */
 
 @media (max-width: 720px) {

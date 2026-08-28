@@ -1,6 +1,5 @@
 import { writeAuditLog, writePlatformAction } from '../_shared/audit.ts'
 import { getEnvClients, requirePlatformAdmin } from '../_shared/clients.ts'
-import { defaultCompanyRoles } from '../_shared/default-roles.ts'
 import { corsHeaders, json } from '../_shared/http.ts'
 import { createInviteToken, hashToken } from '../_shared/tokens.ts'
 
@@ -16,48 +15,6 @@ interface ProvisionCompanyRequest {
 function buildAcceptUrl(token: string) {
   const siteUrl = Deno.env.get('SITE_URL') ?? 'http://localhost:5173'
   return `${siteUrl}/accept-invite?token=${encodeURIComponent(token)}`
-}
-
-async function seedCompanyRoles(
-  serviceClient: ReturnType<typeof import('https://esm.sh/@supabase/supabase-js@2').createClient>,
-  organizationId: string,
-) {
-  const roleIds: Record<string, string> = {}
-
-  for (const role of defaultCompanyRoles) {
-    const { data: roleRow, error: roleError } = await serviceClient
-      .from('company_roles')
-      .insert({
-        organization_id: organizationId,
-        name: role.name,
-        description: role.description,
-        icon: role.icon,
-        is_system: true,
-      })
-      .select('id')
-      .single()
-
-    if (roleError || !roleRow) {
-      throw roleError ?? new Error(`Failed to seed role ${role.name}.`)
-    }
-
-    roleIds[role.name] = roleRow.id
-
-    if (role.permissions.length > 0) {
-      const { error: permError } = await serviceClient.from('company_role_permissions').insert(
-        role.permissions.map((permission) => ({
-          company_role_id: roleRow.id,
-          permission,
-        })),
-      )
-
-      if (permError) {
-        throw permError
-      }
-    }
-  }
-
-  return roleIds
 }
 
 Deno.serve(async (request) => {
@@ -88,14 +45,15 @@ Deno.serve(async (request) => {
     }
 
     const timezone = body.timezone?.trim() || 'Europe/Athens'
-    const locationName = body.locationName?.trim() || 'Main location'
+    const organizationName = body.organizationName.trim()
+    const locationName = body.locationName?.trim() || organizationName
     const ownerEmail = body.ownerEmail.trim().toLowerCase()
     const ownerName = body.ownerName.trim()
 
     const { data: organization, error: orgError } = await serviceClient
       .from('organizations')
       .insert({
-        name: body.organizationName.trim(),
+        name: organizationName,
         timezone,
         created_by: actor.id,
       })
@@ -127,8 +85,6 @@ Deno.serve(async (request) => {
     if (locationError || !location) {
       throw locationError ?? new Error('Failed to create default location.')
     }
-
-    await seedCompanyRoles(serviceClient, organization.id)
 
     if (useDirectPassword && ownerPassword) {
       const { data: authUser, error: authError } = await serviceClient.auth.admin.createUser({

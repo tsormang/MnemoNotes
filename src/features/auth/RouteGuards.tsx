@@ -4,7 +4,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { resolvePostLoginPath } from '../../lib/auth-routing'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import { useAuth } from './AuthProvider'
-import { useWorkspace } from './WorkspaceProvider'
+import { useCan, useWorkspace } from './WorkspaceProvider'
 
 export function RequireAuth() {
   const { user, loading } = useAuth()
@@ -55,6 +55,18 @@ export function RequirePlatformAdmin() {
   }
 
   return <Outlet />
+}
+
+export function RequirePeopleAccess({ children }: { children: ReactNode }) {
+  const { isOwner } = useWorkspace()
+  const canManagePersonnel = useCan('personnel.manage')
+  const canManageRoles = useCan('roles.manage')
+
+  if (!isOwner && !canManagePersonnel && !canManageRoles) {
+    return <Navigate to="/app/calendar" replace />
+  }
+
+  return children
 }
 
 export function RedirectIfAuthenticated({ children }: { children: ReactNode }) {

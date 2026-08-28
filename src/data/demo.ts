@@ -30,6 +30,7 @@ export const personnel: Personnel[] = [
     status: 'active',
     skills: ['Responsible pharmacist', 'Stock control'],
     locationId: 'central-pharmacy',
+    accountLink: 'linked',
   },
   {
     id: 'nikos',
@@ -40,6 +41,7 @@ export const personnel: Personnel[] = [
     status: 'active',
     skills: ['Dispensary', 'Patient guidance'],
     locationId: 'central-pharmacy',
+    accountLink: 'linked',
   },
   {
     id: 'eleni',
@@ -50,6 +52,8 @@ export const personnel: Personnel[] = [
     status: 'invited',
     skills: ['Front desk', 'Supplier follow-up'],
     locationId: 'north-branch',
+    inviteEmail: 'eleni@example.com',
+    accountLink: 'invited',
   },
 ]
 
@@ -58,6 +62,7 @@ export const calendarItems: CalendarItem[] = [
     id: 'shift-morning',
     kind: 'shift',
     title: 'Morning shift - dispensary',
+    description: 'Cover dispensary counter and phone queries.',
     startsAt: formatISO(setHours(today, 8)),
     endsAt: formatISO(setHours(today, 14)),
     locationId: 'central-pharmacy',
@@ -70,6 +75,7 @@ export const calendarItems: CalendarItem[] = [
     id: 'note-stock',
     kind: 'note',
     title: 'Check supplier backorder list',
+    description: 'Follow up with MedSupply on pending insulin orders.',
     startsAt: formatISO(setHours(today, 11)),
     endsAt: formatISO(addHours(setHours(today, 11), 1)),
     locationId: 'central-pharmacy',

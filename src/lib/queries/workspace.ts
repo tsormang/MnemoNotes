@@ -8,6 +8,7 @@ import type {
   CompanyRole,
   Organization,
   Personnel,
+  PersonnelInvite,
   PharmacyLocation,
 } from '../../types/domain'
 
@@ -53,7 +54,7 @@ export function useLocations(organizationId: string | null) {
         .from('locations')
         .select('id, name, address, timezone, operating_hours')
         .eq('organization_id', organizationId)
-        .order('name')
+        .order('created_at')
 
       if (error) throw error
 
@@ -74,6 +75,22 @@ export function useLocations(organizationId: string | null) {
   })
 }
 
+/** Primary org location + company name for readonly location fields. */
+export function useCompanyLocation(organizationId: string | null) {
+  const orgQuery = useOrganization(organizationId)
+  const locationsQuery = useLocations(organizationId)
+
+  const companyName = orgQuery.data?.name ?? demoLocations[0]?.name ?? 'Company'
+  const locationId = locationsQuery.data?.[0]?.id ?? demoLocations[0]?.id ?? ''
+
+  return {
+    companyName,
+    locationId,
+    loading: orgQuery.isLoading || locationsQuery.isLoading,
+    ready: Boolean(locationId),
+  }
+}
+
 export function useCompanyRoles(organizationId: string | null) {
   return useQuery({
     queryKey: ['company-roles', organizationId],
@@ -82,7 +99,7 @@ export function useCompanyRoles(organizationId: string | null) {
 
       const { data, error } = await supabase
         .from('company_roles')
-        .select('id, organization_id, name, description, icon, is_system, company_role_permissions(permission)')
+        .select('id, organization_id, name, description, icon, company_role_permissions(permission)')
         .eq('organization_id', organizationId)
         .order('name')
 
@@ -94,7 +111,6 @@ export function useCompanyRoles(organizationId: string | null) {
         name: row.name,
         description: row.description,
         icon: row.icon,
-        isSystem: row.is_system,
         permissions: (row.company_role_permissions ?? []).map(
           (entry) => entry.permission as AppPermission,
         ),
@@ -110,29 +126,79 @@ export function usePersonnelList(organizationId: string | null) {
     queryFn: async (): Promise<Personnel[]> => {
       if (!organizationId || !supabase) return demoPersonnel
 
+      const [personnelResult, invitesResult] = await Promise.all([
+        supabase
+          .from('personnel')
+          .select(
+            'id, full_name, title, status, skills, location_id, profile_id, company_role_id, company_roles(name)',
+          )
+          .eq('organization_id', organizationId)
+          .order('full_name'),
+        supabase
+          .from('personnel_invites')
+          .select('personnel_id, email, accepted_at')
+          .eq('organization_id', organizationId)
+          .is('accepted_at', null),
+      ])
+
+      if (personnelResult.error) throw personnelResult.error
+      if (invitesResult.error) throw invitesResult.error
+
+      const pendingEmails = new Map(
+        (invitesResult.data ?? []).map((invite) => [invite.personnel_id, invite.email]),
+      )
+
+      return (personnelResult.data ?? []).map((row) => {
+        const inviteEmail = pendingEmails.get(row.id) ?? null
+        const accountLink: Personnel['accountLink'] = row.profile_id
+          ? 'linked'
+          : inviteEmail
+            ? 'invited'
+            : 'unlinked'
+
+        return {
+          id: row.id,
+          fullName: row.full_name,
+          companyRoleId: row.company_role_id ?? '',
+          companyRoleName:
+            row.company_roles && typeof row.company_roles === 'object' && 'name' in row.company_roles
+              ? String(row.company_roles.name)
+              : 'Unassigned',
+          title: row.title,
+          status: row.status === 'disabled' ? 'inactive' : (row.status as Personnel['status']),
+          skills: row.skills ?? [],
+          locationId: row.location_id ?? '',
+          profileId: row.profile_id,
+          inviteEmail,
+          accountLink,
+        }
+      })
+    },
+    enabled: Boolean(organizationId && isSupabaseConfigured),
+  })
+}
+
+export function usePersonnelInvites(organizationId: string | null) {
+  return useQuery({
+    queryKey: ['personnel-invites', organizationId],
+    queryFn: async (): Promise<PersonnelInvite[]> => {
+      if (!organizationId || !supabase) return []
+
       const { data, error } = await supabase
-        .from('personnel')
-        .select(
-          'id, full_name, title, status, skills, location_id, profile_id, company_role_id, company_roles(name)',
-        )
+        .from('personnel_invites')
+        .select('id, personnel_id, email, expires_at, accepted_at')
         .eq('organization_id', organizationId)
-        .order('full_name')
+        .is('accepted_at', null)
+        .order('created_at', { ascending: false })
 
       if (error) throw error
 
       return (data ?? []).map((row) => ({
         id: row.id,
-        fullName: row.full_name,
-        companyRoleId: row.company_role_id ?? '',
-        companyRoleName:
-          row.company_roles && typeof row.company_roles === 'object' && 'name' in row.company_roles
-            ? String(row.company_roles.name)
-            : 'Unassigned',
-        title: row.title,
-        status: row.status === 'disabled' ? 'inactive' : (row.status as Personnel['status']),
-        skills: row.skills ?? [],
-        locationId: row.location_id ?? '',
-        profileId: row.profile_id,
+        personnelId: row.personnel_id,
+        email: row.email,
+        expiresAt: row.expires_at,
+        acceptedAt: row.accepted_at,
       }))
     },
     enabled: Boolean(organizationId && isSupabaseConfigured),
@@ -154,6 +220,7 @@ export function useCalendarItems(organizationId: string | null) {
           id,
           kind,
           title,
+          description,
           starts_at,
           ends_at,
           location_id,
@@ -174,6 +241,7 @@ export function useCalendarItems(organizationId: string | null) {
           id: row.id,
           kind: row.kind as CalendarItemKind,
           title: row.title,
+          description: row.description ?? undefined,
           startsAt: row.starts_at,
           endsAt: row.ends_at,
           locationId: row.location_id ?? '',

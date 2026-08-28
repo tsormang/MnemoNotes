@@ -15,6 +15,14 @@ import {
   getWeekStartKey,
   toSlotTime,
 } from '../../lib/calendar-hours'
+import { formatShiftStaffLabel, getCalendarItemDisplayLabel } from '../../lib/calendar-display'
+import { itemHasShiftConflict } from '../../lib/calendar-conflicts'
+import { defaultEventEnd, normalizeEventRange } from '../../lib/calendar-datetime'
+import {
+  canCreateAnyCalendarItem,
+  canEditCalendarItem,
+} from '../../lib/calendar-permissions'
+import { useUpdateCalendarItemTimes } from '../../lib/queries/mutations'
 import {
   useCalendarItems,
   useOrganization,
@@ -23,6 +31,7 @@ import {
 } from '../../lib/queries/workspace'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 import type { CalendarItem, CalendarItemKind, Personnel } from '../../types/domain'
+import { filterCalendarItems, useCalendarShell } from './CalendarShellContext'
 
 const time24h = {
   hour: '2-digit' as const,
@@ -48,32 +57,34 @@ function getInitialView(): CalendarViewId {
   if (typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches) {
     return 'timeGridDay'
   }
-  return 'dayGridMonth'
+  return 'timeGridWeek'
 }
 
 function EventChip({
-  title,
   allDay,
   start,
   end,
   item,
   personnel,
+  hasConflict,
 }: {
-  title: string
   allDay: boolean
   start: Date | null
   end: Date | null
   item: CalendarItem
   personnel: Personnel[]
+  hasConflict: boolean
 }) {
   const assignees = personnel.filter((person) => item.assignedPersonnelIds.includes(person.id))
+  const headline =
+    item.kind === 'shift' ? formatShiftStaffLabel(assignees) : item.title.trim() || 'Untitled'
   const timeLabel =
     allDay || !start
       ? null
       : `${format(start, 'HH:mm')}${end ? ` – ${format(end, 'HH:mm')}` : ''}`
 
   return (
-    <div className="fc-event-chip">
+    <div className={clsx('fc-event-chip', hasConflict && 'fc-event-chip--conflict')}>
       {assignees[0] ? (
         <span className="fc-event-avatar" aria-hidden="true">
           {assignees[0].fullName
@@ -84,7 +95,7 @@ function EventChip({
         </span>
       ) : null}
       <div className="fc-event-text">
-        <strong>{title}</strong>
+        <strong>{headline}</strong>
         {timeLabel ? <span>{timeLabel}</span> : null}
       </div>
     </div>
@@ -164,10 +175,13 @@ function CalendarUtilityRibbon({
 
 export function PharmacyCalendar() {
   const { organizationId, can } = useWorkspace()
+  const { searchQuery, kindFilter, personnelFilterId, openCreateEvent, openEditEvent } =
+    useCalendarShell()
   const orgQuery = useOrganization(organizationId)
   const calendarQuery = useCalendarItems(organizationId)
   const personnelQuery = usePersonnelList(organizationId)
   const weekOverridesQuery = useWeekOverrides(organizationId)
+  const updateTimes = useUpdateCalendarItemTimes(organizationId)
   const queryClient = useQueryClient()
 
   const calendarRef = useRef<FullCalendar>(null)
@@ -223,21 +237,43 @@ export function PharmacyCalendar() {
   const personnel = personnelQuery.data ?? []
   const calendarItems = calendarQuery.data ?? []
 
+  const filteredItems = useMemo(
+    () =>
+      filterCalendarItems(calendarItems, personnel, {
+        searchQuery,
+        kindFilter,
+        personnelFilterId,
+      }),
+    [calendarItems, personnel, searchQuery, kindFilter, personnelFilterId],
+  )
+
+  const canEditCalendar = isSupabaseConfigured && canCreateAnyCalendarItem(can)
+
   const events = useMemo(
     () =>
-      calendarItems.map((item) => ({
-        id: item.id,
-        title: item.title,
-        start: item.startsAt,
-        end: item.endsAt,
-        classNames: [eventClassNames[item.kind as CalendarItemKind]],
-        extendedProps: item,
-      })),
-    [calendarItems],
+      filteredItems.map((item) => {
+        const editable = isSupabaseConfigured && canEditCalendarItem(can, item.kind)
+        const hasConflict = itemHasShiftConflict(calendarItems, item)
+
+        return {
+          id: item.id,
+          title: getCalendarItemDisplayLabel(item, personnel),
+          start: item.startsAt,
+          end: item.endsAt,
+          editable,
+          startEditable: editable,
+          durationEditable: editable,
+          classNames: [
+            eventClassNames[item.kind as CalendarItemKind],
+            hasConflict ? 'event-conflict' : '',
+          ].filter(Boolean),
+          extendedProps: { item, hasConflict },
+        }
+      }),
+    [filteredItems, calendarItems, can, personnel],
   )
 
   const getApi = () => calendarRef.current?.getApi()
-  const canEditCalendar = false
 
   const handleDatesSet = (arg: {
     view: { type: string; title: string; currentStart: Date }
@@ -251,6 +287,68 @@ export function PharmacyCalendar() {
   const handleToggleNightShift = () => {
     if (!isSupabaseConfigured || !can('organization.update')) return
     nightShiftMutation.mutate({ weekKey: weekStartKey, enabled: !nightShiftEnabled })
+  }
+
+  const handleDateSelect = (selection: {
+    start: Date
+    end: Date | null
+  }) => {
+    if (!canEditCalendar) return
+    getApi()?.unselect()
+
+    const startsAt = selection.start.toISOString()
+    const endsAt = selection.end
+      ? selection.end.toISOString()
+      : defaultEventEnd(startsAt)
+
+    openCreateEvent(normalizeEventRange(startsAt, endsAt))
+  }
+
+  const handleEventClick = (arg: { event: { extendedProps: Record<string, unknown> } }) => {
+    const item = arg.event.extendedProps.item as CalendarItem
+    openEditEvent(item)
+  }
+
+  const handleEventDrop = async (arg: {
+    event: { start: Date | null; end: Date | null; extendedProps: Record<string, unknown> }
+    revert: () => void
+  }) => {
+    const item = arg.event.extendedProps.item as CalendarItem
+    if (!item || !arg.event.start || !arg.event.end) {
+      arg.revert()
+      return
+    }
+
+    try {
+      await updateTimes.mutateAsync({
+        id: item.id,
+        startsAt: arg.event.start.toISOString(),
+        endsAt: arg.event.end.toISOString(),
+      })
+    } catch {
+      arg.revert()
+    }
+  }
+
+  const handleEventResize = async (arg: {
+    event: { start: Date | null; end: Date | null; extendedProps: Record<string, unknown> }
+    revert: () => void
+  }) => {
+    const item = arg.event.extendedProps.item as CalendarItem
+    if (!item || !arg.event.start || !arg.event.end) {
+      arg.revert()
+      return
+    }
+
+    try {
+      await updateTimes.mutateAsync({
+        id: item.id,
+        startsAt: arg.event.start.toISOString(),
+        endsAt: arg.event.end.toISOString(),
+      })
+    } catch {
+      arg.revert()
+    }
   }
 
   return (
@@ -283,20 +381,34 @@ export function PharmacyCalendar() {
         nowIndicator
         editable={canEditCalendar}
         selectable={canEditCalendar}
+        selectMirror
+        unselectAuto
         height="100%"
         events={events}
         dayMaxEvents={3}
         datesSet={handleDatesSet}
-        eventContent={(arg) => (
-          <EventChip
-            title={arg.event.title}
-            allDay={arg.event.allDay}
-            start={arg.event.start}
-            end={arg.event.end}
-            item={arg.event.extendedProps as CalendarItem}
-            personnel={personnel}
-          />
-        )}
+        select={handleDateSelect}
+        eventClick={handleEventClick}
+        eventDrop={handleEventDrop}
+        eventResize={handleEventResize}
+        eventContent={(arg) => {
+          // selectMirror placeholder events have no extendedProps — skip custom chip.
+          if (arg.isMirror) return true
+
+          const item = arg.event.extendedProps.item as CalendarItem | undefined
+          if (!item) return true
+
+          return (
+            <EventChip
+              allDay={arg.event.allDay}
+              start={arg.event.start}
+              end={arg.event.end}
+              item={item}
+              personnel={personnel}
+              hasConflict={Boolean(arg.event.extendedProps.hasConflict)}
+            />
+          )
+        }}
         windowResize={() => {
           calendarRef.current?.getApi().updateSize()
         }}

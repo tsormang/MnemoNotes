@@ -23,6 +23,10 @@ enable_confirmations = false
 port = 54322
 major_version = 17
 
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
 [studio]
 enabled = true
 port = 54323

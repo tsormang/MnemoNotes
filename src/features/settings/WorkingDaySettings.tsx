@@ -3,6 +3,7 @@ import { Clock3, Save } from 'lucide-react'
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { TimeInput } from '../../components/TimeInput'
 import { useWorkspace } from '../auth/WorkspaceProvider'
 import { formatClockLabel } from '../../lib/calendar-hours'
 import { useOrganization } from '../../lib/queries/workspace'
@@ -90,14 +91,24 @@ export function WorkingDaySettings({ compact = false, organizationId: orgIdProp 
       <form className="working-day-form" onSubmit={onSubmit}>
         <label>
           From
-          <input type="time" step={60} {...form.register('start')} disabled={!canEdit || !isSupabaseConfigured} />
+          <TimeInput
+            value={form.watch('start')}
+            disabled={!canEdit || !isSupabaseConfigured}
+            aria-label="Working day start time"
+            onChange={(value) => form.setValue('start', value, { shouldValidate: true })}
+          />
           {form.formState.errors.start ? (
             <span className="field-error">{form.formState.errors.start.message}</span>
           ) : null}
         </label>
         <label>
           To
-          <input type="time" step={60} {...form.register('end')} disabled={!canEdit || !isSupabaseConfigured} />
+          <TimeInput
+            value={form.watch('end')}
+            disabled={!canEdit || !isSupabaseConfigured}
+            aria-label="Working day end time"
+            onChange={(value) => form.setValue('end', value, { shouldValidate: true })}
+          />
           {form.formState.errors.end ? (
             <span className="field-error">{form.formState.errors.end.message}</span>
           ) : null}

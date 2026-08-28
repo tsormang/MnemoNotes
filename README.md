@@ -27,7 +27,7 @@ Initial workflows:
 - Platform admin provisions a company and assigns its owner account
 - Owner invites personnel through trusted Edge Functions
 - Personnel accept invites and inherit permissions from their company role
-- Weekly/monthly calendar views (read-only in Phase 1; editing arrives in Phase 2)
+- Weekly/monthly calendar views with create/edit, drag-and-drop, resize, search filters, and shift conflict warnings
 - Shift and note planning
 - Personnel assignment
 - Before/during/after notification rules

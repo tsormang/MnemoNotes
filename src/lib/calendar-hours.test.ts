@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildHalfHourTimeSlots,
   clockToMinutes,
   formatClockLabel,
   getWeekStartKey,
   isClockTime,
   isValidWorkingDayRange,
+  snapToHalfHour,
   toSlotTime,
 } from './calendar-hours'
 
@@ -33,5 +35,19 @@ describe('calendar-hours', () => {
   it('uses Monday week keys', () => {
     // Wednesday 2026-08-26 → week of Monday 2026-08-24
     expect(getWeekStartKey(new Date(2026, 7, 26))).toBe('2026-08-24')
+  })
+
+  it('builds half-hour slots through the day', () => {
+    const slots = buildHalfHourTimeSlots()
+    expect(slots[0]).toBe('00:00')
+    expect(slots[1]).toBe('00:30')
+    expect(slots.at(-1)).toBe('23:30')
+    expect(slots).toHaveLength(48)
+  })
+
+  it('snaps arbitrary times to the nearest half hour', () => {
+    expect(snapToHalfHour('08:10')).toBe('08:00')
+    expect(snapToHalfHour('08:20')).toBe('08:30')
+    expect(snapToHalfHour('23:50')).toBe('23:30')
   })
 })

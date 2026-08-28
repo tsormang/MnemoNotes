@@ -43,3 +43,31 @@ export function isValidWorkingDayRange(start: string, end: string): boolean {
 export function getWeekStartKey(date: Date): string {
   return format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd')
 }
+
+const HALF_HOUR_MINUTES = 30
+
+/** 24-hour times every 30 minutes: 00:00, 00:30, … 23:30. */
+export function buildHalfHourTimeSlots(options?: { includeEndOfDay?: boolean }): ClockTime[] {
+  const slots: ClockTime[] = []
+  for (let minutes = 0; minutes < 24 * 60; minutes += HALF_HOUR_MINUTES) {
+    const hours = Math.floor(minutes / 60)
+    const mins = minutes % 60
+    slots.push(`${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`)
+  }
+  if (options?.includeEndOfDay) {
+    slots.push('24:00')
+  }
+  return slots
+}
+
+/** Snap a clock time to the nearest 30-minute slot (stays within the same day). */
+export function snapToHalfHour(value: string): ClockTime {
+  if (value === '24:00') return '24:00'
+  if (!isClockTime(value)) return '00:00'
+
+  const snapped = Math.round(clockToMinutes(value) / HALF_HOUR_MINUTES) * HALF_HOUR_MINUTES
+  const clamped = Math.min(snapped, 23 * 60 + 30)
+  const hours = Math.floor(clamped / 60)
+  const mins = clamped % 60
+  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`
+}

@@ -35,13 +35,15 @@ export type NotificationTrigger = 'before_start' | 'at_start' | 'during' | 'befo
 
 export type PersonnelStatus = 'active' | 'invited' | 'inactive' | 'disabled'
 
+/** Whether personnel has a linked app login, pending invite, or roster-only record. */
+export type PersonnelAccountLink = 'linked' | 'invited' | 'unlinked'
+
 export interface CompanyRole {
   id: string
   organizationId: string
   name: string
   description: string
   icon: string
-  isSystem: boolean
   permissions: AppPermission[]
 }
 
@@ -77,12 +79,23 @@ export interface Personnel {
   skills: string[]
   locationId: string
   profileId?: string | null
+  inviteEmail?: string | null
+  accountLink: PersonnelAccountLink
+}
+
+export interface PersonnelInvite {
+  id: string
+  personnelId: string
+  email: string
+  expiresAt: string
+  acceptedAt: string | null
 }
 
 export interface CalendarItem {
   id: string
   kind: CalendarItemKind
   title: string
+  description?: string
   startsAt: string
   endsAt: string
   locationId: string

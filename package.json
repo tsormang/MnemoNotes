@@ -18,6 +18,7 @@
     "admin:only": "node scripts/admin-only.mjs",
     "setup:check": "node scripts/check-hosted.mjs",
     "setup:bundle-sql": "node scripts/bundle-migrations.mjs",
+    "setup:push-db": "node scripts/push-hosted-db.mjs",
     "setup:hosted": "powershell -ExecutionPolicy Bypass -File scripts/setup-hosted.ps1",
     "functions:deploy": "node scripts/deploy-functions.mjs"
   },

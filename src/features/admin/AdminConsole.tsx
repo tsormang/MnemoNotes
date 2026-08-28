@@ -19,6 +19,7 @@ import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useQueryClient } from '@tanstack/react-query'
 import { calendarItems, personnel, pharmacyLocations } from '../../data/demo'
+import { formatDateTime24 } from '../../lib/calendar-datetime'
 import { invokeEdgeFunction } from '../../lib/edge-functions'
 import {
   useAuditLogAdminList,
@@ -83,7 +84,6 @@ export function AdminConsole() {
       ownerName: '',
       ownerEmail: '',
       ownerPassword: '',
-      locationName: 'Main location',
     },
   })
 
@@ -105,6 +105,7 @@ export function AdminConsole() {
     try {
       const payload = {
         ...values,
+        locationName: values.organizationName,
         ownerPassword: values.ownerPassword?.trim() || undefined,
       }
       const result = await invokeEdgeFunction<{
@@ -127,7 +128,6 @@ export function AdminConsole() {
         ownerName: '',
         ownerEmail: '',
         ownerPassword: '',
-        locationName: 'Main location',
       })
       await queryClient.invalidateQueries({ queryKey: ['admin-organizations'] })
       await queryClient.invalidateQueries({ queryKey: ['admin-companies'] })
@@ -235,10 +235,6 @@ export function AdminConsole() {
               <label>
                 Timezone
                 <input type="text" {...provisionForm.register('timezone')} />
-              </label>
-              <label>
-                Default location
-                <input type="text" {...provisionForm.register('locationName')} />
               </label>
               <label>
                 Owner password (optional, local dev only)
@@ -423,7 +419,7 @@ export function AdminConsole() {
 
 function formatDate(value: string | null | undefined) {
   if (!value) return '—'
-  return new Date(value).toLocaleString()
+  return formatDateTime24(value)
 }
 
 function readJoinedName(value: { name: string } | { name: string }[] | null | undefined) {

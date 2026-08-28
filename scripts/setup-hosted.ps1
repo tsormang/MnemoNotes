@@ -1,8 +1,9 @@
 # MnemoNotes hosted Supabase setup (Windows)
 # Run from repo root:  npm run setup:hosted
 #
-# Optional in .env.local for non-interactive CLI auth:
-#   SUPABASE_ACCESS_TOKEN=sbp_...  (Dashboard -> Account -> Access Tokens)
+# Optional in .env.local for non-interactive setup:
+#   SUPABASE_DB_PASSWORD=...     (Dashboard -> Project Settings -> Database)
+#   SUPABASE_ACCESS_TOKEN=sbp_... (Dashboard -> Account -> Access Tokens)
 
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot\..
@@ -53,81 +54,132 @@ Write-Host "Step 2: Checking schema..." -ForegroundColor Cyan
 node scripts/check-hosted.mjs
 
 Write-Host ""
-Write-Host "Step 3: Supabase CLI auth..." -ForegroundColor Cyan
+Write-Host "Step 3: Pushing migrations..." -ForegroundColor Cyan
 $cliReady = $false
-
-try {
-  Invoke-Supabase @("projects", "list") | Out-Null
-  $cliReady = $true
-  Write-Host "Supabase CLI already authenticated." -ForegroundColor Green
-}
-catch {
-  Write-Host "Supabase CLI not authenticated yet." -ForegroundColor Yellow
+$projectRef = $null
+if ($env:VITE_SUPABASE_URL -match 'https://([^.]+)\.supabase\.co') {
+  $projectRef = $Matches[1]
 }
 
-if (-not $cliReady -and $env:SUPABASE_ACCESS_TOKEN) {
-  Write-Host "Using SUPABASE_ACCESS_TOKEN from .env.local..."
+if ($env:SUPABASE_DB_PASSWORD) {
+  node scripts/push-hosted-db.mjs
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+else {
+  Write-Host "SUPABASE_DB_PASSWORD not set — using Supabase CLI (requires auth)." -ForegroundColor Yellow
+  Write-Host "Tip: add SUPABASE_DB_PASSWORD to .env.local to skip CLI login for migrations."
+  Write-Host ""
+
+  $cliReady = $false
+
   try {
-    Invoke-Supabase @("login", "--token", $env:SUPABASE_ACCESS_TOKEN) | Out-Null
+    Invoke-Supabase @("projects", "list") | Out-Null
     $cliReady = $true
-    Write-Host "Supabase CLI authenticated via access token." -ForegroundColor Green
+    Write-Host "Supabase CLI already authenticated." -ForegroundColor Green
   }
   catch {
-    Write-Host "Token login failed." -ForegroundColor Yellow
+    Write-Host "Supabase CLI not authenticated yet." -ForegroundColor Yellow
+  }
+
+  if (-not $cliReady -and $env:SUPABASE_ACCESS_TOKEN) {
+    Write-Host "Using SUPABASE_ACCESS_TOKEN from .env.local..."
+    try {
+      Invoke-Supabase @("login", "--token", $env:SUPABASE_ACCESS_TOKEN) | Out-Null
+      $cliReady = $true
+      Write-Host "Supabase CLI authenticated via access token." -ForegroundColor Green
+    }
+    catch {
+      Write-Host "Token login failed." -ForegroundColor Yellow
+    }
+  }
+
+  if (-not $cliReady) {
+    Write-Host "Run browser login. If this fails, add SUPABASE_ACCESS_TOKEN to .env.local"
+    Write-Host "(Dashboard -> Account -> Access Tokens -> Generate new token)"
+    Write-Host ""
+    Invoke-Supabase @("login")
+    $cliReady = $true
+  }
+
+  $projectRef = $null
+  if ($env:VITE_SUPABASE_URL -match 'https://([^.]+)\.supabase\.co') {
+    $projectRef = $Matches[1]
+  }
+  if (-not $projectRef) {
+    Write-Host "Could not read project ref from VITE_SUPABASE_URL in .env.local." -ForegroundColor Red
+    exit 1
+  }
+
+  Write-Host ""
+  Write-Host "Linking project $projectRef..." -ForegroundColor Cyan
+  Invoke-Supabase @("link", "--project-ref", $projectRef) | Out-Null
+
+  try {
+    Invoke-Supabase @("db", "push", "--include-seed", "--yes") | Out-Null
+  }
+  catch {
+    Write-Host ""
+    Write-Host "If db push fails, run supabase/hosted-bootstrap.sql in Dashboard SQL Editor." -ForegroundColor Yellow
+    Write-Host ""
+    throw
   }
 }
 
-if (-not $cliReady) {
-  Write-Host "Run browser login. If this fails, add SUPABASE_ACCESS_TOKEN to .env.local"
-  Write-Host "(Dashboard -> Account -> Access Tokens -> Generate new token)"
-  Write-Host ""
-  Invoke-Supabase @("login")
-  $cliReady = $true
-}
-
 Write-Host ""
-Write-Host "Step 4: Linking project qzcbvidvnozmhxiwcxqr..." -ForegroundColor Cyan
-Invoke-Supabase @("link", "--project-ref", "qzcbvidvnozmhxiwcxqr") | Out-Null
-
-Write-Host ""
-Write-Host "Step 5: Pushing migrations..." -ForegroundColor Cyan
-try {
-  Invoke-Supabase @("db", "push") | Out-Null
+Write-Host "Step 4: Deploying Edge Functions..." -ForegroundColor Cyan
+if (-not $env:SUPABASE_ACCESS_TOKEN) {
+  Write-Host "Skipping Edge Functions — add SUPABASE_ACCESS_TOKEN to .env.local, then run:" -ForegroundColor Yellow
+  Write-Host "  npm run functions:deploy"
 }
-catch {
-  Write-Host ""
-  Write-Host "If db push fails, run supabase/hosted-bootstrap.sql in Dashboard SQL Editor." -ForegroundColor Yellow
-  Write-Host ""
-  throw
-}
-
-Write-Host ""
-Write-Host "Step 6: Deploying Edge Functions..." -ForegroundColor Cyan
-$functions = @(
-  @{ Name = "admin-records"; Public = $false },
-  @{ Name = "admin-provision-company"; Public = $false },
-  @{ Name = "admin-invite-owner"; Public = $false },
-  @{ Name = "invite-personnel"; Public = $false },
-  @{ Name = "accept-invite"; Public = $true }
-)
-
-foreach ($fn in $functions) {
-  Write-Host "  Deploying $($fn.Name)..." -ForegroundColor Cyan
-  if ($fn.Public) {
-    Invoke-Supabase @("functions", "deploy", $fn.Name, "--no-verify-jwt")
+else {
+  if (-not $cliReady) {
+    try {
+      Invoke-Supabase @("login", "--token", $env:SUPABASE_ACCESS_TOKEN) | Out-Null
+      $cliReady = $true
+    }
+    catch {
+      Write-Host "CLI login failed — run npm run functions:deploy after fixing SUPABASE_ACCESS_TOKEN." -ForegroundColor Yellow
+      $cliReady = $false
+    }
   }
-  else {
-    Invoke-Supabase @("functions", "deploy", $fn.Name)
+
+  if ($cliReady) {
+    if (-not $projectRef) {
+      if ($env:VITE_SUPABASE_URL -match 'https://([^.]+)\.supabase\.co') {
+        $projectRef = $Matches[1]
+      }
+    }
+    if ($projectRef) {
+      Invoke-Supabase @("link", "--project-ref", $projectRef) | Out-Null
+    }
+
+    $functions = @(
+      @{ Name = "admin-records"; Public = $false },
+      @{ Name = "admin-provision-company"; Public = $false },
+      @{ Name = "admin-invite-owner"; Public = $false },
+      @{ Name = "invite-personnel"; Public = $false },
+      @{ Name = "accept-invite"; Public = $true }
+    )
+
+    foreach ($fn in $functions) {
+      Write-Host "  Deploying $($fn.Name)..." -ForegroundColor Cyan
+      if ($fn.Public) {
+        Invoke-Supabase @("functions", "deploy", $fn.Name, "--no-verify-jwt")
+      }
+      else {
+        Invoke-Supabase @("functions", "deploy", $fn.Name)
+      }
+    }
   }
 }
 
 Write-Host ""
-Write-Host "Step 7: Creating platform admin..." -ForegroundColor Cyan
+Write-Host "Step 5: Creating platform admin..." -ForegroundColor Cyan
 node scripts/admin-create-from-env.mjs
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host ""
-Write-Host "Step 8: Configure Auth URLs in Dashboard:" -ForegroundColor Cyan
+Write-Host "Step 6: Configure Auth URLs in Dashboard:" -ForegroundColor Cyan
 Write-Host "  Authentication -> URL Configuration"
 Write-Host "  Site URL: http://localhost:5173"
 Write-Host "  Redirect URLs: http://localhost:5173/accept-invite"

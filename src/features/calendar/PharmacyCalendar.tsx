@@ -5,7 +5,7 @@ import timeGridPlugin from '@fullcalendar/timegrid'
 import clsx from 'clsx'
 import { addDays, format, startOfWeek } from 'date-fns'
 import { ChevronLeft, ChevronRight, MoonStar, Printer } from 'lucide-react'
-import { useMemo, useRef, useState, useCallback } from 'react'
+import { useMemo, useRef, useState, useCallback, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthProvider'
 import { useWorkspace } from '../auth/WorkspaceProvider'
@@ -39,6 +39,7 @@ import {
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 import type { CalendarItem, CalendarItemKind, Personnel } from '../../types/domain'
 import { filterCalendarItems, useCalendarShell } from './CalendarShellContext'
+import { CalendarPrintPreview } from './CalendarPrintPreview'
 import {
   attachEventSeriesMenuTriggers,
   EventSeriesMenu,
@@ -65,11 +66,17 @@ const calendarViews = [
 
 type CalendarViewId = (typeof calendarViews)[number]['id']
 
+const desktopPrintPreviewQuery = '(min-width: 721px)'
+
 function getInitialView(): CalendarViewId {
   if (typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches) {
     return 'timeGridDay'
   }
   return 'timeGridWeek'
+}
+
+function supportsPrintPreview(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia(desktopPrintPreviewQuery).matches
 }
 
 function EventChip({
@@ -211,6 +218,11 @@ export function PharmacyCalendar() {
   const queryClient = useQueryClient()
 
   const calendarRef = useRef<FullCalendar>(null)
+  const calendarPrintRef = useRef<HTMLDivElement>(null)
+  const [printPreviewOpen, setPrintPreviewOpen] = useState(false)
+  const [printLayoutActive, setPrintLayoutActive] = useState(false)
+  const [printLayoutReady, setPrintLayoutReady] = useState(false)
+  const showPrintLayout = printPreviewOpen || printLayoutActive
   const suppressEventClickUntilRef = useRef(0)
   const seriesMenuCleanupRef = useRef(new Map<string, () => void>())
   const [initialView] = useState(getInitialView)
@@ -282,6 +294,56 @@ export function PharmacyCalendar() {
   )
 
   const canEditCalendar = isSupabaseConfigured && canCreateAnyCalendarItem(can)
+
+  useEffect(() => {
+    if (!showPrintLayout) {
+      setPrintLayoutReady(false)
+      calendarRef.current?.getApi().updateSize()
+      return
+    }
+
+    let cancelled = false
+    const frame = requestAnimationFrame(() => {
+      calendarRef.current?.getApi().updateSize()
+      requestAnimationFrame(() => {
+        if (!cancelled) setPrintLayoutReady(true)
+      })
+    })
+
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(frame)
+    }
+  }, [showPrintLayout, viewTitle, activeView, slotMinTime, slotMaxTime, filteredItems.length])
+
+  useEffect(() => {
+    const handleAfterPrint = () => {
+      setPrintLayoutActive(false)
+      setPrintPreviewOpen(false)
+    }
+
+    window.addEventListener('afterprint', handleAfterPrint)
+    return () => window.removeEventListener('afterprint', handleAfterPrint)
+  }, [])
+
+  useEffect(() => {
+    if (!printLayoutActive || printPreviewOpen || !printLayoutReady) return
+
+    window.print()
+  }, [printLayoutActive, printPreviewOpen, printLayoutReady])
+
+  const handlePrint = useCallback(() => {
+    if (supportsPrintPreview()) {
+      setPrintPreviewOpen(true)
+      return
+    }
+
+    setPrintLayoutActive(true)
+  }, [])
+
+  const closePrintPreview = useCallback(() => {
+    setPrintPreviewOpen(false)
+  }, [])
 
   const suppressEventClick = useCallback(() => {
     suppressEventClickUntilRef.current = Date.now() + 400
@@ -437,7 +499,10 @@ export function PharmacyCalendar() {
   }
 
   return (
-    <div className="calendar-fill calendar-print-root" aria-label="Pharmacy operations calendar">
+    <div
+      className={clsx('calendar-fill calendar-print-root', showPrintLayout && 'calendar-print-layout')}
+      aria-label="Pharmacy operations calendar"
+    >
       <CalendarUtilityRibbon
         title={viewTitle}
         activeView={activeView}
@@ -448,9 +513,10 @@ export function PharmacyCalendar() {
         onToday={() => getApi()?.today()}
         onChangeView={(view) => getApi()?.changeView(view)}
         onToggleNightShift={handleToggleNightShift}
-        onPrint={() => window.print()}
+        onPrint={handlePrint}
       />
 
+      <div ref={calendarPrintRef} className="calendar-print-body">
       <FullCalendar
         key={`${slotMinTime}-${slotMaxTime}`}
         ref={calendarRef}
@@ -469,7 +535,7 @@ export function PharmacyCalendar() {
         selectable={canEditCalendar}
         selectMirror
         unselectAuto
-        height="100%"
+        height={showPrintLayout ? 'auto' : '100%'}
         events={events}
         dayMaxEvents={3}
         datesSet={handleDatesSet}
@@ -516,6 +582,15 @@ export function PharmacyCalendar() {
         windowResize={() => {
           calendarRef.current?.getApi().updateSize()
         }}
+      />
+      </div>
+
+      <CalendarPrintPreview
+        open={printPreviewOpen}
+        onClose={closePrintPreview}
+        title={viewTitle}
+        sourceRef={calendarPrintRef}
+        layoutReady={printLayoutReady}
       />
 
       <EventSeriesMenu

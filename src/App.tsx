@@ -1,6 +1,7 @@
 import {
   Bell,
   CalendarDays,
+  ClipboardList,
   Plus,
   Search,
   Settings,
@@ -14,6 +15,7 @@ import { AdminConsole } from './features/admin/AdminConsole'
 import { AcceptInviteScreen, LoginScreen, SignOutButton } from './features/auth/AuthScreens'
 import {
   RedirectIfAuthenticated,
+  RequireAuditAccess,
   RequireAuth,
   RequirePeopleAccess,
   RequirePlatformAdmin,
@@ -25,6 +27,7 @@ import { CalendarEventModal } from './features/calendar/CalendarEventModal'
 import { CalendarShellProvider, useCalendarShell } from './features/calendar/CalendarShellContext'
 import { PharmacyCalendar } from './features/calendar/PharmacyCalendar'
 import { PeopleScreen } from './features/people/PeopleScreen'
+import { AuditLogScreen } from './features/audit/AuditLogScreen'
 import { UserSecurityScreen } from './features/settings/UserSecurityScreen'
 
 type ShellModal = 'search' | 'security' | 'notifications' | null
@@ -61,6 +64,14 @@ function App() {
               </RequirePeopleAccess>
             }
           />
+          <Route
+            path="audit"
+            element={
+              <RequireAuditAccess>
+                <AuditLogScreen />
+              </RequireAuditAccess>
+            }
+          />
           <Route path="settings/users" element={<Navigate to="/app/calendar" replace />} />
         </Route>
       </Route>
@@ -78,7 +89,9 @@ function AppShell() {
   const { membership, isOwner } = useWorkspace()
   const canManagePersonnel = useCan('personnel.manage')
   const canManageRoles = useCan('roles.manage')
+  const canReadAudit = useCan('audit.read')
   const showPeopleLink = isOwner || canManagePersonnel || canManageRoles
+  const showSecondaryNav = showPeopleLink || canReadAudit
   const {
     searchQuery,
     setSearchQuery,
@@ -106,7 +119,7 @@ function AppShell() {
         </NavLink>
 
         <nav className="app-bar-actions" aria-label="App actions">
-          {showPeopleLink ? (
+          {showSecondaryNav ? (
             <NavLink
               className={({ isActive }) => `icon-ghost${isActive ? ' icon-ghost--active' : ''}`}
               to="/app/calendar"
@@ -130,6 +143,15 @@ function AppShell() {
               aria-label="Personnel and roles"
             >
               <Users size={19} aria-hidden="true" />
+            </NavLink>
+          ) : null}
+          {canReadAudit ? (
+            <NavLink
+              className={({ isActive }) => `icon-ghost${isActive ? ' icon-ghost--active' : ''}`}
+              to="/app/audit"
+              aria-label="Audit log"
+            >
+              <ClipboardList size={19} aria-hidden="true" />
             </NavLink>
           ) : null}
           <button

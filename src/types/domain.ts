@@ -124,4 +124,7 @@ export interface AuditLogEntry {
   entityId: string | null
   createdAt: string
   actorUserId: string | null
+  actorName?: string
+  before?: unknown
+  after?: unknown
 }

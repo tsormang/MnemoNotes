@@ -182,6 +182,76 @@
   height: 100% !important;
 }
 
+.calendar-print-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.calendar-print-layout,
+.calendar-print-layout.calendar-fill {
+  flex: none;
+  min-height: auto;
+  overflow: visible;
+}
+
+.calendar-print-layout .calendar-print-body {
+  flex: none;
+  min-height: auto;
+  overflow: visible;
+}
+
+.calendar-print-layout .fc,
+.print-preview-surface .fc {
+  flex: none !important;
+  height: auto !important;
+  min-height: auto !important;
+  overflow: visible !important;
+}
+
+.calendar-print-layout .fc-view-harness,
+.calendar-print-layout .fc-view-harness-active,
+.calendar-print-layout .fc-scroller-harness,
+.calendar-print-layout .fc-scroller-harness-liquid,
+.calendar-print-layout .fc-scroller,
+.calendar-print-layout .fc-scrollgrid,
+.calendar-print-layout .fc-scrollgrid-section,
+.calendar-print-layout .fc-scrollgrid-section-body,
+.calendar-print-layout .fc-scrollgrid-section-body > td,
+.calendar-print-layout .fc-timegrid-body,
+.calendar-print-layout .fc-timegrid-slots,
+.calendar-print-layout .fc-daygrid-body,
+.print-preview-surface .fc-view-harness,
+.print-preview-surface .fc-view-harness-active,
+.print-preview-surface .fc-scroller-harness,
+.print-preview-surface .fc-scroller-harness-liquid,
+.print-preview-surface .fc-scroller,
+.print-preview-surface .fc-scrollgrid,
+.print-preview-surface .fc-scrollgrid-section,
+.print-preview-surface .fc-scrollgrid-section-body,
+.print-preview-surface .fc-scrollgrid-section-body > td,
+.print-preview-surface .fc-timegrid-body,
+.print-preview-surface .fc-timegrid-slots,
+.print-preview-surface .fc-daygrid-body {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.calendar-print-layout .fc-scroller-liquid-absolute,
+.print-preview-surface .fc-scroller-liquid-absolute {
+  position: static !important;
+  inset: auto !important;
+}
+
+.calendar-print-layout .fc-timegrid-cols,
+.calendar-print-layout .fc-timegrid-cols table,
+.print-preview-surface .fc-timegrid-cols,
+.print-preview-surface .fc-timegrid-cols table {
+  height: auto !important;
+}
+
 .fc .fc-toolbar {
   flex-wrap: wrap;
   gap: 8px;
@@ -596,6 +666,42 @@
   color: var(--color-text-muted);
   font-size: 13px;
   margin-top: 12px;
+}
+
+.print-preview-subtitle {
+  margin: 0 0 12px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.print-preview-frame {
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: #fff;
+  overflow: auto;
+  max-height: min(62dvh, 680px);
+  padding: 16px;
+}
+
+.print-preview-surface .fc-event {
+  break-inside: avoid;
+  color: #000 !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.print-preview-surface .fc .fc-timegrid-slot,
+.print-preview-surface .fc .fc-daygrid-day {
+  break-inside: avoid;
+}
+
+.print-preview-actions {
+  margin-top: 16px;
+}
+
+.modal-root:has(.print-preview-frame) .modal-dialog--wide {
+  width: min(100%, 1100px);
+  max-height: min(92dvh, 900px);
 }
 
 .search-field {
@@ -1047,6 +1153,79 @@ th {
   color: var(--color-text-muted);
   font-size: 14px;
   margin: 0 16px;
+}
+
+.page-hint--flush {
+  margin: 8px 0 0;
+}
+
+/* ——— Audit log page ——— */
+
+.audit-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.audit-panel {
+  flex: 1;
+  min-height: 0;
+}
+
+.audit-table {
+  min-width: 760px;
+}
+
+.audit-cell-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-expand-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--color-brand);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0;
+}
+
+.audit-row-details td {
+  background: #f8faf9;
+  border-top: 0;
+  padding-top: 0;
+}
+
+.audit-details-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  padding: 0 0 12px;
+}
+
+.audit-details-grid pre {
+  margin: 6px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow: auto;
+  max-height: 220px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .people-screen {
@@ -1756,27 +1935,61 @@ th {
   .app-bar,
   .calendar-utility-ribbon,
   .event-series-menu,
+  .modal-root,
   .modal-backdrop,
   .modal-panel {
     display: none !important;
   }
 
-  .app-shell,
-  .app-main,
-  .calendar-fill,
-  .calendar-print-root,
-  .fc {
+  .app-shell {
+    display: block;
     height: auto !important;
-    min-height: 0 !important;
     overflow: visible !important;
   }
 
-  .app-shell {
-    display: block;
+  .main-surface,
+  .app-main,
+  .calendar-fill,
+  .calendar-print-root,
+  .calendar-print-body,
+  .fc {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
   }
 
-  .app-main {
+  .main-surface {
     padding: 0;
+  }
+
+  .calendar-fill {
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .fc-view-harness,
+  .fc-view-harness-active,
+  .fc-scroller-harness,
+  .fc-scroller-harness-liquid,
+  .fc-scroller,
+  .fc-scrollgrid,
+  .fc-scrollgrid-section,
+  .fc-scrollgrid-section-body,
+  .fc-scrollgrid-section-body > td,
+  .fc-timegrid-body,
+  .fc-timegrid-slots,
+  .fc-daygrid-body,
+  .fc-timegrid-cols,
+  .fc-timegrid-cols table {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .fc-scroller-liquid-absolute {
+    position: static !important;
+    inset: auto !important;
   }
 
   .fc-event {

@@ -9,14 +9,14 @@ export const pharmacyLocations: PharmacyLocation[] = [
     name: 'Central Pharmacy',
     address: 'Main street branch',
     timezone: 'Europe/Athens',
-    openingHours: '08:00 - 22:00',
+    openingHours: '07:00 - 21:00',
   },
   {
     id: 'north-branch',
     name: 'North Branch',
     address: 'Residential district branch',
     timezone: 'Europe/Athens',
-    openingHours: '09:00 - 21:00',
+    openingHours: '07:00 - 21:00',
   },
 ]
 
@@ -24,7 +24,8 @@ export const personnel: Personnel[] = [
   {
     id: 'maria',
     fullName: 'Maria Antoniou',
-    role: 'owner',
+    companyRoleId: 'demo-owner-role',
+    companyRoleName: 'Owner',
     title: 'Pharmacy owner',
     status: 'active',
     skills: ['Responsible pharmacist', 'Stock control'],
@@ -33,7 +34,8 @@ export const personnel: Personnel[] = [
   {
     id: 'nikos',
     fullName: 'Nikos Papadakis',
-    role: 'personnel',
+    companyRoleId: 'demo-pharmacist-role',
+    companyRoleName: 'Pharmacist',
     title: 'Pharmacist',
     status: 'active',
     skills: ['Dispensary', 'Patient guidance'],
@@ -42,7 +44,8 @@ export const personnel: Personnel[] = [
   {
     id: 'eleni',
     fullName: 'Eleni Georgiou',
-    role: 'personnel',
+    companyRoleId: 'demo-pharmacist-role',
+    companyRoleName: 'Pharmacist',
     title: 'Pharmacy assistant',
     status: 'invited',
     skills: ['Front desk', 'Supplier follow-up'],

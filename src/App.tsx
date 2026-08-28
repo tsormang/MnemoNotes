@@ -11,7 +11,9 @@ import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import './App.css'
 import { Modal } from './components/Modal'
 import { AdminConsole } from './features/admin/AdminConsole'
-import { AcceptInviteScreen, LoginScreen, OwnerRegisterScreen } from './features/auth/AuthScreens'
+import { AcceptInviteScreen, LoginScreen, SignOutButton } from './features/auth/AuthScreens'
+import { RedirectIfAuthenticated, RequireAuth, RequirePlatformAdmin } from './features/auth/RouteGuards'
+import { useWorkspace } from './features/auth/WorkspaceProvider'
 import { NotificationsPanel } from './features/calendar/NotificationsPanel'
 import { PharmacyCalendar } from './features/calendar/PharmacyCalendar'
 import { PeopleScreen } from './features/people/PeopleScreen'
@@ -22,16 +24,27 @@ type ShellModal = 'search' | 'people' | 'security' | 'notifications' | 'create' 
 function App() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginScreen />} />
-      <Route path="/register-owner" element={<OwnerRegisterScreen />} />
+      <Route
+        path="/login"
+        element={
+          <RedirectIfAuthenticated>
+            <LoginScreen />
+          </RedirectIfAuthenticated>
+        }
+      />
       <Route path="/accept-invite" element={<AcceptInviteScreen />} />
-      <Route path="/app" element={<AppShell />}>
-        <Route index element={<Navigate to="/app/calendar" replace />} />
-        <Route path="calendar" element={<PharmacyCalendar />} />
-        <Route path="people" element={<Navigate to="/app/calendar" replace />} />
-        <Route path="settings/users" element={<Navigate to="/app/calendar" replace />} />
+      <Route path="/register-owner" element={<Navigate to="/login" replace />} />
+      <Route element={<RequireAuth />}>
+        <Route path="/app" element={<AppShell />}>
+          <Route index element={<Navigate to="/app/calendar" replace />} />
+          <Route path="calendar" element={<PharmacyCalendar />} />
+          <Route path="people" element={<Navigate to="/app/calendar" replace />} />
+          <Route path="settings/users" element={<Navigate to="/app/calendar" replace />} />
+        </Route>
       </Route>
-      <Route path="/admin" element={<AdminConsole />} />
+      <Route element={<RequirePlatformAdmin />}>
+        <Route path="/admin" element={<AdminConsole />} />
+      </Route>
       <Route path="*" element={<Navigate to="/app/calendar" replace />} />
     </Routes>
   )
@@ -40,6 +53,7 @@ function App() {
 function AppShell() {
   const [openModal, setOpenModal] = useState<ShellModal>(null)
   const closeModal = useCallback(() => setOpenModal(null), [])
+  const { membership } = useWorkspace()
 
   return (
     <div className="app-shell">
@@ -48,7 +62,10 @@ function AppShell() {
           <div className="brand-mark">
             <CalendarDays size={20} aria-hidden="true" />
           </div>
-          <strong className="brand-name">MnemoNotes</strong>
+          <div>
+            <strong className="brand-name">MnemoNotes</strong>
+            {membership ? <span className="brand-subtitle">{membership.organizationName}</span> : null}
+          </div>
         </div>
 
         <nav className="app-bar-actions" aria-label="App actions">
@@ -71,7 +88,7 @@ function AppShell() {
           <button
             className="icon-ghost"
             type="button"
-            aria-label="Security"
+            aria-label="Configuration"
             onClick={() => setOpenModal('security')}
           >
             <Settings size={19} aria-hidden="true" />
@@ -92,6 +109,7 @@ function AppShell() {
           >
             <Plus size={20} aria-hidden="true" />
           </button>
+          <SignOutButton />
         </nav>
       </header>
 
@@ -112,7 +130,7 @@ function AppShell() {
         <PeopleScreen />
       </Modal>
 
-      <Modal open={openModal === 'security'} onClose={closeModal} title="Security" wide>
+      <Modal open={openModal === 'security'} onClose={closeModal} title="Configuration" wide>
         <UserSecurityScreen />
       </Modal>
 
@@ -147,7 +165,8 @@ function AppShell() {
             Ends
             <input type="datetime-local" />
           </label>
-          <button className="icon-button" type="submit">
+          <p className="modal-hint">Event creation will be enabled in Phase 2.</p>
+          <button className="icon-button" type="submit" disabled>
             Save event
           </button>
         </form>

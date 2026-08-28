@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { can, rolePermissions } from './access-control'
+import { resolveMemberPermissions } from './edge-functions'
 
 describe('role permissions', () => {
   it('gives developer admins absolute platform controls', () => {
@@ -17,5 +18,25 @@ describe('role permissions', () => {
   it('keeps personnel away from role management', () => {
     expect(can('personnel', 'roles.manage')).toBe(false)
     expect(rolePermissions.personnel).toContain('notes.acknowledge')
+  })
+
+  it('resolves staff permissions from company roles', () => {
+    const permissions = resolveMemberPermissions({
+      systemRole: 'personnel',
+      companyRolePermissions: ['organization.read', 'shifts.read'],
+      ownerPermissions: rolePermissions.owner,
+    })
+
+    expect(permissions).toEqual(['organization.read', 'shifts.read'])
+  })
+
+  it('resolves owner permissions from the owner bundle', () => {
+    const permissions = resolveMemberPermissions({
+      systemRole: 'owner',
+      companyRolePermissions: ['organization.read'],
+      ownerPermissions: rolePermissions.owner,
+    })
+
+    expect(permissions).toEqual(rolePermissions.owner)
   })
 })

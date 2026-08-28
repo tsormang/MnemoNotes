@@ -1,0 +1,349 @@
+import { useQuery } from '@tanstack/react-query'
+import { personnel as demoPersonnel, pharmacyLocations as demoLocations, calendarItems as demoCalendarItems } from '../../data/demo'
+import { isSupabaseConfigured, supabase } from '../supabase'
+import type {
+  AppPermission,
+  CalendarItem,
+  CalendarItemKind,
+  CompanyRole,
+  Organization,
+  Personnel,
+  PharmacyLocation,
+} from '../../types/domain'
+
+function formatTimeValue(value: string | null | undefined): string {
+  if (!value) return '07:00'
+  return value.slice(0, 5)
+}
+
+export function useOrganization(organizationId: string | null) {
+  return useQuery({
+    queryKey: ['organization', organizationId],
+    queryFn: async (): Promise<Organization | null> => {
+      if (!organizationId || !supabase) return null
+
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('id, name, timezone, working_day_start, working_day_end')
+        .eq('id', organizationId)
+        .maybeSingle()
+
+      if (error) throw error
+      if (!data) return null
+
+      return {
+        id: data.id,
+        name: data.name,
+        timezone: data.timezone,
+        workingDayStart: formatTimeValue(data.working_day_start),
+        workingDayEnd: formatTimeValue(data.working_day_end),
+      }
+    },
+    enabled: Boolean(organizationId && isSupabaseConfigured),
+  })
+}
+
+export function useLocations(organizationId: string | null) {
+  return useQuery({
+    queryKey: ['locations', organizationId],
+    queryFn: async (): Promise<PharmacyLocation[]> => {
+      if (!organizationId || !supabase) return demoLocations
+
+      const { data, error } = await supabase
+        .from('locations')
+        .select('id, name, address, timezone, operating_hours')
+        .eq('organization_id', organizationId)
+        .order('name')
+
+      if (error) throw error
+
+      return (data ?? []).map((row) => ({
+        id: row.id,
+        name: row.name,
+        address: row.address ?? '',
+        timezone: row.timezone,
+        openingHours:
+          typeof row.operating_hours === 'object' &&
+          row.operating_hours &&
+          'label' in (row.operating_hours as Record<string, unknown>)
+            ? String((row.operating_hours as Record<string, unknown>).label)
+            : '07:00 - 21:00',
+      }))
+    },
+    enabled: Boolean(organizationId && isSupabaseConfigured),
+  })
+}
+
+export function useCompanyRoles(organizationId: string | null) {
+  return useQuery({
+    queryKey: ['company-roles', organizationId],
+    queryFn: async (): Promise<CompanyRole[]> => {
+      if (!organizationId || !supabase) return []
+
+      const { data, error } = await supabase
+        .from('company_roles')
+        .select('id, organization_id, name, description, icon, is_system, company_role_permissions(permission)')
+        .eq('organization_id', organizationId)
+        .order('name')
+
+      if (error) throw error
+
+      return (data ?? []).map((row) => ({
+        id: row.id,
+        organizationId: row.organization_id,
+        name: row.name,
+        description: row.description,
+        icon: row.icon,
+        isSystem: row.is_system,
+        permissions: (row.company_role_permissions ?? []).map(
+          (entry) => entry.permission as AppPermission,
+        ),
+      }))
+    },
+    enabled: Boolean(organizationId && isSupabaseConfigured),
+  })
+}
+
+export function usePersonnelList(organizationId: string | null) {
+  return useQuery({
+    queryKey: ['personnel', organizationId],
+    queryFn: async (): Promise<Personnel[]> => {
+      if (!organizationId || !supabase) return demoPersonnel
+
+      const { data, error } = await supabase
+        .from('personnel')
+        .select(
+          'id, full_name, title, status, skills, location_id, profile_id, company_role_id, company_roles(name)',
+        )
+        .eq('organization_id', organizationId)
+        .order('full_name')
+
+      if (error) throw error
+
+      return (data ?? []).map((row) => ({
+        id: row.id,
+        fullName: row.full_name,
+        companyRoleId: row.company_role_id ?? '',
+        companyRoleName:
+          row.company_roles && typeof row.company_roles === 'object' && 'name' in row.company_roles
+            ? String(row.company_roles.name)
+            : 'Unassigned',
+        title: row.title,
+        status: row.status === 'disabled' ? 'inactive' : (row.status as Personnel['status']),
+        skills: row.skills ?? [],
+        locationId: row.location_id ?? '',
+        profileId: row.profile_id,
+      }))
+    },
+    enabled: Boolean(organizationId && isSupabaseConfigured),
+  })
+}
+
+export function useCalendarItems(organizationId: string | null) {
+  return useQuery({
+    queryKey: ['calendar-items', organizationId],
+    queryFn: async (): Promise<CalendarItem[]> => {
+      if (!organizationId || !supabase) {
+        return demoCalendarItems
+      }
+
+      const { data, error } = await supabase
+        .from('calendar_items')
+        .select(
+          `
+          id,
+          kind,
+          title,
+          starts_at,
+          ends_at,
+          location_id,
+          priority,
+          requires_acknowledgement,
+          metadata,
+          shift_assignments(personnel_id)
+        `,
+        )
+        .eq('organization_id', organizationId)
+        .order('starts_at')
+
+      if (error) throw error
+
+      return (data ?? []).map((row) => {
+        const metadata = (row.metadata ?? {}) as Record<string, unknown>
+        return {
+          id: row.id,
+          kind: row.kind as CalendarItemKind,
+          title: row.title,
+          startsAt: row.starts_at,
+          endsAt: row.ends_at,
+          locationId: row.location_id ?? '',
+          assignedPersonnelIds: (row.shift_assignments ?? []).map(
+            (assignment) => assignment.personnel_id,
+          ),
+          priority: (row.priority as CalendarItem['priority']) ?? 'normal',
+          noteCategory:
+            typeof metadata.noteCategory === 'string' ? metadata.noteCategory : undefined,
+          notificationOffsets: Array.isArray(metadata.notificationOffsets)
+            ? metadata.notificationOffsets.map(Number)
+            : [],
+          requiresAcknowledgement: row.requires_acknowledgement,
+        }
+      })
+    },
+    enabled: Boolean(organizationId && isSupabaseConfigured),
+  })
+}
+
+export function useOrganizationsAdminList(enabled: boolean) {
+  return useQuery({
+    queryKey: ['admin-organizations'],
+    queryFn: async () => {
+      if (!supabase) return []
+
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('id, name, timezone, status, created_at, updated_at')
+        .order('name')
+
+      if (error) throw error
+      return data ?? []
+    },
+    enabled: enabled && isSupabaseConfigured,
+  })
+}
+
+export interface AdminCompanyRow {
+  id: string
+  name: string
+  timezone: string
+  status: string
+  createdAt: string
+  updatedAt: string
+  ownerName: string | null
+  ownerEmail: string | null
+  ownerStatus: 'active' | 'invited' | 'missing'
+  inviteExpiresAt: string | null
+}
+
+export function useCompaniesAdminList(enabled: boolean) {
+  return useQuery({
+    queryKey: ['admin-companies'],
+    queryFn: async (): Promise<AdminCompanyRow[]> => {
+      if (!supabase) return []
+
+      const { data: organizations, error: orgError } = await supabase
+        .from('organizations')
+        .select('id, name, timezone, status, created_at, updated_at')
+        .order('name')
+
+      if (orgError) throw orgError
+
+      const { data: owners, error: ownerError } = await supabase
+        .from('organization_members')
+        .select('organization_id, status, profiles(full_name)')
+        .eq('role', 'owner')
+
+      if (ownerError) throw ownerError
+
+      const { data: pendingInvites, error: inviteError } = await supabase
+        .from('organization_owner_invites')
+        .select('organization_id, email, full_name, expires_at')
+        .is('accepted_at', null)
+
+      if (inviteError) throw inviteError
+
+      return (organizations ?? []).map((org) => {
+        const ownerMember = (owners ?? []).find((row) => row.organization_id === org.id)
+        const pendingInvite = (pendingInvites ?? []).find((row) => row.organization_id === org.id)
+
+        const profileName =
+          ownerMember?.profiles &&
+          typeof ownerMember.profiles === 'object' &&
+          'full_name' in ownerMember.profiles
+            ? String(ownerMember.profiles.full_name)
+            : null
+
+        let ownerStatus: AdminCompanyRow['ownerStatus'] = 'missing'
+        if (ownerMember?.status === 'active') {
+          ownerStatus = 'active'
+        } else if (pendingInvite || ownerMember?.status === 'invited') {
+          ownerStatus = 'invited'
+        }
+
+        return {
+          id: org.id,
+          name: org.name,
+          timezone: org.timezone,
+          status: org.status,
+          createdAt: org.created_at,
+          updatedAt: org.updated_at,
+          ownerName: profileName ?? pendingInvite?.full_name ?? null,
+          ownerEmail: pendingInvite?.email ?? null,
+          ownerStatus,
+          inviteExpiresAt: pendingInvite?.expires_at ?? null,
+        }
+      })
+    },
+    enabled: enabled && isSupabaseConfigured,
+  })
+}
+
+export function useAuditLogAdminList(enabled: boolean) {
+  return useQuery({
+    queryKey: ['admin-audit-log'],
+    queryFn: async () => {
+      if (!supabase) return []
+
+      const { data, error } = await supabase
+        .from('audit_log')
+        .select('id, organization_id, actor_user_id, action, entity_table, entity_id, created_at')
+        .order('created_at', { ascending: false })
+        .limit(100)
+
+      if (error) throw error
+      return data ?? []
+    },
+    enabled: enabled && isSupabaseConfigured,
+  })
+}
+
+export function useOrganizationMembersAdminList(enabled: boolean) {
+  return useQuery({
+    queryKey: ['admin-organization-members'],
+    queryFn: async () => {
+      if (!supabase) return []
+
+      const { data, error } = await supabase
+        .from('organization_members')
+        .select('id, organization_id, user_id, role, status, updated_at, organizations(name), profiles(full_name)')
+        .order('updated_at', { ascending: false })
+
+      if (error) throw error
+      return data ?? []
+    },
+    enabled: enabled && isSupabaseConfigured,
+  })
+}
+
+export function useWeekOverrides(organizationId: string | null) {
+  return useQuery({
+    queryKey: ['week-overrides', organizationId],
+    queryFn: async (): Promise<Record<string, boolean>> => {
+      if (!organizationId || !supabase) return {}
+
+      const { data, error } = await supabase
+        .from('calendar_week_overrides')
+        .select('week_start_date, show_all_hours')
+        .eq('organization_id', organizationId)
+
+      if (error) throw error
+
+      return Object.fromEntries(
+        (data ?? [])
+          .filter((row) => row.show_all_hours)
+          .map((row) => [row.week_start_date, true]),
+      )
+    },
+    enabled: Boolean(organizationId && isSupabaseConfigured),
+  })
+}

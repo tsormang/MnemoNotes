@@ -1,10 +1,14 @@
+import { zodResolver } from '@hookform/resolvers/zod'
 import {
   ArchiveRestore,
   Building2,
   CalendarClock,
   ClipboardList,
+  Clock3,
   FileText,
+  Mail,
   Pencil,
+  Plus,
   ShieldAlert,
   Trash2,
   UserCog,
@@ -12,16 +16,30 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { useQueryClient } from '@tanstack/react-query'
 import { calendarItems, personnel, pharmacyLocations } from '../../data/demo'
-import { roleLabels } from '../../lib/access-control'
+import { invokeEdgeFunction } from '../../lib/edge-functions'
+import {
+  useAuditLogAdminList,
+  useCalendarItems,
+  useCompaniesAdminList,
+  useOrganizationMembersAdminList,
+  useOrganizationsAdminList,
+  usePersonnelList,
+} from '../../lib/queries/workspace'
+import { isSupabaseConfigured } from '../../lib/supabase'
+import { provisionCompanySchema, type ProvisionCompanyInput } from '../../lib/validation'
+import { SignOutButton } from '../auth/AuthScreens'
+import { WorkingDaySettings } from '../settings/WorkingDaySettings'
 
-type AdminTab = 'users' | 'personnel' | 'shifts' | 'notes' | 'pharmacies' | 'audit'
+type AdminTab = 'companies' | 'users' | 'personnel' | 'shifts' | 'notes' | 'calendar' | 'audit'
 
 interface AdminActionRow {
   id: string
   primary: string
   secondary: string
-  status: 'active' | 'inactive' | 'invited' | 'published' | 'draft' | 'critical'
+  status: 'active' | 'inactive' | 'invited' | 'published' | 'draft' | 'critical' | 'disabled' | 'missing'
   owner: string
   updatedAt: string
 }
@@ -31,34 +49,143 @@ const adminTabs: Array<{
   label: string
   icon: LucideIcon
 }> = [
+  { id: 'companies', label: 'Companies', icon: Building2 },
   { id: 'users', label: 'Users', icon: UserCog },
   { id: 'personnel', label: 'Personnel', icon: Users },
   { id: 'shifts', label: 'Shifts', icon: CalendarClock },
   { id: 'notes', label: 'Notes', icon: FileText },
-  { id: 'pharmacies', label: 'Pharmacies', icon: Building2 },
+  { id: 'calendar', label: 'Calendar', icon: Clock3 },
   { id: 'audit', label: 'Audit', icon: ClipboardList },
 ]
 
 export function AdminConsole() {
-  const [activeTab, setActiveTab] = useState<AdminTab>('users')
-  const rows = useAdminRows(activeTab)
+  const [activeTab, setActiveTab] = useState<AdminTab>('companies')
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null)
+  const [provisionError, setProvisionError] = useState<string | null>(null)
+  const [provisionSuccess, setProvisionSuccess] = useState<string | null>(null)
+  const [inviteLink, setInviteLink] = useState<string | null>(null)
+  const [resendError, setResendError] = useState<string | null>(null)
+  const [resendingOrgId, setResendingOrgId] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+
+  const orgsQuery = useOrganizationsAdminList(activeTab === 'companies' || activeTab === 'calendar')
+  const companiesQuery = useCompaniesAdminList(activeTab === 'companies')
+  const membersQuery = useOrganizationMembersAdminList(activeTab === 'users')
+  const auditQuery = useAuditLogAdminList(activeTab === 'audit')
+  const personnelQuery = usePersonnelList(selectedOrgId)
+  const calendarQuery = useCalendarItems(selectedOrgId)
+
+  const provisionForm = useForm<ProvisionCompanyInput>({
+    resolver: zodResolver(provisionCompanySchema),
+    defaultValues: {
+      organizationName: '',
+      timezone: 'Europe/Athens',
+      ownerName: '',
+      ownerEmail: '',
+      ownerPassword: '',
+      locationName: 'Main location',
+    },
+  })
+
+  const rows = useAdminRows({
+    activeTab,
+    companies: companiesQuery.data ?? [],
+    orgs: orgsQuery.data ?? [],
+    members: membersQuery.data ?? [],
+    audit: auditQuery.data ?? [],
+    personnel: personnelQuery.data ?? [],
+    calendarItems: calendarQuery.data ?? [],
+  })
+
+  const onProvision = provisionForm.handleSubmit(async (values) => {
+    setProvisionError(null)
+    setProvisionSuccess(null)
+    setInviteLink(null)
+
+    try {
+      const payload = {
+        ...values,
+        ownerPassword: values.ownerPassword?.trim() || undefined,
+      }
+      const result = await invokeEdgeFunction<{
+        organizationId: string
+        organizationName: string
+        acceptUrl?: string
+        mode?: string
+      }>('admin-provision-company', payload)
+
+      if (result.acceptUrl) {
+        setProvisionSuccess(`Created ${result.organizationName}. Share the owner registration link below.`)
+        setInviteLink(result.acceptUrl)
+      } else {
+        setProvisionSuccess(`Created ${result.organizationName}. Owner can sign in immediately.`)
+      }
+
+      provisionForm.reset({
+        organizationName: '',
+        timezone: 'Europe/Athens',
+        ownerName: '',
+        ownerEmail: '',
+        ownerPassword: '',
+        locationName: 'Main location',
+      })
+      await queryClient.invalidateQueries({ queryKey: ['admin-organizations'] })
+      await queryClient.invalidateQueries({ queryKey: ['admin-companies'] })
+    } catch (error) {
+      setProvisionError(error instanceof Error ? error.message : 'Could not provision company.')
+    }
+  })
+
+  const onResendOwnerInvite = async (organizationId: string, ownerName: string | null, ownerEmail: string | null) => {
+    setResendError(null)
+    setResendingOrgId(organizationId)
+
+    try {
+      const result = await invokeEdgeFunction<{ acceptUrl: string }>('admin-invite-owner', {
+        organizationId,
+        ownerName: ownerName ?? undefined,
+        ownerEmail: ownerEmail ?? undefined,
+      })
+      setInviteLink(result.acceptUrl)
+      setProvisionSuccess('Owner invite link refreshed. Share the link below.')
+      await queryClient.invalidateQueries({ queryKey: ['admin-companies'] })
+    } catch (error) {
+      setResendError(error instanceof Error ? error.message : 'Could not resend owner invite.')
+    } finally {
+      setResendingOrgId(null)
+    }
+  }
 
   return (
     <main className="admin-console">
+      <header className="admin-topbar">
+        <div className="brand">
+          <div className="brand-mark">
+            <Building2 size={20} aria-hidden="true" />
+          </div>
+          <div>
+            <strong className="brand-name">MnemoNotes Admin</strong>
+            <span className="brand-subtitle">Platform company management</span>
+          </div>
+        </div>
+        <div className="admin-topbar-actions">
+          <SignOutButton />
+        </div>
+      </header>
+
       <section className="admin-hero">
         <div>
           <p className="eyebrow">Platform Admin</p>
-          <h1>Absolute control console</h1>
+          <h1>Companies &amp; organisations</h1>
           <p>
-            Full operator access for user status, hard deletes, pharmacy tenants, personnel,
-            notes, shifts, and future business modules.
+            Create pharmacy workspaces, invite owners to register, and review tenant activity.
           </p>
         </div>
         <div className="admin-identity">
           <ShieldAlert size={22} aria-hidden="true" />
           <div>
             <strong>Developer Admin</strong>
-            <span>Service-role actions required for Auth hard deletes</span>
+            <span>Trusted Edge Functions required for company provisioning</span>
           </div>
         </div>
       </section>
@@ -83,161 +210,370 @@ export function AdminConsole() {
           })}
         </div>
 
-        <div className="admin-list-panel" role="tabpanel">
-          <div className="admin-list-header">
-            <div>
-              <h2>{adminTabs.find((tab) => tab.id === activeTab)?.label}</h2>
-              <p>{rows.length} records available in this list view</p>
+        {activeTab === 'companies' ? (
+          <div className="admin-list-panel" role="tabpanel">
+            <div className="admin-list-header">
+              <div>
+                <h2>Companies</h2>
+                <p>Create a company workspace and send the owner a registration invite.</p>
+              </div>
             </div>
-            <button className="icon-button" type="button">
-              <Pencil size={16} aria-hidden="true" />
-              New admin action
-            </button>
-          </div>
 
-          <div className="admin-table-shell">
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Details</th>
-                  <th>Status</th>
-                  <th>Owner</th>
-                  <th>Updated</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id}>
-                    <td>{row.primary}</td>
-                    <td>{row.secondary}</td>
-                    <td>
-                      <span className={`admin-status ${row.status}`}>{row.status}</span>
-                    </td>
-                    <td>{row.owner}</td>
-                    <td>{row.updatedAt}</td>
-                    <td>
-                      <div className="admin-row-actions">
-                        <button type="button" aria-label={`Edit ${row.primary}`} title="Edit">
-                          <Pencil size={15} aria-hidden="true" />
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={`Toggle active status for ${row.primary}`}
-                          title="Active/Inactive"
-                        >
-                          <ArchiveRestore size={15} aria-hidden="true" />
-                        </button>
-                        <button
-                          className="danger"
-                          type="button"
-                          aria-label={`Hard delete ${row.primary}`}
-                          title="Hard delete"
-                        >
-                          <Trash2 size={15} aria-hidden="true" />
-                        </button>
-                      </div>
-                    </td>
+            <form className="create-event-form" onSubmit={onProvision}>
+              <label>
+                Company name
+                <input type="text" {...provisionForm.register('organizationName')} />
+              </label>
+              <label>
+                Owner name
+                <input type="text" {...provisionForm.register('ownerName')} />
+              </label>
+              <label>
+                Owner email
+                <input type="email" {...provisionForm.register('ownerEmail')} />
+              </label>
+              <label>
+                Timezone
+                <input type="text" {...provisionForm.register('timezone')} />
+              </label>
+              <label>
+                Default location
+                <input type="text" {...provisionForm.register('locationName')} />
+              </label>
+              <label>
+                Owner password (optional, local dev only)
+                <input
+                  type="password"
+                  placeholder="Leave blank to send a registration invite"
+                  {...provisionForm.register('ownerPassword')}
+                />
+              </label>
+              {provisionError ? <p className="field-error">{provisionError}</p> : null}
+              {resendError ? <p className="field-error">{resendError}</p> : null}
+              {provisionSuccess ? <p className="modal-hint">{provisionSuccess}</p> : null}
+              {inviteLink ? (
+                <div className="invite-card">
+                  <Mail size={24} aria-hidden="true" />
+                  <p>Owner registration link</p>
+                  <code>{inviteLink}</code>
+                </div>
+              ) : null}
+              <button className="icon-button" type="submit" disabled={provisionForm.formState.isSubmitting}>
+                <Plus size={16} aria-hidden="true" />
+                {provisionForm.formState.isSubmitting ? 'Creating…' : 'Create company & invite owner'}
+              </button>
+            </form>
+
+            <div className="admin-table-shell">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Company</th>
+                    <th>Owner</th>
+                    <th>Timezone</th>
+                    <th>Owner status</th>
+                    <th>Updated</th>
+                    <th>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {(companiesQuery.data ?? []).map((company) => (
+                    <tr key={company.id}>
+                      <td>{company.name}</td>
+                      <td>
+                        {company.ownerName ? (
+                          <>
+                            <strong>{company.ownerName}</strong>
+                            {company.ownerEmail ? <span className="admin-cell-subtle">{company.ownerEmail}</span> : null}
+                          </>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td>{company.timezone}</td>
+                      <td>
+                        <span className={`admin-status ${company.ownerStatus}`}>{company.ownerStatus}</span>
+                      </td>
+                      <td>{formatDate(company.updatedAt)}</td>
+                      <td>
+                        {company.ownerStatus === 'invited' ? (
+                          <button
+                            className="icon-button"
+                            type="button"
+                            disabled={resendingOrgId === company.id}
+                            onClick={() =>
+                              void onResendOwnerInvite(company.id, company.ownerName, company.ownerEmail)
+                            }
+                          >
+                            <Mail size={15} aria-hidden="true" />
+                            {resendingOrgId === company.id ? 'Sending…' : 'Resend invite'}
+                          </button>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        ) : activeTab === 'calendar' ? (
+          <div className="admin-list-panel" role="tabpanel">
+            <div className="admin-list-header">
+              <div>
+                <h2>Calendar</h2>
+                <p>Organization working-day window used by day and week views</p>
+              </div>
+            </div>
+            <label>
+              Organization
+              <select
+                value={selectedOrgId ?? ''}
+                onChange={(event) => setSelectedOrgId(event.target.value || null)}
+              >
+                <option value="">Select organization</option>
+                {(orgsQuery.data ?? []).map((org) => (
+                  <option key={org.id} value={org.id}>
+                    {org.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {selectedOrgId ? <WorkingDaySettings organizationId={selectedOrgId} /> : null}
+          </div>
+        ) : (
+          <div className="admin-list-panel" role="tabpanel">
+            <div className="admin-list-header">
+              <div>
+                <h2>{adminTabs.find((tab) => tab.id === activeTab)?.label}</h2>
+                <p>{rows.length} records available in this list view</p>
+              </div>
+              {(activeTab === 'personnel' || activeTab === 'shifts' || activeTab === 'notes') && (
+                <label>
+                  Organization
+                  <select
+                    value={selectedOrgId ?? ''}
+                    onChange={(event) => setSelectedOrgId(event.target.value || null)}
+                  >
+                    <option value="">Select organization</option>
+                    {(orgsQuery.data ?? []).map((org) => (
+                      <option key={org.id} value={org.id}>
+                        {org.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </div>
+
+            <div className="admin-table-shell">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Details</th>
+                    <th>Status</th>
+                    <th>Owner</th>
+                    <th>Updated</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr key={row.id}>
+                      <td>{row.primary}</td>
+                      <td>{row.secondary}</td>
+                      <td>
+                        <span className={`admin-status ${row.status}`}>{row.status}</span>
+                      </td>
+                      <td>{row.owner}</td>
+                      <td>{row.updatedAt}</td>
+                      <td>
+                        <div className="admin-row-actions">
+                          <button type="button" aria-label={`Edit ${row.primary}`} title="Edit">
+                            <Pencil size={15} aria-hidden="true" />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`Toggle active status for ${row.primary}`}
+                            title="Active/Inactive"
+                          >
+                            <ArchiveRestore size={15} aria-hidden="true" />
+                          </button>
+                          <button
+                            className="danger"
+                            type="button"
+                            aria-label={`Hard delete ${row.primary}`}
+                            title="Hard delete"
+                          >
+                            <Trash2 size={15} aria-hidden="true" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </section>
     </main>
   )
 }
 
-function useAdminRows(activeTab: AdminTab): AdminActionRow[] {
+function formatDate(value: string | null | undefined) {
+  if (!value) return '—'
+  return new Date(value).toLocaleString()
+}
+
+function readJoinedName(value: { name: string } | { name: string }[] | null | undefined) {
+  if (!value) return undefined
+  if (Array.isArray(value)) return value[0]?.name
+  return value.name
+}
+
+function readProfileName(
+  value: { full_name: string } | { full_name: string }[] | null | undefined,
+) {
+  if (!value) return undefined
+  if (Array.isArray(value)) return value[0]?.full_name
+  return value.full_name
+}
+
+function useAdminRows(input: {
+  activeTab: AdminTab
+  companies: Array<{
+    id: string
+    name: string
+    timezone: string
+    status: string
+    updatedAt: string
+    ownerStatus: string
+  }>
+  orgs: Array<{ id: string; name: string; timezone: string; status: string; updated_at: string }>
+  members: Array<{
+    id: string
+    role: string
+    status: string
+    updated_at: string
+    organizations?: { name: string } | { name: string }[] | null
+    profiles?: { full_name: string } | { full_name: string }[] | null
+  }>
+  audit: Array<{
+    id: string
+    action: string
+    entity_table: string
+    entity_id: string | null
+    created_at: string
+    organization_id: string | null
+  }>
+  personnel: Array<{ id: string; fullName: string; title: string; companyRoleName: string; status: string; skills: string[] }>
+  calendarItems: Array<{ id: string; kind: string; title: string; assignedPersonnelIds: string[]; priority: string; noteCategory?: string }>
+}): AdminActionRow[] {
+  const { activeTab, companies, orgs, members, audit, personnel: livePersonnel, calendarItems: liveCalendar } = input
+
   return useMemo(() => {
-    if (activeTab === 'users') {
-      return [
-        {
-          id: 'admin-user',
-          primary: 'tsormang@gmail.com',
-          secondary: 'Developer Admin',
-          status: 'active',
-          owner: 'Platform',
-          updatedAt: 'Today',
-        },
-        ...personnel.map((person) => ({
+    if (!isSupabaseConfigured) {
+      if (activeTab === 'users') {
+        return personnel.map((person) => ({
           id: `user-${person.id}`,
           primary: person.fullName,
-          secondary: roleLabels[person.role],
+          secondary: person.companyRoleName,
           status: person.status,
           owner: 'Central Pharmacy',
           updatedAt: 'Today',
-        })),
-      ]
+        }))
+      }
+
+      if (activeTab === 'companies') {
+        return pharmacyLocations.map((location) => ({
+          id: location.id,
+          primary: location.name,
+          secondary: location.timezone,
+          status: 'active',
+          owner: 'MnemoNotes',
+          updatedAt: 'Today',
+        }))
+      }
+    }
+
+    if (activeTab === 'users') {
+      return members.map((member) => ({
+        id: member.id,
+        primary: readProfileName(member.profiles) ?? member.id,
+        secondary: `${member.role} · ${readJoinedName(member.organizations) ?? 'Organization'}`,
+        status: member.status === 'disabled' ? 'inactive' : (member.status as AdminActionRow['status']),
+        owner: readJoinedName(member.organizations) ?? 'Organization',
+        updatedAt: formatDate(member.updated_at),
+      }))
     }
 
     if (activeTab === 'personnel') {
-      return personnel.map((person) => ({
+      return livePersonnel.map((person) => ({
         id: person.id,
         primary: person.fullName,
-        secondary: `${person.title} · ${person.skills.join(', ')}`,
-        status: person.status,
-        owner: pharmacyLocations.find((location) => location.id === person.locationId)?.name ?? 'Pharmacy',
-        updatedAt: 'Today',
+        secondary: `${person.title} · ${person.companyRoleName}`,
+        status: person.status as AdminActionRow['status'],
+        owner: 'Tenant',
+        updatedAt: 'Live',
       }))
     }
 
     if (activeTab === 'shifts') {
-      return calendarItems
+      return liveCalendar
         .filter((item) => item.kind === 'shift')
         .map((item) => ({
           id: item.id,
           primary: item.title,
           secondary: `${item.assignedPersonnelIds.length} assigned personnel`,
           status: 'published',
-          owner: pharmacyLocations.find((location) => location.id === item.locationId)?.name ?? 'Pharmacy',
-          updatedAt: 'Today',
+          owner: 'Tenant',
+          updatedAt: 'Live',
         }))
     }
 
     if (activeTab === 'notes') {
-      return calendarItems
+      return liveCalendar
         .filter((item) => item.kind === 'note' || item.kind === 'task')
         .map((item) => ({
           id: item.id,
           primary: item.title,
           secondary: item.noteCategory ?? item.kind,
           status: item.priority === 'critical' ? 'critical' : 'published',
-          owner: pharmacyLocations.find((location) => location.id === item.locationId)?.name ?? 'Pharmacy',
-          updatedAt: 'Today',
+          owner: 'Tenant',
+          updatedAt: 'Live',
         }))
     }
 
-    if (activeTab === 'pharmacies') {
-      return pharmacyLocations.map((location) => ({
-        id: location.id,
-        primary: location.name,
-        secondary: `${location.address} · ${location.openingHours}`,
-        status: 'active',
-        owner: 'MnemoNotes',
-        updatedAt: 'Today',
+    if (activeTab === 'companies') {
+      return companies.map((company) => ({
+        id: company.id,
+        primary: company.name,
+        secondary: company.timezone,
+        status: company.ownerStatus as AdminActionRow['status'],
+        owner: 'Platform',
+        updatedAt: formatDate(company.updatedAt),
       }))
     }
 
-    return [
-      {
-        id: 'audit-1',
-        primary: 'Platform admin permissions expanded',
-        secondary: 'Developer Admin granted hard-delete and tenant-control permissions',
-        status: 'critical',
-        owner: 'Platform',
-        updatedAt: 'Today',
-      },
-      {
-        id: 'audit-2',
-        primary: 'Admin console viewed',
-        secondary: 'List views opened for platform management',
+    if (activeTab === 'audit') {
+      return audit.map((entry) => ({
+        id: entry.id,
+        primary: entry.action,
+        secondary: `${entry.entity_table}${entry.entity_id ? ` · ${entry.entity_id}` : ''}`,
         status: 'published',
-        owner: 'Platform',
-        updatedAt: 'Today',
-      },
-    ]
-  }, [activeTab])
+        owner: entry.organization_id ?? 'Platform',
+        updatedAt: formatDate(entry.created_at),
+      }))
+    }
+
+    return calendarItems.map((item) => ({
+      id: item.id,
+      primary: item.title,
+      secondary: item.kind,
+      status: 'published',
+      owner: 'Demo',
+      updatedAt: 'Today',
+    }))
+  }, [activeTab, audit, companies, liveCalendar, livePersonnel, members, orgs])
 }

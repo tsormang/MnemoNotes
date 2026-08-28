@@ -19,16 +19,15 @@ Initial vertical: pharmacies.
 Core roles:
 
 - Developer Admin: platform/operator role, manually seeded, MFA required in production.
-- Owner: registers and manages a pharmacy workspace.
-- Manager: delegated scheduling and personnel management.
-- Personnel: invited staff user with assignment and note acknowledgement access.
-- Viewer: read-only operational visibility.
+- Owner: company-level operational authority for a provisioned workspace.
+- Company roles: custom per-organization roles (for example Manager, Pharmacist, Viewer) with configurable permission sets.
 
 Initial workflows:
 
-- Pharmacy owner registration
-- Personnel invitation
-- Weekly/monthly/yearly calendar views
+- Platform admin provisions a company and assigns its owner account
+- Owner invites personnel through trusted Edge Functions
+- Personnel accept invites and inherit permissions from their company role
+- Weekly/monthly calendar views (read-only in Phase 1; editing arrives in Phase 2)
 - Shift and note planning
 - Personnel assignment
 - Before/during/after notification rules
@@ -67,24 +66,29 @@ pnpm admin:create
 
 The script creates or updates the Supabase Auth user, writes the profile row, and inserts the user into `platform_admins`.
 
-Admin-only hard deletes and Auth user status changes belong behind:
+Sign in as Developer Admin, open `/admin`, and use **Pharmacies → Create company** to provision a tenant and owner account. There is no public owner self-registration route.
+
+Trusted Edge Functions for Phase 1:
 
 ```bash
-supabase functions serve admin-records
+supabase functions serve admin-provision-company invite-personnel accept-invite admin-records
 ```
 
 ## Important Paths
 
-- `src/App.tsx`: routes and app shell
-- `src/features/calendar/PharmacyCalendar.tsx`: initial pharmacy calendar surface
-- `src/features/auth/AuthScreens.tsx`: login, owner registration, invite acceptance placeholders
-- `src/features/admin/AdminConsole.tsx`: Developer Admin tabbed list views
-- `src/lib/access-control.ts`: frontend role and permission map
-- `supabase/migrations/20260827100000_initial_pharmacy_security.sql`: initial schema and RLS policies
+- `src/App.tsx`: routes, guards, and app shell
+- `src/features/calendar/PharmacyCalendar.tsx`: live read-only calendar surface
+- `src/features/auth/AuthProvider.tsx` and `WorkspaceProvider.tsx`: session and permission context
+- `src/features/auth/AuthScreens.tsx`: login and invite acceptance
+- `src/features/admin/AdminConsole.tsx`: Developer Admin provisioning and list views
+- `src/lib/access-control.ts`: static owner/platform permission bundles
+- `src/lib/queries/workspace.ts`: TanStack Query hooks for org, personnel, and calendar data
+- `supabase/migrations/20260827130000_company_roles.sql`: custom company roles and invite tokens
+- `supabase/functions/admin-provision-company/index.ts`: platform admin company provisioning
+- `supabase/functions/invite-personnel/index.ts` and `accept-invite/index.ts`: personnel invite flow
 - `supabase/functions/admin-records/index.ts`: service-role platform-admin actions
 - `scripts/create-platform-admin.mjs`: secure local setup for the Developer Admin account
-- `supabase/seed.sql`: default permission seed data
 
 ## Development Notes
 
-The current app uses demo data so the product shape is visible before Supabase credentials are configured. Live auth and persistence should be wired through Edge Functions for owner registration and personnel invitation, because those flows need trusted server-side access.
+When Supabase is not configured, the app falls back to demo data so the product shape remains visible. With Supabase configured, `/app` requires authentication and calendar/personnel data loads through RLS-safe queries.

@@ -1,4 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
+import { loadEnvLocal, validateHostedEnv } from './load-env-local.mjs'
+
+loadEnvLocal(process.cwd(), { override: true })
 
 const args = new Map(
   process.argv
@@ -14,6 +17,15 @@ const supabaseUrl = process.env.SUPABASE_URL
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 const email = args.get('email') || process.env.ADMIN_EMAIL
 const password = process.env.ADMIN_PASSWORD
+
+const envErrors = validateHostedEnv()
+if (envErrors.length > 0) {
+  console.error('Invalid Supabase admin environment:\n')
+  for (const error of envErrors) {
+    console.error(`  • ${error}`)
+  }
+  process.exit(1)
+}
 
 if (!supabaseUrl || !serviceRoleKey || !email || !password) {
   console.error(

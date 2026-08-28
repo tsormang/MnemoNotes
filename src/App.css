@@ -41,8 +41,14 @@
   width: 36px;
   height: 36px;
   border-radius: var(--radius-md);
-  background: var(--color-brand-bright);
-  color: #fff;
+  overflow: hidden;
+}
+
+.brand-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .brand-name {
@@ -442,7 +448,7 @@
 }
 
 .fc .fc-day-today {
-  background: rgb(234 247 241 / 45%) !important;
+  background: color-mix(in srgb, var(--color-brand-soft) 55%, transparent) !important;
 }
 
 .fc .fc-daygrid-day-frame {
@@ -1405,10 +1411,10 @@
   grid-template-columns: 30px minmax(0, 1fr);
   gap: 10px;
   color: var(--color-brand);
-  border: 1px solid #cce9db;
+  border: 1px solid var(--color-brand-soft-border);
   border-radius: var(--radius-md);
   padding: 14px;
-  background: #f4fbf8;
+  background: var(--color-brand-surface);
 }
 
 /* ——— Embedded feature content (inside modals) ——— */
@@ -1462,7 +1468,7 @@
   align-items: center;
   gap: 7px;
   border-radius: 999px;
-  color: #24654a;
+  color: var(--color-brand-dark);
   background: var(--color-brand-soft);
   padding: 7px 10px;
   font-size: 13px;
@@ -1482,7 +1488,7 @@ table {
 
 th,
 td {
-  border-bottom: 1px solid #e8eeeb;
+  border-bottom: 1px solid var(--color-border);
   padding: 13px 14px;
   text-align: left;
   white-space: nowrap;
@@ -1526,7 +1532,7 @@ th {
 }
 
 .role-card li {
-  color: #344a42;
+  color: var(--color-text-subtle);
   font-size: 13px;
 }
 
@@ -1592,7 +1598,7 @@ th {
 }
 
 .audit-row-details td {
-  background: #f8faf9;
+  background: var(--color-bg);
   border-top: 0;
   padding-top: 0;
 }
@@ -1671,7 +1677,7 @@ th {
   white-space: nowrap;
   font-size: 12px;
   padding: 8px 10px;
-  background: #f4f8f6;
+  background: var(--color-bg-brand);
   border-radius: var(--radius-sm);
 }
 
@@ -1691,7 +1697,7 @@ th {
 }
 
 .account-link--linked {
-  color: #24654a;
+  color: var(--color-brand-dark);
 }
 
 .account-link--invited {
@@ -1863,7 +1869,7 @@ th {
   min-height: 100vh;
   place-items: center;
   padding: 24px;
-  background: #eef4f1;
+  background: var(--color-bg-brand);
 }
 
 .auth-card,
@@ -1890,7 +1896,7 @@ th {
 }
 
 .auth-form label {
-  color: #344a42;
+  color: var(--color-text-subtle);
   display: grid;
   gap: 7px;
   font-size: 14px;
@@ -1898,7 +1904,7 @@ th {
 }
 
 .auth-form input {
-  border: 1px solid #cfdad5;
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
   color: var(--color-text);
   font: inherit;
@@ -1920,8 +1926,8 @@ th {
 
 .invite-card {
   align-items: center;
-  background: #f4fbf8;
-  border: 1px solid #cce9db;
+  background: var(--color-brand-surface);
+  border: 1px solid var(--color-brand-soft-border);
   border-radius: var(--radius-md);
   color: var(--color-brand);
   display: grid;

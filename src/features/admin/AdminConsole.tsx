@@ -18,6 +18,7 @@ import {
 import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useQueryClient } from '@tanstack/react-query'
+import { BrandMark } from '../../components/BrandMark'
 import { calendarItems, personnel, pharmacyLocations } from '../../data/demo'
 import { formatDateTime24 } from '../../lib/calendar-datetime'
 import { invokeEdgeFunction } from '../../lib/edge-functions'
@@ -142,6 +143,8 @@ export function AdminConsole() {
   const closeCreateCompanyModal = () => {
     setCreateCompanyOpen(false)
     setProvisionError(null)
+    setProvisionSuccess(null)
+    setInviteLink(null)
     provisionForm.reset({
       organizationName: '',
       timezone: 'Europe/Athens',
@@ -177,9 +180,7 @@ export function AdminConsole() {
     <main className="admin-console">
       <header className="admin-topbar">
         <div className="brand">
-          <div className="brand-mark">
-            <Building2 size={20} aria-hidden="true" />
-          </div>
+          <BrandMark />
           <div>
             <strong className="brand-name">MnemoNotes Admin</strong>
             <span className="brand-subtitle">Platform company management</span>

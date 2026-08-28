@@ -11,6 +11,7 @@ import {
 import { useCallback, useState } from 'react'
 import { Navigate, NavLink, Outlet, Route, Routes, useNavigate } from 'react-router-dom'
 import './App.css'
+import { BrandMark } from './components/BrandMark'
 import { Modal } from './components/Modal'
 import { AdminConsole } from './features/admin/AdminConsole'
 import { AcceptInviteScreen, LoginScreen, SignOutButton } from './features/auth/AuthScreens'
@@ -128,9 +129,7 @@ function AppShell() {
     <div className="app-shell">
       <header className="app-bar">
         <NavLink className="brand" to="/app/calendar">
-          <div className="brand-mark">
-            <CalendarDays size={20} aria-hidden="true" />
-          </div>
+          <BrandMark />
           <div>
             <strong className="brand-name">MnemoNotes</strong>
             {membership ? <span className="brand-subtitle">{membership.workspaceLabel}</span> : null}

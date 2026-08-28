@@ -50,13 +50,15 @@ function AccountLinkBadge({ accountLink }: { accountLink: PersonnelAccountLink }
 }
 
 export function PersonnelManagement() {
-  const { organizationId } = useWorkspace()
+  const { organizationId, membership } = useWorkspace()
   const canInviteUsers = useCan('users.invite')
   const canManagePersonnel = useCan('personnel.manage')
   const canInvite = canInviteUsers && canManagePersonnel
   const personnelQuery = usePersonnelList(organizationId)
   const rolesQuery = useCompanyRoles(organizationId)
-  const companyLocation = useCompanyLocation(organizationId)
+  const companyLocation = useCompanyLocation(organizationId, {
+    fallbackCompanyName: membership?.organizationName,
+  })
   const createPersonnel = useCreatePersonnel(organizationId)
   const updatePersonnel = useUpdatePersonnel(organizationId)
   const queryClient = useQueryClient()
@@ -218,7 +220,7 @@ export function PersonnelManagement() {
           </label>
           <CompanyLocationField
             companyName={companyLocation.companyName}
-            loading={companyLocation.loading}
+            loading={companyLocation.companyNameLoading}
           />
           <label>
             Title

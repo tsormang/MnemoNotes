@@ -530,6 +530,7 @@ export type Database = {
           created_by: string | null
           id: string
           name: string
+          settings: Json
           status: string
           timezone: string
           updated_at: string
@@ -542,6 +543,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           name: string
+          settings?: Json
           status?: string
           timezone?: string
           updated_at?: string
@@ -554,6 +556,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           name?: string
+          settings?: Json
           status?: string
           timezone?: string
           updated_at?: string

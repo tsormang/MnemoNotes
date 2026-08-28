@@ -26,7 +26,11 @@ export interface PendingAcknowledgement {
   requiresAcknowledgement: boolean
 }
 
-export function useInAppNotifications(organizationId: string | null, userId: string | null) {
+export function useInAppNotifications(
+  organizationId: string | null,
+  userId: string | null,
+  refetchInterval = 60_000,
+) {
   return useQuery({
     queryKey: ['notifications', organizationId, userId],
     queryFn: async (): Promise<InAppNotification[]> => {
@@ -67,7 +71,7 @@ export function useInAppNotifications(organizationId: string | null, userId: str
       })
     },
     enabled: Boolean(organizationId && userId && isSupabaseConfigured),
-    refetchInterval: 60_000,
+    refetchInterval,
   })
 }
 
@@ -193,6 +197,37 @@ export function formatNotificationTiming(
 
 export function isNotificationDue(scheduledFor: string): boolean {
   return new Date(scheduledFor).getTime() <= Date.now()
+}
+
+/** Skip notifications already surfaced as toasts or desktop popups. */
+export function markAndFilterNewDueNotifications(
+  dueNotifications: InAppNotification[],
+  shownIds: Set<string>,
+): InAppNotification[] {
+  const fresh: InAppNotification[] = []
+
+  for (const notification of dueNotifications) {
+    if (shownIds.has(notification.id)) continue
+    shownIds.add(notification.id)
+    fresh.push(notification)
+  }
+
+  return fresh
+}
+
+export function getDemoPendingAcknowledgements(
+  calendarItems: CalendarItem[],
+): PendingAcknowledgement[] {
+  return calendarItems
+    .filter((item) => item.requiresAcknowledgement)
+    .map((item) => ({
+      calendarItemId: item.id,
+      title: item.title,
+      kind: item.kind,
+      startsAt: item.startsAt,
+      endsAt: item.endsAt,
+      requiresAcknowledgement: item.requiresAcknowledgement,
+    }))
 }
 
 /** Demo fallback when Supabase is not configured. */

@@ -111,6 +111,26 @@
   color: var(--color-brand);
 }
 
+.icon-ghost--badged {
+  position: relative;
+}
+
+.icon-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--color-danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
 .icon-primary {
   display: grid;
   place-items: center;
@@ -977,7 +997,147 @@
 
 .notifications-toolbar {
   display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
   justify-content: flex-end;
+  align-items: center;
+}
+
+.notifications-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-brand);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.notifications-status--muted {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.notification-defaults-settings,
+.notification-offset-picker {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.notification-defaults-settings {
+  margin-bottom: 24px;
+}
+
+.notification-defaults-settings__heading,
+.notification-offset-picker legend {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.notification-defaults-settings__icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--color-brand-soft);
+  color: var(--color-brand);
+}
+
+.notification-defaults-settings h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.notification-defaults-settings p {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.notification-defaults-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.notification-defaults-row {
+  display: grid;
+  gap: 10px;
+}
+
+.offset-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.offset-chip {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.offset-chip:hover:not(:disabled) {
+  border-color: var(--color-brand);
+  color: var(--color-brand);
+}
+
+.offset-chip--selected {
+  border-color: var(--color-brand);
+  background: var(--color-brand-soft);
+  color: var(--color-brand);
+  font-weight: 600;
+}
+
+.toast-stack {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1200;
+  display: grid;
+  gap: 10px;
+  width: min(360px, calc(100vw - 32px));
+}
+
+.toast-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16);
+}
+
+.toast-card__body strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.toast-card__body p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.toast-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.toast-card__dismiss {
+  margin-left: auto;
 }
 
 /* ——— Workforce statistics ——— */

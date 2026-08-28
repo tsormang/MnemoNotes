@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, type QueryClient } from '@tanstack/react-query'
 import { personnel as demoPersonnel, pharmacyLocations as demoLocations, calendarItems as demoCalendarItems } from '../../data/demo'
 import { parseSeriesId } from '../calendar-series'
+import { parseNotificationDefaults } from '../notification-schedule'
 import { isSupabaseConfigured, supabase } from '../supabase'
 import type {
   AppPermission,
@@ -18,76 +19,150 @@ function formatTimeValue(value: string | null | undefined): string {
   return value.slice(0, 5)
 }
 
+/** Org metadata and locations change rarely — keep warm across modal opens. */
+export const WORKSPACE_STATIC_STALE_TIME = 5 * 60_000
+
+export const workspaceQueryKeys = {
+  organization: (organizationId: string | null) => ['organization', organizationId] as const,
+  locations: (organizationId: string | null) => ['locations', organizationId] as const,
+}
+
+async function fetchOrganization(organizationId: string): Promise<Organization | null> {
+  if (!supabase) return null
+
+  const { data, error } = await supabase
+    .from('organizations')
+    .select('id, name, timezone, working_day_start, working_day_end, settings')
+    .eq('id', organizationId)
+    .maybeSingle()
+
+  if (error) throw error
+  if (!data) return null
+
+  const settings = (data.settings ?? {}) as Record<string, unknown>
+
+  return {
+    id: data.id,
+    name: data.name,
+    timezone: data.timezone,
+    workingDayStart: formatTimeValue(data.working_day_start),
+    workingDayEnd: formatTimeValue(data.working_day_end),
+    notificationDefaults: parseNotificationDefaults(settings.notificationDefaults),
+  }
+}
+
+async function fetchLocations(organizationId: string): Promise<PharmacyLocation[]> {
+  if (!supabase) return demoLocations
+
+  const { data, error } = await supabase
+    .from('locations')
+    .select('id, name, address, timezone, operating_hours')
+    .eq('organization_id', organizationId)
+    .order('created_at')
+
+  if (error) throw error
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    address: row.address ?? '',
+    timezone: row.timezone,
+    openingHours:
+      typeof row.operating_hours === 'object' &&
+      row.operating_hours &&
+      'label' in (row.operating_hours as Record<string, unknown>)
+        ? String((row.operating_hours as Record<string, unknown>).label)
+        : '07:00 - 21:00',
+  }))
+}
+
+/** Warm org + location queries as soon as the workspace is known. */
+export function prefetchWorkspaceBootstrap(
+  queryClient: QueryClient,
+  organizationId: string,
+  seedOrganizationName?: string | null,
+) {
+  if (!isSupabaseConfigured) return
+
+  if (seedOrganizationName) {
+    queryClient.setQueryData<Organization | null>(
+      workspaceQueryKeys.organization(organizationId),
+      (current) =>
+        current ??
+        ({
+          id: organizationId,
+          name: seedOrganizationName,
+          timezone: 'UTC',
+          workingDayStart: '07:00',
+          workingDayEnd: '21:00',
+          notificationDefaults: parseNotificationDefaults(undefined),
+        } satisfies Organization),
+    )
+  }
+
+  void queryClient.prefetchQuery({
+    queryKey: workspaceQueryKeys.organization(organizationId),
+    queryFn: () => fetchOrganization(organizationId),
+    staleTime: WORKSPACE_STATIC_STALE_TIME,
+  })
+
+  void queryClient.prefetchQuery({
+    queryKey: workspaceQueryKeys.locations(organizationId),
+    queryFn: () => fetchLocations(organizationId),
+    staleTime: WORKSPACE_STATIC_STALE_TIME,
+  })
+}
+
 export function useOrganization(organizationId: string | null) {
   return useQuery({
-    queryKey: ['organization', organizationId],
+    queryKey: workspaceQueryKeys.organization(organizationId),
     queryFn: async (): Promise<Organization | null> => {
       if (!organizationId || !supabase) return null
-
-      const { data, error } = await supabase
-        .from('organizations')
-        .select('id, name, timezone, working_day_start, working_day_end')
-        .eq('id', organizationId)
-        .maybeSingle()
-
-      if (error) throw error
-      if (!data) return null
-
-      return {
-        id: data.id,
-        name: data.name,
-        timezone: data.timezone,
-        workingDayStart: formatTimeValue(data.working_day_start),
-        workingDayEnd: formatTimeValue(data.working_day_end),
-      }
+      return fetchOrganization(organizationId)
     },
     enabled: Boolean(organizationId && isSupabaseConfigured),
+    staleTime: WORKSPACE_STATIC_STALE_TIME,
   })
 }
 
 export function useLocations(organizationId: string | null) {
   return useQuery({
-    queryKey: ['locations', organizationId],
+    queryKey: workspaceQueryKeys.locations(organizationId),
     queryFn: async (): Promise<PharmacyLocation[]> => {
       if (!organizationId || !supabase) return demoLocations
-
-      const { data, error } = await supabase
-        .from('locations')
-        .select('id, name, address, timezone, operating_hours')
-        .eq('organization_id', organizationId)
-        .order('created_at')
-
-      if (error) throw error
-
-      return (data ?? []).map((row) => ({
-        id: row.id,
-        name: row.name,
-        address: row.address ?? '',
-        timezone: row.timezone,
-        openingHours:
-          typeof row.operating_hours === 'object' &&
-          row.operating_hours &&
-          'label' in (row.operating_hours as Record<string, unknown>)
-            ? String((row.operating_hours as Record<string, unknown>).label)
-            : '07:00 - 21:00',
-      }))
+      return fetchLocations(organizationId)
     },
     enabled: Boolean(organizationId && isSupabaseConfigured),
+    staleTime: WORKSPACE_STATIC_STALE_TIME,
   })
 }
 
 /** Primary org location + company name for readonly location fields. */
-export function useCompanyLocation(organizationId: string | null) {
+export function useCompanyLocation(
+  organizationId: string | null,
+  options?: { fallbackCompanyName?: string | null },
+) {
   const orgQuery = useOrganization(organizationId)
   const locationsQuery = useLocations(organizationId)
 
-  const companyName = orgQuery.data?.name ?? demoLocations[0]?.name ?? 'Company'
-  const locationId = locationsQuery.data?.[0]?.id ?? demoLocations[0]?.id ?? ''
+  const demoFallback = isSupabaseConfigured ? null : demoLocations[0]
+  const companyName =
+    orgQuery.data?.name ??
+    options?.fallbackCompanyName ??
+    demoFallback?.name ??
+    'Company'
+  const locationId = locationsQuery.data?.[0]?.id ?? demoFallback?.id ?? ''
+  const hasCompanyName = Boolean(
+    orgQuery.data?.name ?? options?.fallbackCompanyName ?? demoFallback?.name,
+  )
 
   return {
     companyName,
     locationId,
-    loading: orgQuery.isLoading || locationsQuery.isLoading,
+    /** True while the readonly company label has nothing to show yet. */
+    companyNameLoading: !hasCompanyName && orgQuery.isLoading,
+    /** True while the primary location id is still loading. */
+    loading: locationsQuery.isLoading,
     ready: Boolean(locationId),
   }
 }

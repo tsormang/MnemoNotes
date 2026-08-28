@@ -1,11 +1,13 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useMemo,
   type PropsWithChildren,
 } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { rolePermissions } from '../../lib/access-control'
+import { prefetchWorkspaceBootstrap } from '../../lib/queries/workspace'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 import type { AppPermission, AppRole, WorkspaceMembership } from '../../types/domain'
 import { useAuth } from './AuthProvider'
@@ -35,6 +37,7 @@ async function loadWorkspace(userId: string): Promise<WorkspaceMembership | null
     return {
       organizationId: '',
       organizationName: 'Platform',
+      workspaceLabel: 'Platform',
       systemRole: 'developer_admin',
       personnelId: null,
       companyRoleId: null,
@@ -63,6 +66,7 @@ async function loadWorkspace(userId: string): Promise<WorkspaceMembership | null
     return {
       organizationId: member.organization_id,
       organizationName,
+      workspaceLabel: organizationName,
       systemRole: 'owner',
       personnelId: null,
       companyRoleId: null,
@@ -81,6 +85,7 @@ async function loadWorkspace(userId: string): Promise<WorkspaceMembership | null
     return {
       organizationId: member.organization_id,
       organizationName,
+      workspaceLabel: organizationName,
       systemRole: member.role as AppRole,
       personnelId: null,
       companyRoleId: null,
@@ -104,7 +109,8 @@ async function loadWorkspace(userId: string): Promise<WorkspaceMembership | null
 
   return {
     organizationId: member.organization_id,
-    organizationName: `${organizationName} · ${companyRoleName}`,
+    organizationName,
+    workspaceLabel: `${organizationName} · ${companyRoleName}`,
     systemRole: member.role as AppRole,
     personnelId: personnel.id,
     companyRoleId: personnel.company_role_id,
@@ -114,6 +120,7 @@ async function loadWorkspace(userId: string): Promise<WorkspaceMembership | null
 
 export function WorkspaceProvider({ children }: PropsWithChildren) {
   const { user, loading: authLoading } = useAuth()
+  const queryClient = useQueryClient()
 
   const query = useQuery({
     queryKey: ['workspace', user?.id],
@@ -126,6 +133,15 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
 
   const membership = query.data ?? null
   const loading = authLoading || (Boolean(user) && query.isLoading)
+
+  useEffect(() => {
+    if (!membership?.organizationId) return
+    prefetchWorkspaceBootstrap(
+      queryClient,
+      membership.organizationId,
+      membership.organizationName,
+    )
+  }, [membership?.organizationId, membership?.organizationName, queryClient])
 
   const value = useMemo<WorkspaceContextValue>(
     () => ({

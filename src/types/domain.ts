@@ -54,6 +54,14 @@ export interface Organization {
   timezone: string
   workingDayStart: string
   workingDayEnd: string
+  notificationDefaults: NotificationDefaults
+}
+
+export interface NotificationDefaults {
+  shift: number[]
+  ackRequired: number[]
+  note: number[]
+  task: number[]
 }
 
 export interface PharmacyLocation {
@@ -110,7 +118,10 @@ export interface CalendarItem {
 
 export interface WorkspaceMembership {
   organizationId: string
+  /** Organization name without role suffix. */
   organizationName: string
+  /** App header subtitle; may include company role for personnel. */
+  workspaceLabel: string
   systemRole: AppRole | null
   personnelId: string | null
   companyRoleId: string | null

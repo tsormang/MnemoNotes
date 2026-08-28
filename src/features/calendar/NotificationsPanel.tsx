@@ -1,10 +1,13 @@
-import { Bell, Check, Clock, RefreshCw, ShieldAlert } from 'lucide-react'
+import { Bell, Check, Clock, Monitor, RefreshCw, ShieldAlert } from 'lucide-react'
 import { format } from 'date-fns'
 import { useAuth } from '../auth/AuthProvider'
 import { useWorkspace } from '../auth/WorkspaceProvider'
+import { useNotifications } from '../notifications/NotificationProvider'
+import { calendarItems as demoCalendarItems } from '../../data/demo'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import {
   getDemoNotifications,
+  getDemoPendingAcknowledgements,
   isNotificationDue,
   useAcknowledgeCalendarItem,
   useInAppNotifications,
@@ -17,20 +20,26 @@ export function NotificationsPanel() {
   const { user } = useAuth()
   const { organizationId } = useWorkspace()
   const calendarQuery = useCalendarItems(organizationId)
+  const calendarItems = isSupabaseConfigured
+    ? (calendarQuery.data ?? [])
+    : demoCalendarItems
   const notificationsQuery = useInAppNotifications(organizationId, user?.id ?? null)
   const pendingAcksQuery = usePendingAcknowledgements(
     organizationId,
     user?.id ?? null,
-    calendarQuery.data ?? [],
+    calendarItems,
   )
   const acknowledgeItem = useAcknowledgeCalendarItem(organizationId, user?.id ?? null)
   const refreshNotifications = useRefreshNotifications()
+  const { desktopPermission, requestDesktopPermission } = useNotifications()
 
   const notifications = isSupabaseConfigured
     ? (notificationsQuery.data ?? [])
     : getDemoNotifications()
 
-  const pendingAcks = pendingAcksQuery.data ?? []
+  const pendingAcks = isSupabaseConfigured
+    ? (pendingAcksQuery.data ?? [])
+    : getDemoPendingAcknowledgements(demoCalendarItems)
   const dueNotifications = notifications.filter((item) => isNotificationDue(item.scheduledFor))
   const upcomingNotifications = notifications.filter((item) => !isNotificationDue(item.scheduledFor))
 
@@ -57,6 +66,27 @@ export function NotificationsPanel() {
 
       {isSupabaseConfigured ? (
         <div className="notifications-toolbar">
+          {desktopPermission === 'default' ? (
+            <button
+              className="button-secondary button-secondary--compact"
+              type="button"
+              onClick={() => void requestDesktopPermission()}
+            >
+              <Monitor size={16} aria-hidden="true" />
+              Enable desktop alerts
+            </button>
+          ) : null}
+          {desktopPermission === 'granted' ? (
+            <span className="notifications-status">
+              <Monitor size={14} aria-hidden="true" />
+              Desktop alerts on
+            </span>
+          ) : null}
+          {desktopPermission === 'denied' ? (
+            <span className="notifications-status notifications-status--muted">
+              Desktop alerts blocked in browser settings
+            </span>
+          ) : null}
           <button
             className="button-secondary button-secondary--compact"
             type="button"

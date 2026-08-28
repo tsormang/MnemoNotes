@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { Modal } from '../../components/Modal'
 import { CompanyLocationField } from '../../components/CompanyLocationField'
 import { DatetimeInput } from '../../components/DatetimeInput'
+import { NotificationOffsetPicker } from '../../components/NotificationOffsetPicker'
 import { useAuth } from '../auth/AuthProvider'
 import { useWorkspace } from '../auth/WorkspaceProvider'
 import { getCalendarItemDisplayLabel } from '../../lib/calendar-display'
@@ -27,6 +28,11 @@ import {
   usePersonnelList,
 } from '../../lib/queries/workspace'
 import { isSupabaseConfigured } from '../../lib/supabase'
+import {
+  offsetsEqual,
+  ORG_NOTIFICATION_DEFAULTS,
+  resolveNotificationOffsets,
+} from '../../lib/notification-schedule'
 import type { CalendarItem, CalendarItemKind } from '../../types/domain'
 import { calendarItemSchema, type CalendarItemInput } from '../../lib/validation'
 import { useCalendarShell, type CalendarEventDraft } from './CalendarShellContext'
@@ -42,9 +48,15 @@ function buildDefaults(
   draft: CalendarEventDraft | null,
   defaultLocationId: string,
   defaultKind: CalendarItemKind,
+  orgNotificationDefaults = ORG_NOTIFICATION_DEFAULTS,
 ): CalendarItemInput {
   if (item) {
     const snapped = normalizeEventRange(item.startsAt, item.endsAt)
+    const orgResolved = resolveNotificationOffsets({
+      kind: item.kind,
+      requiresAcknowledgement: item.requiresAcknowledgement,
+      orgDefaults: orgNotificationDefaults,
+    })
     return {
       title: item.title,
       description: item.description ?? '',
@@ -56,9 +68,12 @@ function buildDefaults(
       priority: item.priority,
       noteCategory: item.noteCategory ?? '',
       requiresAcknowledgement: item.requiresAcknowledgement,
+      notificationOffsets: item.notificationOffsets,
+      useCustomNotificationOffsets: !offsetsEqual(item.notificationOffsets, orgResolved),
     }
   }
 
+  const kind = draft?.kind ?? defaultKind
   const startsAt = draft?.startsAt ?? new Date().toISOString()
   const endsAt = draft?.endsAt ?? defaultEventEnd(startsAt)
   const snapped = normalizeEventRange(startsAt, endsAt)
@@ -66,7 +81,7 @@ function buildDefaults(
   return {
     title: '',
     description: '',
-    kind: draft?.kind ?? defaultKind,
+    kind,
     startsAt: snapped.startsAt,
     endsAt: snapped.endsAt,
     locationId: defaultLocationId,
@@ -74,6 +89,12 @@ function buildDefaults(
     priority: 'normal',
     noteCategory: '',
     requiresAcknowledgement: false,
+    notificationOffsets: resolveNotificationOffsets({
+      kind,
+      requiresAcknowledgement: false,
+      orgDefaults: orgNotificationDefaults,
+    }),
+    useCustomNotificationOffsets: false,
   }
 }
 
@@ -87,9 +108,11 @@ function CalendarEventModalContent({
   onClose: () => void
 }) {
   const { user } = useAuth()
-  const { organizationId, can } = useWorkspace()
+  const { organizationId, membership, can } = useWorkspace()
   const orgQuery = useOrganization(organizationId)
-  const companyLocation = useCompanyLocation(organizationId)
+  const companyLocation = useCompanyLocation(organizationId, {
+    fallbackCompanyName: membership?.organizationName,
+  })
   const personnelQuery = usePersonnelList(organizationId)
   const calendarQuery = useCalendarItems(organizationId)
   const upsertItem = useUpsertCalendarItem(organizationId, user?.id ?? null)
@@ -104,10 +127,32 @@ function CalendarEventModalContent({
       ? 'note'
       : 'task'
 
+  const orgNotificationDefaults = orgQuery.data?.notificationDefaults ?? ORG_NOTIFICATION_DEFAULTS
+  const canManageNotifications = can('organization.update') || can('notifications.manage')
+
   const form = useForm<CalendarItemInput>({
     resolver: zodResolver(calendarItemSchema),
-    defaultValues: buildDefaults(editingItem, createDraft, defaultLocationId, defaultKind),
+    defaultValues: buildDefaults(
+      editingItem,
+      createDraft,
+      defaultLocationId,
+      defaultKind,
+      orgNotificationDefaults,
+    ),
   })
+
+  useEffect(() => {
+    form.reset(
+      buildDefaults(editingItem, createDraft, defaultLocationId, defaultKind, orgNotificationDefaults),
+    )
+  }, [
+    createDraft,
+    defaultKind,
+    defaultLocationId,
+    editingItem,
+    form,
+    orgNotificationDefaults,
+  ])
 
   useEffect(() => {
     if (defaultLocationId) {
@@ -119,6 +164,28 @@ function CalendarEventModalContent({
   const startsAt = form.watch('startsAt')
   const endsAt = form.watch('endsAt')
   const assignedPersonnelIds = form.watch('assignedPersonnelIds')
+  const requiresAcknowledgement = form.watch('requiresAcknowledgement')
+  const notificationOffsets = form.watch('notificationOffsets')
+  const useCustomNotificationOffsets = form.watch('useCustomNotificationOffsets')
+
+  useEffect(() => {
+    if (useCustomNotificationOffsets) return
+    form.setValue(
+      'notificationOffsets',
+      resolveNotificationOffsets({
+        kind: watchedKind,
+        requiresAcknowledgement,
+        orgDefaults: orgNotificationDefaults,
+      }),
+      { shouldDirty: true },
+    )
+  }, [
+    form,
+    orgNotificationDefaults,
+    requiresAcknowledgement,
+    useCustomNotificationOffsets,
+    watchedKind,
+  ])
 
   const handleStartsAtChange = useCallback(
     (iso: string) => form.setValue('startsAt', iso, { shouldValidate: true, shouldDirty: true }),
@@ -173,6 +240,7 @@ function CalendarEventModalContent({
         id: editingItem?.id,
         seriesId: editingItem?.seriesId,
         timezone: orgQuery.data?.timezone,
+        orgNotificationDefaults,
       })
       onClose()
     } catch (error) {
@@ -229,7 +297,7 @@ function CalendarEventModalContent({
 
       <CompanyLocationField
         companyName={companyLocation.companyName}
-        loading={companyLocation.loading}
+        loading={companyLocation.companyNameLoading}
       />
       <input type="hidden" {...form.register('locationId')} />
 
@@ -311,6 +379,20 @@ function CalendarEventModalContent({
             ))}
           </div>
         </fieldset>
+      ) : null}
+
+      {canManageNotifications ? (
+        <NotificationOffsetPicker
+          offsets={notificationOffsets ?? []}
+          useCustom={useCustomNotificationOffsets ?? false}
+          disabled={!canSave}
+          onOffsetsChange={(offsets) =>
+            form.setValue('notificationOffsets', offsets, { shouldDirty: true })
+          }
+          onUseCustomChange={(value) =>
+            form.setValue('useCustomNotificationOffsets', value, { shouldDirty: true })
+          }
+        />
       ) : null}
 
       {conflictLabels.length > 0 ? (

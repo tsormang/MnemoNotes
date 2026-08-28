@@ -27,6 +27,7 @@ import { NotificationsPanel } from './features/calendar/NotificationsPanel'
 import { CalendarEventModal } from './features/calendar/CalendarEventModal'
 import { CalendarShellProvider, useCalendarShell } from './features/calendar/CalendarShellContext'
 import { PharmacyCalendar } from './features/calendar/PharmacyCalendar'
+import { NotificationProvider, useNotifications } from './features/notifications/NotificationProvider'
 import { PeopleScreen } from './features/people/PeopleScreen'
 import { AuditLogScreen } from './features/audit/AuditLogScreen'
 import { UserSecurityScreen } from './features/settings/UserSecurityScreen'
@@ -52,7 +53,9 @@ function App() {
           path="/app"
           element={
             <CalendarShellProvider>
-              <AppShell />
+              <NotificationProvider>
+                <AppShell />
+              </NotificationProvider>
             </CalendarShellProvider>
           }
         >
@@ -109,6 +112,8 @@ function AppShell() {
   const personnelQuery = usePersonnelList(organizationId)
   const canCreateEvents = useCan('shifts.create') || useCan('notes.create')
 
+  const { badgeCount } = useNotifications()
+
   const handleStatsDrillDown = useCallback(
     ({ personnelId }: { personnelId: string; fullName: string }) => {
       setPersonnelFilterId(personnelId)
@@ -128,7 +133,7 @@ function AppShell() {
           </div>
           <div>
             <strong className="brand-name">MnemoNotes</strong>
-            {membership ? <span className="brand-subtitle">{membership.organizationName}</span> : null}
+            {membership ? <span className="brand-subtitle">{membership.workspaceLabel}</span> : null}
           </div>
         </NavLink>
 
@@ -187,12 +192,13 @@ function AppShell() {
             <Settings size={19} aria-hidden="true" />
           </button>
           <button
-            className="icon-ghost"
+            className={`icon-ghost${badgeCount > 0 ? ' icon-ghost--badged' : ''}`}
             type="button"
-            aria-label="Notifications"
+            aria-label={badgeCount > 0 ? `Notifications (${badgeCount} due)` : 'Notifications'}
             onClick={() => setOpenModal('notifications')}
           >
             <Bell size={19} aria-hidden="true" />
+            {badgeCount > 0 ? <span className="icon-badge">{badgeCount}</span> : null}
           </button>
           <button
             className="icon-primary"

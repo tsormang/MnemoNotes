@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest'
 import {
   computeScheduledFor,
   defaultNotificationOffsets,
+  formatOffsetLabel,
+  normalizeNotificationOffsets,
   offsetToRuleTiming,
+  offsetsEqual,
+  ORG_NOTIFICATION_DEFAULTS,
+  resolveNotificationOffsets,
 } from './notification-schedule'
 
 describe('offsetToRuleTiming', () => {
@@ -31,6 +36,63 @@ describe('computeScheduledFor', () => {
   it('returns start for at_start', () => {
     const result = computeScheduledFor(startsAt, endsAt, 'at_start', 0)
     expect(result.toISOString()).toBe(startsAt)
+  })
+})
+
+describe('formatOffsetLabel', () => {
+  it('formats before-start offsets', () => {
+    expect(formatOffsetLabel(-30)).toBe('30 minutes before start')
+    expect(formatOffsetLabel(-60)).toBe('1 hour before start')
+  })
+
+  it('formats on-time', () => {
+    expect(formatOffsetLabel(0)).toBe('On time')
+  })
+})
+
+describe('normalizeNotificationOffsets', () => {
+  it('dedupes and sorts', () => {
+    expect(normalizeNotificationOffsets([0, -30, -30, -15])).toEqual([-30, -15, 0])
+  })
+})
+
+describe('offsetsEqual', () => {
+  it('compares normalized offsets', () => {
+    expect(offsetsEqual([-30, 0], [0, -30])).toBe(true)
+    expect(offsetsEqual([-30, 0], [-15, 0])).toBe(false)
+  })
+})
+
+describe('resolveNotificationOffsets', () => {
+  it('uses custom offsets when enabled', () => {
+    expect(
+      resolveNotificationOffsets({
+        kind: 'shift',
+        requiresAcknowledgement: false,
+        useCustomNotificationOffsets: true,
+        customOffsets: [-60, -15, 0],
+      }),
+    ).toEqual([-60, -15, 0])
+  })
+
+  it('uses org ack defaults', () => {
+    expect(
+      resolveNotificationOffsets({
+        kind: 'note',
+        requiresAcknowledgement: true,
+        orgDefaults: { ...ORG_NOTIFICATION_DEFAULTS, ackRequired: [-60, 0] },
+      }),
+    ).toEqual([-60, 0])
+  })
+
+  it('uses org kind defaults', () => {
+    expect(
+      resolveNotificationOffsets({
+        kind: 'shift',
+        requiresAcknowledgement: false,
+        orgDefaults: { ...ORG_NOTIFICATION_DEFAULTS, shift: [-60, -30, 0] },
+      }),
+    ).toEqual([-60, -30, 0])
   })
 })
 

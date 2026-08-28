@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useCan } from '../auth/WorkspaceProvider'
+import { NotificationDefaultsSettings } from './NotificationDefaultsSettings'
 import { WorkingDaySettings } from './WorkingDaySettings'
 
 export function UserSecurityScreen() {
@@ -15,6 +16,7 @@ export function UserSecurityScreen() {
       </div>
 
       <WorkingDaySettings compact />
+      <NotificationDefaultsSettings compact />
 
       {canManageRoles ? (
         <p className="modal-hint">

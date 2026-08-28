@@ -70,6 +70,8 @@ export const calendarItemSchema = z
     priority: z.enum(['low', 'normal', 'high', 'critical']),
     noteCategory: z.string().max(60).optional(),
     requiresAcknowledgement: z.boolean(),
+    notificationOffsets: z.array(z.number().int()),
+    useCustomNotificationOffsets: z.boolean(),
   })
   .refine((value) => new Date(value.endsAt).getTime() > new Date(value.startsAt).getTime(), {
     message: 'End time must be after start time',

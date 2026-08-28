@@ -6,9 +6,11 @@ import {
   type CalendarSeriesViewContext,
   type SeriesDuplicateMode,
 } from '../calendar-series'
-import { defaultNotificationOffsets } from '../notification-schedule'
+import { resolveNotificationOffsets } from '../notification-schedule'
+import { invokeEdgeFunction } from '../edge-functions'
 import { supabase } from '../supabase'
 import type { CalendarItemInput, CompanyRoleInput } from '../validation'
+import type { NotificationDefaults } from '../../types/domain'
 
 export function useCreatePersonnel(organizationId: string | null) {
   const queryClient = useQueryClient()
@@ -208,14 +210,24 @@ type CalendarItemMutationInput = CalendarItemInput & {
   id?: string
   timezone?: string
   seriesId?: string
+  orgNotificationDefaults?: NotificationDefaults | null
 }
 
-function buildCalendarMetadata(values: CalendarItemInput, seriesId?: string) {
+function buildCalendarMetadata(
+  values: CalendarItemInput,
+  orgDefaults?: NotificationDefaults | null,
+  seriesId?: string,
+) {
+  const notificationOffsets = resolveNotificationOffsets({
+    kind: values.kind,
+    requiresAcknowledgement: values.requiresAcknowledgement,
+    customOffsets: values.notificationOffsets,
+    useCustomNotificationOffsets: values.useCustomNotificationOffsets,
+    orgDefaults,
+  })
+
   const metadata: Record<string, unknown> = {
-    notificationOffsets: defaultNotificationOffsets({
-      kind: values.kind,
-      requiresAcknowledgement: values.requiresAcknowledgement,
-    }),
+    notificationOffsets,
   }
   if (values.noteCategory?.trim()) {
     metadata.noteCategory = values.noteCategory.trim()
@@ -282,7 +294,7 @@ export function useUpsertCalendarItem(organizationId: string | null, userId: str
         timezone: values.timezone ?? 'Europe/Athens',
         priority: values.priority,
         requires_acknowledgement: values.requiresAcknowledgement,
-        metadata: buildCalendarMetadata(values, values.seriesId),
+        metadata: buildCalendarMetadata(values, values.orgNotificationDefaults, values.seriesId),
         updated_at: new Date().toISOString(),
       }
 
@@ -323,6 +335,14 @@ export function useUpsertCalendarItem(organizationId: string | null, userId: str
       await queryClient.cancelQueries({ queryKey })
       const previous = queryClient.getQueryData<CalendarItem[]>(queryKey)
 
+      const resolvedOffsets = resolveNotificationOffsets({
+        kind: values.kind,
+        requiresAcknowledgement: values.requiresAcknowledgement,
+        customOffsets: values.notificationOffsets,
+        useCustomNotificationOffsets: values.useCustomNotificationOffsets,
+        orgDefaults: values.orgNotificationDefaults,
+      })
+
       const optimisticItem: CalendarItem = {
         id: values.id ?? `temp-${Date.now()}`,
         kind: values.kind,
@@ -335,7 +355,7 @@ export function useUpsertCalendarItem(organizationId: string | null, userId: str
         priority: values.priority,
         noteCategory: values.noteCategory,
         seriesId: values.seriesId,
-        notificationOffsets: [],
+        notificationOffsets: resolvedOffsets,
         requiresAcknowledgement: values.requiresAcknowledgement,
       }
 
@@ -355,6 +375,7 @@ export function useUpsertCalendarItem(organizationId: string | null, userId: str
     },
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey })
+      void invokeEdgeFunction('schedule-notifications', {}).catch(() => undefined)
     },
   })
 }
@@ -410,6 +431,8 @@ function cloneInputFromItem(
     priority: item.priority,
     noteCategory: item.noteCategory ?? '',
     requiresAcknowledgement: item.requiresAcknowledgement,
+    notificationOffsets: item.notificationOffsets,
+    useCustomNotificationOffsets: true,
     seriesId,
     timezone,
   }
@@ -433,7 +456,7 @@ async function insertCalendarItemClone(
     timezone: values.timezone ?? 'Europe/Athens',
     priority: values.priority,
     requires_acknowledgement: values.requiresAcknowledgement,
-    metadata: buildCalendarMetadata(values, values.seriesId),
+    metadata: buildCalendarMetadata(values, values.orgNotificationDefaults, values.seriesId),
     created_by: userId,
     updated_at: new Date().toISOString(),
   }

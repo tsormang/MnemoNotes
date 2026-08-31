@@ -31,6 +31,8 @@ export const personnel: Personnel[] = [
     skills: ['Responsible pharmacist', 'Stock control'],
     locationId: 'central-pharmacy',
     accountLink: 'linked',
+    iconId: 'avatar-female-002',
+    avatarGender: 'female',
   },
   {
     id: 'nikos',
@@ -42,6 +44,8 @@ export const personnel: Personnel[] = [
     skills: ['Dispensary', 'Patient guidance'],
     locationId: 'central-pharmacy',
     accountLink: 'linked',
+    iconId: 'avatar-male-001',
+    avatarGender: 'male',
   },
   {
     id: 'eleni',
@@ -54,6 +58,8 @@ export const personnel: Personnel[] = [
     locationId: 'north-branch',
     inviteEmail: 'eleni@example.com',
     accountLink: 'invited',
+    iconId: 'avatar-female-004',
+    avatarGender: 'female',
   },
 ]
 
@@ -82,6 +88,7 @@ export const calendarItems: CalendarItem[] = [
     assignedPersonnelIds: ['maria'],
     priority: 'high',
     noteCategory: 'Stock',
+    iconId: 'note-stock',
     notificationOffsets: [-15, 30],
     requiresAcknowledgement: true,
   },
@@ -95,6 +102,7 @@ export const calendarItems: CalendarItem[] = [
     assignedPersonnelIds: ['eleni'],
     priority: 'critical',
     noteCategory: 'Handover',
+    iconId: 'task-checklist',
     notificationOffsets: [-30, 0, 15],
     requiresAcknowledgement: true,
   },

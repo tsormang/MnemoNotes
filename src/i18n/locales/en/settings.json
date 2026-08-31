@@ -1,0 +1,43 @@
+{
+  "configuration": {
+    "eyebrow": "Configuration",
+    "title": "Workspace settings",
+    "rolesHint": "Company roles and permissions are managed on the <1>Personnel & roles</1> page."
+  },
+  "language": {
+    "title": "Language",
+    "description": "Choose the display language for the application interface.",
+    "label": "Display language"
+  },
+  "workingDay": {
+    "title": "Working day duration",
+    "description": "Calendar day and week views show <1>{{start}} – {{end}}</1> by default. Owners and admins can change this window; any week can still opt into 00:00–24:00 for night shifts.",
+    "startAria": "Working day start time",
+    "endAria": "Working day end time",
+    "save": "Save hours",
+    "errorSave": "Could not save working hours."
+  },
+  "reminders": {
+    "title": "Reminder defaults",
+    "description": "Choose how many reminders fire before each event type. Managers can override these on individual calendar items.",
+    "shift": "Shifts",
+    "shiftDesc": "Default reminders for shift events.",
+    "ackRequired": "Ack-required items",
+    "ackRequiredDesc": "Used when an item requires acknowledgement.",
+    "note": "Notes",
+    "noteDesc": "Default reminders for notes without acknowledgement.",
+    "task": "Tasks",
+    "taskDesc": "Default reminders for tasks without acknowledgement.",
+    "groupAria": "{{type}} reminders",
+    "save": "Save reminder defaults",
+    "offset": {
+      "onTime": "On time",
+      "minutesBefore_one": "{{count}} minute before start",
+      "minutesBefore_other": "{{count}} minutes before start",
+      "hoursBefore_one": "{{count}} hour before start",
+      "hoursBefore_other": "{{count}} hours before start",
+      "minutesAfter_one": "{{count}} minute after start",
+      "minutesAfter_other": "{{count}} minutes after start"
+    }
+  }
+}

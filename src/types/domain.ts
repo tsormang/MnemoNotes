@@ -39,12 +39,15 @@ export type PersonnelStatus = 'active' | 'invited' | 'inactive' | 'disabled'
 /** Whether personnel has a linked app login, pending invite, or roster-only record. */
 export type PersonnelAccountLink = 'linked' | 'invited' | 'unlinked'
 
+/** Avatar collection for personnel (owners included on the roster). */
+export type AvatarGender = 'male' | 'female'
+
 export interface CompanyRole {
   id: string
   organizationId: string
   name: string
   description: string
-  icon: string
+  iconId: string
   permissions: AppPermission[]
 }
 
@@ -55,6 +58,7 @@ export interface Organization {
   workingDayStart: string
   workingDayEnd: string
   notificationDefaults: NotificationDefaults
+  iconId: string
 }
 
 export interface NotificationDefaults {
@@ -90,6 +94,8 @@ export interface Personnel {
   profileId?: string | null
   inviteEmail?: string | null
   accountLink: PersonnelAccountLink
+  iconId: string
+  avatarGender: AvatarGender
 }
 
 export interface PersonnelInvite {
@@ -111,6 +117,7 @@ export interface CalendarItem {
   assignedPersonnelIds: string[]
   priority: 'low' | 'normal' | 'high' | 'critical'
   noteCategory?: string
+  iconId?: string
   seriesId?: string
   notificationOffsets: number[]
   requiresAcknowledgement: boolean

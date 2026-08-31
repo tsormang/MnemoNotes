@@ -1,27 +1,36 @@
 import { Link } from 'react-router-dom'
+import { Trans, useTranslation } from 'react-i18next'
 import { useCan } from '../auth/WorkspaceProvider'
+import { LanguageSettings } from './LanguageSettings'
 import { NotificationDefaultsSettings } from './NotificationDefaultsSettings'
 import { WorkingDaySettings } from './WorkingDaySettings'
 
 export function UserSecurityScreen() {
+  const { t } = useTranslation('settings')
   const canManageRoles = useCan('roles.manage')
 
   return (
     <section className="content-section content-section--embedded">
       <div className="section-heading section-heading--compact">
         <div>
-          <p className="eyebrow">Configuration</p>
-          <h1>Workspace settings</h1>
+          <p className="eyebrow">{t('configuration.eyebrow')}</p>
+          <h1>{t('configuration.title')}</h1>
         </div>
       </div>
 
+      <LanguageSettings compact />
       <WorkingDaySettings compact />
       <NotificationDefaultsSettings compact />
 
       {canManageRoles ? (
         <p className="modal-hint">
-          Company roles and permissions are managed on the{' '}
-          <Link to="/app/people">Personnel &amp; roles</Link> page.
+          <Trans
+            i18nKey="configuration.rolesHint"
+            ns="settings"
+            components={{
+              1: <Link to="/app/people" />,
+            }}
+          />
         </p>
       ) : null}
     </section>

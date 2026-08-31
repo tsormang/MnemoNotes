@@ -1,21 +1,27 @@
 import { Shield, Users } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useCan, useWorkspace } from '../auth/WorkspaceProvider'
 import { CompanyRolesMatrix } from './CompanyRolesMatrix'
 import { PersonnelManagement } from './PersonnelManagement'
 
 type PeopleTab = 'personnel' | 'roles'
 
-const peopleTabs: Array<{ id: PeopleTab; label: string; icon: typeof Users }> = [
-  { id: 'personnel', label: 'Personnel', icon: Users },
-  { id: 'roles', label: 'Roles', icon: Shield },
-]
-
 export function PeopleScreen() {
+  const { t } = useTranslation('people')
   const { isOwner } = useWorkspace()
   const canManagePersonnel = useCan('personnel.manage')
   const canManageRoles = useCan('roles.manage')
   const [activeTab, setActiveTab] = useState<PeopleTab>('personnel')
+
+  const peopleTabs = useMemo(
+    () =>
+      [
+        { id: 'personnel' as const, label: t('tabs.personnel'), icon: Users },
+        { id: 'roles' as const, label: t('tabs.roles'), icon: Shield },
+      ] as const,
+    [t],
+  )
 
   const visibleTabs = peopleTabs.filter((tab) => {
     if (tab.id === 'personnel') return isOwner || canManagePersonnel || canManageRoles
@@ -31,13 +37,13 @@ export function PeopleScreen() {
     <section className="content-section people-page">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Team management</p>
-          <h1>Personnel &amp; roles</h1>
+          <p className="eyebrow">{t('page.eyebrow')}</p>
+          <h1>{t('page.title')}</h1>
         </div>
       </div>
 
       <div className="people-workbench">
-        <div className="admin-tabs people-tabs" role="tablist" aria-label="People management">
+        <div className="admin-tabs people-tabs" role="tablist" aria-label={t('tabs.aria')}>
           {visibleTabs.map((tab) => {
             const Icon = tab.icon
             return (

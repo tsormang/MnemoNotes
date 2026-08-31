@@ -1,4 +1,5 @@
 import type { CalendarItemKind, NotificationDefaults, NotificationTrigger } from '../types/domain'
+import i18n from '../i18n'
 
 export interface NotificationRuleTiming {
   triggerKind: NotificationTrigger
@@ -59,14 +60,14 @@ export function formatOffsetLabel(offsetMinutes: number): string {
     const minutes = Math.abs(offsetMinutes)
     if (minutes % 60 === 0 && minutes >= 60) {
       const hours = minutes / 60
-      return `${hours} hour${hours === 1 ? '' : 's'} before start`
+      return i18n.t('settings:reminders.offset.hoursBefore', { count: hours })
     }
-    return `${minutes} minute${minutes === 1 ? '' : 's'} before start`
+    return i18n.t('settings:reminders.offset.minutesBefore', { count: minutes })
   }
   if (offsetMinutes === 0) {
-    return 'On time'
+    return i18n.t('settings:reminders.offset.onTime')
   }
-  return `${offsetMinutes} minute${offsetMinutes === 1 ? '' : 's'} after start`
+  return i18n.t('settings:reminders.offset.minutesAfter', { count: offsetMinutes })
 }
 
 export function offsetsEqual(left: number[], right: number[]): boolean {

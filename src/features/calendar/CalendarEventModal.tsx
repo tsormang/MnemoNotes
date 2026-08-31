@@ -6,6 +6,8 @@ import { Modal } from '../../components/Modal'
 import { CompanyLocationField } from '../../components/CompanyLocationField'
 import { DatetimeInput } from '../../components/DatetimeInput'
 import { NotificationOffsetPicker } from '../../components/NotificationOffsetPicker'
+import { IconAvatar } from '../../components/icons/IconAvatar'
+import { IconPicker } from '../../components/icons/IconPicker'
 import { useAuth } from '../auth/AuthProvider'
 import { useWorkspace } from '../auth/WorkspaceProvider'
 import { getCalendarItemDisplayLabel } from '../../lib/calendar-display'
@@ -35,6 +37,8 @@ import {
 } from '../../lib/notification-schedule'
 import type { CalendarItem, CalendarItemKind } from '../../types/domain'
 import { calendarItemSchema, type CalendarItemInput } from '../../lib/validation'
+import { defaultIconIdForKind } from '../../lib/icons/defaults'
+import { suggestIconIdForCategory } from '../../lib/icons/note-category-icons'
 import { useCalendarShell, type CalendarEventDraft } from './CalendarShellContext'
 
 const kindOptions: Array<{ value: CalendarItemKind; label: string }> = [
@@ -67,6 +71,7 @@ function buildDefaults(
       assignedPersonnelIds: item.assignedPersonnelIds,
       priority: item.priority,
       noteCategory: item.noteCategory ?? '',
+      iconId: item.iconId ?? defaultIconIdForKind(item.kind),
       requiresAcknowledgement: item.requiresAcknowledgement,
       notificationOffsets: item.notificationOffsets,
       useCustomNotificationOffsets: !offsetsEqual(item.notificationOffsets, orgResolved),
@@ -88,6 +93,7 @@ function buildDefaults(
     assignedPersonnelIds: [],
     priority: 'normal',
     noteCategory: '',
+    iconId: defaultIconIdForKind(kind),
     requiresAcknowledgement: false,
     notificationOffsets: resolveNotificationOffsets({
       kind,
@@ -167,6 +173,29 @@ function CalendarEventModalContent({
   const requiresAcknowledgement = form.watch('requiresAcknowledgement')
   const notificationOffsets = form.watch('notificationOffsets')
   const useCustomNotificationOffsets = form.watch('useCustomNotificationOffsets')
+  const noteCategory = form.watch('noteCategory')
+  const iconId = form.watch('iconId')
+
+  useEffect(() => {
+    if (watchedKind === 'shift' || editingItem) return
+    form.setValue('iconId', defaultIconIdForKind(watchedKind), { shouldDirty: false })
+  }, [form, watchedKind, editingItem])
+
+  useEffect(() => {
+    if (watchedKind === 'shift') return
+    if (!form.formState.dirtyFields.noteCategory) return
+    const suggested = suggestIconIdForCategory(noteCategory)
+    if (suggested && !form.formState.dirtyFields.iconId) {
+      form.setValue('iconId', suggested, { shouldDirty: false })
+    }
+  }, [
+    form,
+    noteCategory,
+    watchedKind,
+    editingItem,
+    form.formState.dirtyFields.noteCategory,
+    form.formState.dirtyFields.iconId,
+  ])
 
   useEffect(() => {
     if (useCustomNotificationOffsets) return
@@ -342,6 +371,14 @@ function CalendarEventModalContent({
             Category
             <input type="text" placeholder="Stock, handover…" {...form.register('noteCategory')} />
           </label>
+          <IconPicker
+            entityType={watchedKind}
+            value={iconId ?? defaultIconIdForKind(watchedKind)}
+            onChange={(nextIconId) =>
+              form.setValue('iconId', nextIconId, { shouldDirty: true, shouldValidate: true })
+            }
+            disabled={!canSave}
+          />
           <label className="checkbox-field">
             <input type="checkbox" {...form.register('requiresAcknowledgement')} />
             Requires acknowledgement
@@ -368,11 +405,17 @@ function CalendarEventModalContent({
           <legend>Assigned staff</legend>
           <div className="assignee-list">
             {personnel.map((person) => (
-              <label key={person.id} className="checkbox-field">
+              <label key={person.id} className="checkbox-field assignee-option">
                 <input
                   type="checkbox"
                   checked={assignedPersonnelIds?.includes(person.id) ?? false}
                   onChange={() => toggleAssignee(person.id)}
+                />
+                <IconAvatar
+                  iconId={person.iconId}
+                  entityType="personnel"
+                  label={person.fullName}
+                  size="sm"
                 />
                 {person.fullName}
               </label>

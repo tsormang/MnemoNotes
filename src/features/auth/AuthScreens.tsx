@@ -2,21 +2,25 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { KeyRound, LogOut, Mail, ShieldCheck, UserPlus } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { invokeEdgeFunction } from '../../lib/edge-functions'
 import { resolvePostLoginPath } from '../../lib/auth-routing'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 import {
-  acceptInviteSchema,
-  loginSchema,
+  createAcceptInviteSchema,
+  createLoginSchema,
   type AcceptInviteInput,
   type LoginInput,
 } from '../../lib/validation'
 import { useAuth } from './AuthProvider'
 
 export function LoginScreen() {
+  const { t } = useTranslation(['auth', 'common'])
+  const { t: tv } = useTranslation('validation')
   const navigate = useNavigate()
   const [error, setError] = useState<string | null>(null)
+  const loginSchema = useMemo(() => createLoginSchema(tv), [tv])
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', password: '' },
@@ -26,7 +30,7 @@ export function LoginScreen() {
     setError(null)
 
     if (!supabase) {
-      setError('Supabase is not configured.')
+      setError(t('auth:login.supabaseNotConfigured'))
       return
     }
 
@@ -45,29 +49,29 @@ export function LoginScreen() {
 
   return (
     <AuthFrame
-      title="Login"
-      subtitle="Owners and personnel sign in to their pharmacy workspace."
+      title={t('auth:login.title')}
+      subtitle={t('auth:login.subtitle')}
       icon={<KeyRound size={22} aria-hidden="true" />}
     >
       <form className="auth-form" onSubmit={onSubmit}>
         <label>
-          Email
-          <input type="email" autoComplete="email" placeholder="you@pharmacy.com" {...form.register('email')} />
+          {t('common:field.email')}
+          <input type="email" autoComplete="email" placeholder={t('auth:login.emailPlaceholder')} {...form.register('email')} />
           <FieldError message={form.formState.errors.email?.message} />
         </label>
         <label>
-          Password
+          {t('common:field.password')}
           <input
             type="password"
             autoComplete="current-password"
-            placeholder="Your password"
+            placeholder={t('auth:login.passwordPlaceholder')}
             {...form.register('password')}
           />
           <FieldError message={form.formState.errors.password?.message} />
         </label>
         {error ? <p className="field-error">{error}</p> : null}
         <button type="submit" disabled={form.formState.isSubmitting}>
-          {form.formState.isSubmitting ? 'Signing in…' : 'Sign in'}
+          {form.formState.isSubmitting ? t('auth:login.submitting') : t('auth:login.submit')}
         </button>
       </form>
       <SupabaseNotice />
@@ -76,11 +80,14 @@ export function LoginScreen() {
 }
 
 export function AcceptInviteScreen() {
+  const { t } = useTranslation(['auth', 'common'])
+  const { t: tv } = useTranslation('validation')
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [error, setError] = useState<string | null>(null)
 
   const defaultToken = useMemo(() => searchParams.get('token') ?? '', [searchParams])
+  const acceptInviteSchema = useMemo(() => createAcceptInviteSchema(tv), [tv])
 
   const form = useForm<AcceptInviteInput>({
     resolver: zodResolver(acceptInviteSchema),
@@ -106,40 +113,40 @@ export function AcceptInviteScreen() {
       )
       navigate('/login')
     } catch (inviteError) {
-      setError(inviteError instanceof Error ? inviteError.message : 'Could not accept invite.')
+      setError(inviteError instanceof Error ? inviteError.message : t('auth:acceptInvite.error'))
     }
   })
 
   return (
     <AuthFrame
-      title="Accept invite"
-      subtitle="Owners and personnel join a pharmacy workspace by invitation."
+      title={t('auth:acceptInvite.title')}
+      subtitle={t('auth:acceptInvite.subtitle')}
       icon={<UserPlus size={22} aria-hidden="true" />}
     >
       <form className="auth-form" onSubmit={onSubmit}>
         <label>
-          Invite token
-          <input type="text" placeholder="Paste invite token" {...form.register('token')} />
+          {t('auth:acceptInvite.token')}
+          <input type="text" placeholder={t('auth:acceptInvite.tokenPlaceholder')} {...form.register('token')} />
           <FieldError message={form.formState.errors.token?.message} />
         </label>
         <label>
-          Full name
-          <input type="text" placeholder="Your display name" {...form.register('fullName')} />
+          {t('common:field.fullName')}
+          <input type="text" placeholder={t('auth:acceptInvite.fullNamePlaceholder')} {...form.register('fullName')} />
           <FieldError message={form.formState.errors.fullName?.message} />
         </label>
         <label>
-          Password
-          <input type="password" placeholder="Minimum 10 characters" {...form.register('password')} />
+          {t('common:field.password')}
+          <input type="password" placeholder={t('auth:acceptInvite.passwordPlaceholder')} {...form.register('password')} />
           <FieldError message={form.formState.errors.password?.message} />
         </label>
         {error ? <p className="field-error">{error}</p> : null}
         <button type="submit" disabled={form.formState.isSubmitting}>
-          {form.formState.isSubmitting ? 'Creating account…' : 'Accept invite'}
+          {form.formState.isSubmitting ? t('auth:acceptInvite.submitting') : t('auth:acceptInvite.submit')}
         </button>
       </form>
       <div className="invite-card">
         <Mail size={24} aria-hidden="true" />
-        <p>Invite links are issued by platform admins and workspace owners through trusted Edge Functions.</p>
+        <p>{t('auth:acceptInvite.info')}</p>
       </div>
       <SupabaseNotice />
     </AuthFrame>
@@ -174,18 +181,18 @@ function FieldError({ message }: { message?: string }) {
 }
 
 function SupabaseNotice() {
+  const { t } = useTranslation('auth')
+
   return (
     <div className="supabase-notice">
       <ShieldCheck size={18} aria-hidden="true" />
-      {isSupabaseConfigured
-        ? 'Supabase environment detected.'
-        : 'Add Supabase environment values to enable live authentication.'}
+      {isSupabaseConfigured ? t('supabase.detected') : t('supabase.missing')}
     </div>
   )
 }
 
-
 export function SignOutButton() {
+  const { t } = useTranslation('common')
   const { signOut } = useAuth()
 
   if (!isSupabaseConfigured) {
@@ -193,7 +200,12 @@ export function SignOutButton() {
   }
 
   return (
-    <button className="icon-ghost" type="button" aria-label="Sign out" onClick={() => void signOut()}>
+    <button
+      className="icon-ghost"
+      type="button"
+      aria-label={t('actions.signOut')}
+      onClick={() => void signOut()}
+    >
       <LogOut size={19} aria-hidden="true" />
     </button>
   )

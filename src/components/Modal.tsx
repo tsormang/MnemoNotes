@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
 import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
 
 type ModalVariant = 'modal' | 'panel'
@@ -21,6 +22,7 @@ export function Modal({
   variant = 'modal',
   wide = false,
 }: ModalProps) {
+  const { t } = useTranslation('common')
   const titleId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
 
@@ -65,7 +67,7 @@ export function Modal({
       >
         <header className="modal-header">
           <h2 id={titleId}>{title}</h2>
-          <button className="icon-ghost" type="button" aria-label="Close" onClick={onClose}>
+          <button className="icon-ghost" type="button" aria-label={t('actions.close')} onClick={onClose}>
             <X size={18} aria-hidden="true" />
           </button>
         </header>

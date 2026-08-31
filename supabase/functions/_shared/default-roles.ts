@@ -1,7 +1,7 @@
 export interface DefaultCompanyRole {
   name: string
   description: string
-  icon: string
+  iconId: string
   permissions: string[]
 }
 
@@ -9,7 +9,7 @@ export const defaultCompanyRoles: DefaultCompanyRole[] = [
   {
     name: 'Manager',
     description: 'Delegated scheduling and personnel management',
-    icon: 'user-cog',
+    iconId: 'role-user-cog',
     permissions: [
       'organization.read',
       'users.invite',
@@ -29,13 +29,13 @@ export const defaultCompanyRoles: DefaultCompanyRole[] = [
   {
     name: 'Pharmacist',
     description: 'Front-line staff with shift visibility and note acknowledgements',
-    icon: 'pill',
+    iconId: 'role-pill',
     permissions: ['organization.read', 'shifts.read', 'notes.read', 'notes.acknowledge'],
   },
   {
     name: 'Viewer',
     description: 'Read-only operational visibility',
-    icon: 'eye',
+    iconId: 'role-eye',
     permissions: ['organization.read', 'shifts.read', 'notes.read'],
   },
 ]

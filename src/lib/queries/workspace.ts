@@ -32,7 +32,7 @@ async function fetchOrganization(organizationId: string): Promise<Organization |
 
   const { data, error } = await supabase
     .from('organizations')
-    .select('id, name, timezone, working_day_start, working_day_end, settings')
+    .select('id, name, timezone, working_day_start, working_day_end, settings, icon_id')
     .eq('id', organizationId)
     .maybeSingle()
 
@@ -48,6 +48,7 @@ async function fetchOrganization(organizationId: string): Promise<Organization |
     workingDayStart: formatTimeValue(data.working_day_start),
     workingDayEnd: formatTimeValue(data.working_day_end),
     notificationDefaults: parseNotificationDefaults(settings.notificationDefaults),
+    iconId: data.icon_id,
   }
 }
 
@@ -96,6 +97,7 @@ export function prefetchWorkspaceBootstrap(
           workingDayStart: '07:00',
           workingDayEnd: '21:00',
           notificationDefaults: parseNotificationDefaults(undefined),
+          iconId: 'org-default',
         } satisfies Organization),
     )
   }
@@ -175,7 +177,7 @@ export function useCompanyRoles(organizationId: string | null) {
 
       const { data, error } = await supabase
         .from('company_roles')
-        .select('id, organization_id, name, description, icon, company_role_permissions(permission)')
+        .select('id, organization_id, name, description, icon_id, company_role_permissions(permission)')
         .eq('organization_id', organizationId)
         .order('name')
 
@@ -186,7 +188,7 @@ export function useCompanyRoles(organizationId: string | null) {
         organizationId: row.organization_id,
         name: row.name,
         description: row.description,
-        icon: row.icon,
+        iconId: row.icon_id,
         permissions: (row.company_role_permissions ?? []).map(
           (entry) => entry.permission as AppPermission,
         ),
@@ -206,7 +208,7 @@ export function usePersonnelList(organizationId: string | null) {
         supabase
           .from('personnel')
           .select(
-            'id, full_name, title, status, skills, location_id, profile_id, company_role_id, company_roles(name)',
+            'id, full_name, title, status, skills, location_id, profile_id, company_role_id, icon_id, avatar_gender, company_roles(name)',
           )
           .eq('organization_id', organizationId)
           .order('full_name'),
@@ -247,6 +249,8 @@ export function usePersonnelList(organizationId: string | null) {
           profileId: row.profile_id,
           inviteEmail,
           accountLink,
+          iconId: row.icon_id,
+          avatarGender: row.avatar_gender,
         }
       })
     },
@@ -327,6 +331,7 @@ export function useCalendarItems(organizationId: string | null) {
           priority: (row.priority as CalendarItem['priority']) ?? 'normal',
           noteCategory:
             typeof metadata.noteCategory === 'string' ? metadata.noteCategory : undefined,
+          iconId: typeof metadata.iconId === 'string' ? metadata.iconId : undefined,
           seriesId: parseSeriesId(metadata),
           notificationOffsets: Array.isArray(metadata.notificationOffsets)
             ? metadata.notificationOffsets.map(Number)

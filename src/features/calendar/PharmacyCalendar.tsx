@@ -6,6 +6,7 @@ import clsx from 'clsx'
 import { addDays, format, startOfWeek } from 'date-fns'
 import { ChevronLeft, ChevronRight, MoonStar, Printer } from 'lucide-react'
 import { useMemo, useRef, useState, useCallback, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthProvider'
 import { useWorkspace } from '../auth/WorkspaceProvider'
@@ -19,6 +20,9 @@ import {
 import { formatShiftStaffLabel, getCalendarItemDisplayLabel } from '../../lib/calendar-display'
 import { itemHasShiftConflict } from '../../lib/calendar-conflicts'
 import { defaultEventEnd, normalizeEventRange } from '../../lib/calendar-datetime'
+import { IconAvatar } from '../../components/icons/IconAvatar'
+import { defaultIconIdForKind } from '../../lib/icons/defaults'
+import { useMediaQuery } from '../../lib/use-media-query'
 import {
   canCreateAnyCalendarItem,
   canCreateKind,
@@ -37,6 +41,9 @@ import {
   useWeekOverrides,
 } from '../../lib/queries/workspace'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
+import i18n from '../../i18n'
+import { localeToFullCalendar } from '../../i18n/types'
+import { useLocaleStore } from '../../store/locale'
 import type { CalendarItem, CalendarItemKind, Personnel } from '../../types/domain'
 import { filterCalendarItems, useCalendarShell } from './CalendarShellContext'
 import { CalendarPrintPreview } from './CalendarPrintPreview'
@@ -45,6 +52,9 @@ import {
   EventSeriesMenu,
   type EventSeriesMenuState,
 } from './EventSeriesMenu'
+import { MobileCalendarAgenda } from './MobileCalendarAgenda'
+
+const MOBILE_CALENDAR_QUERY = '(max-width: 720px)'
 
 const time24h = {
   hour: '2-digit' as const,
@@ -59,9 +69,9 @@ const eventClassNames: Record<CalendarItemKind, string> = {
 }
 
 const calendarViews = [
-  { id: 'timeGridDay', label: 'Day' },
-  { id: 'timeGridWeek', label: 'Week' },
-  { id: 'dayGridMonth', label: 'Month' },
+  { id: 'timeGridDay', labelKey: 'view.day' },
+  { id: 'timeGridWeek', labelKey: 'view.week' },
+  { id: 'dayGridMonth', labelKey: 'view.month' },
 ] as const
 
 type CalendarViewId = (typeof calendarViews)[number]['id']
@@ -69,7 +79,7 @@ type CalendarViewId = (typeof calendarViews)[number]['id']
 const desktopPrintPreviewQuery = '(min-width: 721px)'
 
 function getInitialView(): CalendarViewId {
-  if (typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches) {
+  if (typeof window !== 'undefined' && window.matchMedia(MOBILE_CALENDAR_QUERY).matches) {
     return 'timeGridDay'
   }
   return 'timeGridWeek'
@@ -96,7 +106,9 @@ function EventChip({
 }) {
   const assignees = personnel.filter((person) => item.assignedPersonnelIds.includes(person.id))
   const headline =
-    item.kind === 'shift' ? formatShiftStaffLabel(assignees) : item.title.trim() || 'Untitled'
+    item.kind === 'shift'
+      ? formatShiftStaffLabel(assignees)
+      : item.title.trim() || i18n.t('calendar:event.untitled')
   const timeLabel =
     allDay || !start
       ? null
@@ -104,14 +116,22 @@ function EventChip({
 
   return (
     <div className={clsx('fc-event-chip', hasConflict && 'fc-event-chip--conflict')}>
-      {assignees[0] ? (
-        <span className="fc-event-avatar" aria-hidden="true">
-          {assignees[0].fullName
-            .split(' ')
-            .map((part) => part[0])
-            .join('')
-            .slice(0, 2)}
-        </span>
+      {item.kind === 'shift' && assignees[0] ? (
+        <IconAvatar
+          iconId={assignees[0].iconId}
+          entityType="personnel"
+          label={assignees[0].fullName}
+          size="sm"
+          className="fc-event-avatar"
+        />
+      ) : item.kind !== 'shift' ? (
+        <IconAvatar
+          iconId={item.iconId ?? defaultIconIdForKind(item.kind)}
+          entityType={item.kind}
+          size="sm"
+          className="fc-event-avatar"
+          initialsFallback={false}
+        />
       ) : null}
       <div className="fc-event-text">
         <strong>{headline}</strong>
@@ -132,6 +152,8 @@ function CalendarUtilityRibbon({
   onChangeView,
   onToggleNightShift,
   onPrint,
+  showViewSwitch = true,
+  showPrint = true,
 }: {
   title: string
   activeView: CalendarViewId
@@ -143,37 +165,42 @@ function CalendarUtilityRibbon({
   onChangeView: (view: CalendarViewId) => void
   onToggleNightShift: () => void
   onPrint: () => void
+  showViewSwitch?: boolean
+  showPrint?: boolean
 }) {
+  const { t } = useTranslation(['calendar', 'common'])
   const nightShiftLabel = nightShiftEnabled
-    ? `Night shifts on · ${nightShiftHint}`
-    : `Night shifts off · ${nightShiftHint}`
+    ? t('calendar:nightShift.on', { range: nightShiftHint })
+    : t('calendar:nightShift.off', { range: nightShiftHint })
 
   return (
-    <div className="calendar-utility-ribbon" role="toolbar" aria-label="Calendar utility ribbon">
+    <div className="calendar-utility-ribbon" role="toolbar" aria-label={t('calendar:aria.utilityRibbon')}>
       <div className="calendar-utility-ribbon__nav">
-        <button type="button" className="calendar-ribbon-btn" aria-label="Previous" onClick={onPrev}>
+        <button type="button" className="calendar-ribbon-btn" aria-label={t('common:actions.previous')} onClick={onPrev}>
           <ChevronLeft size={18} aria-hidden="true" />
         </button>
-        <button type="button" className="calendar-ribbon-btn" aria-label="Next" onClick={onNext}>
+        <button type="button" className="calendar-ribbon-btn" aria-label={t('common:actions.next')} onClick={onNext}>
           <ChevronRight size={18} aria-hidden="true" />
         </button>
         <button type="button" className="calendar-ribbon-btn calendar-ribbon-btn--label" onClick={onToday}>
-          Today
+          {t('common:actions.today')}
         </button>
       </div>
 
       <h2 className="calendar-utility-ribbon__title">{title}</h2>
 
       <div className="calendar-utility-ribbon__tools">
-        <button
-          type="button"
-          className="calendar-ribbon-btn"
-          aria-label="Print calendar"
-          title="Print calendar"
-          onClick={onPrint}
-        >
-          <Printer size={18} aria-hidden="true" />
-        </button>
+        {showPrint ? (
+          <button
+            type="button"
+            className="calendar-ribbon-btn"
+            aria-label={t('calendar:aria.print')}
+            title={t('calendar:aria.print')}
+            onClick={onPrint}
+          >
+            <Printer size={18} aria-hidden="true" />
+          </button>
+        ) : null}
 
         <button
           type="button"
@@ -186,25 +213,30 @@ function CalendarUtilityRibbon({
           <MoonStar size={18} aria-hidden="true" />
         </button>
 
-        <div className="calendar-view-switch" role="group" aria-label="Calendar view">
-          {calendarViews.map((view) => (
-            <button
-              key={view.id}
-              type="button"
-              className={clsx('calendar-ribbon-btn', activeView === view.id && 'is-active')}
-              aria-pressed={activeView === view.id}
-              onClick={() => onChangeView(view.id)}
-            >
-              {view.label}
-            </button>
-          ))}
-        </div>
+        {showViewSwitch ? (
+          <div className="calendar-view-switch" role="group" aria-label={t('calendar:aria.viewSwitch')}>
+            {calendarViews.map((view) => (
+              <button
+                key={view.id}
+                type="button"
+                className={clsx('calendar-ribbon-btn', activeView === view.id && 'is-active')}
+                aria-pressed={activeView === view.id}
+                onClick={() => onChangeView(view.id)}
+              >
+                {t(`calendar:${view.labelKey}`)}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   )
 }
 
 export function PharmacyCalendar() {
+  const { t } = useTranslation('calendar')
+  const locale = useLocaleStore((state) => state.locale)
+  const calendarLocale = localeToFullCalendar(locale)
   const { user } = useAuth()
   const { organizationId, can } = useWorkspace()
   const { searchQuery, kindFilter, personnelFilterId, openCreateEvent, openEditEvent } =
@@ -224,6 +256,7 @@ export function PharmacyCalendar() {
   const [printLayoutReady, setPrintLayoutReady] = useState(false)
   const showPrintLayout = printPreviewOpen || printLayoutActive
   const suppressEventClickUntilRef = useRef(0)
+  const prevMobileAgendaRef = useRef(false)
   const seriesMenuCleanupRef = useRef(new Map<string, () => void>())
   const [initialView] = useState(getInitialView)
   const [activeView, setActiveView] = useState<CalendarViewId>(initialView)
@@ -234,8 +267,22 @@ export function PharmacyCalendar() {
   })
   const [viewTitle, setViewTitle] = useState('Calendar')
   const [weekStartKey, setWeekStartKey] = useState(() => getWeekStartKey(new Date()))
+  const isMobileCalendar = useMediaQuery(MOBILE_CALENDAR_QUERY)
+  const showMobileDayAgenda =
+    isMobileCalendar && activeView === 'timeGridDay' && !showPrintLayout
+  const showMobileWeekAgenda =
+    isMobileCalendar && activeView === 'timeGridWeek' && !showPrintLayout
+  const showMobileListView = showMobileDayAgenda || showMobileWeekAgenda
+  const [agendaDate, setAgendaDate] = useState(() => new Date())
   const [seriesMenu, setSeriesMenu] = useState<EventSeriesMenuState | null>(null)
   const [seriesMenuError, setSeriesMenuError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (showMobileListView && !prevMobileAgendaRef.current) {
+      setAgendaDate(calendarDate)
+    }
+    prevMobileAgendaRef.current = showMobileListView
+  }, [showMobileListView, calendarDate])
 
   const workingDayStart = orgQuery.data?.workingDayStart ?? '07:00'
   const workingDayEnd = orgQuery.data?.workingDayEnd ?? '21:00'
@@ -359,6 +406,63 @@ export function PharmacyCalendar() {
     setSeriesMenu({ item, x, y })
   }, [])
 
+  const mobileVisibleRange = useMemo(() => {
+    const start = startOfWeek(agendaDate, { weekStartsOn: 1 })
+    return { start, end: addDays(start, 7) }
+  }, [agendaDate])
+
+  const mobileWeekStart = startOfWeek(agendaDate, { weekStartsOn: 1 })
+  const mobileWeekEnd = addDays(mobileWeekStart, 6)
+
+  const ribbonTitle = showMobileDayAgenda
+    ? format(agendaDate, 'MMMM yyyy')
+    : showMobileWeekAgenda
+      ? `${format(mobileWeekStart, 'd MMM')} – ${format(mobileWeekEnd, 'd MMM yyyy')}`
+      : viewTitle
+
+  useEffect(() => {
+    if (showMobileListView) {
+      setWeekStartKey(getWeekStartKey(agendaDate))
+      setCalendarDate(agendaDate)
+    }
+  }, [showMobileListView, agendaDate])
+
+  const shiftAgendaWeek = useCallback((delta: number) => {
+    setAgendaDate((current) => addDays(current, delta * 7))
+  }, [])
+
+  const handleChangeView = useCallback(
+    (view: CalendarViewId) => {
+      setActiveView(view)
+      if ((view === 'timeGridDay' || view === 'timeGridWeek') && isMobileCalendar) {
+        setAgendaDate(calendarDate)
+        return
+      }
+      requestAnimationFrame(() => {
+        calendarRef.current?.getApi()?.changeView(view)
+      })
+    },
+    [isMobileCalendar, calendarDate],
+  )
+
+  useEffect(() => {
+    if (showMobileListView || !isMobileCalendar) return
+    requestAnimationFrame(() => {
+      calendarRef.current?.getApi().updateSize()
+    })
+  }, [showMobileListView, isMobileCalendar, activeView])
+
+  const handleCreateForDay = useCallback(
+    (day: Date) => {
+      const [hours = 7, minutes = 0] = workingDayStart.split(':').map(Number)
+      const startsAt = new Date(day)
+      startsAt.setHours(hours, minutes, 0, 0)
+      const startsAtIso = startsAt.toISOString()
+      openCreateEvent(normalizeEventRange(startsAtIso, defaultEventEnd(startsAtIso)))
+    },
+    [openCreateEvent, workingDayStart],
+  )
+
   const handleSeriesAction = useCallback(
     async (action: CalendarSeriesAction) => {
       if (!seriesMenu) return
@@ -368,11 +472,17 @@ export function PharmacyCalendar() {
         await seriesActions.mutateAsync({
           action,
           item: seriesMenu.item,
-          viewContext: {
-            activeView,
-            visibleRange,
-            calendarDate,
-          },
+          viewContext: showMobileListView
+            ? {
+                activeView,
+                visibleRange: mobileVisibleRange,
+                calendarDate: agendaDate,
+              }
+            : {
+                activeView,
+                visibleRange,
+                calendarDate,
+              },
           timezone: orgQuery.data?.timezone,
           allItems: calendarItems,
         })
@@ -381,7 +491,19 @@ export function PharmacyCalendar() {
         setSeriesMenuError(error instanceof Error ? error.message : 'Could not update event series.')
       }
     },
-    [seriesMenu, seriesActions, activeView, visibleRange, calendarDate, orgQuery.data?.timezone, calendarItems, closeSeriesMenu],
+    [
+      seriesMenu,
+      seriesActions,
+      showMobileListView,
+      mobileVisibleRange,
+      agendaDate,
+      activeView,
+      visibleRange,
+      calendarDate,
+      orgQuery.data?.timezone,
+      calendarItems,
+      closeSeriesMenu,
+    ],
   )
 
   const canOpenSeriesMenu = useCallback(
@@ -500,90 +622,116 @@ export function PharmacyCalendar() {
 
   return (
     <div
-      className={clsx('calendar-fill calendar-print-root', showPrintLayout && 'calendar-print-layout')}
-      aria-label="Pharmacy operations calendar"
+      className={clsx(
+        'calendar-fill calendar-print-root',
+        showPrintLayout && 'calendar-print-layout',
+        isMobileCalendar && !showPrintLayout && 'calendar-fill--mobile',
+        showMobileListView && 'calendar-fill--mobile-agenda',
+      )}
+      aria-label={t('aria.main')}
     >
       <CalendarUtilityRibbon
-        title={viewTitle}
+        title={ribbonTitle}
         activeView={activeView}
         nightShiftEnabled={nightShiftEnabled}
         nightShiftHint={nightShiftHint}
-        onPrev={() => getApi()?.prev()}
-        onNext={() => getApi()?.next()}
-        onToday={() => getApi()?.today()}
-        onChangeView={(view) => getApi()?.changeView(view)}
+        onPrev={showMobileListView ? () => shiftAgendaWeek(-1) : () => getApi()?.prev()}
+        onNext={showMobileListView ? () => shiftAgendaWeek(1) : () => getApi()?.next()}
+        onToday={showMobileListView ? () => setAgendaDate(new Date()) : () => getApi()?.today()}
+        onChangeView={handleChangeView}
         onToggleNightShift={handleToggleNightShift}
         onPrint={handlePrint}
+        showPrint={!isMobileCalendar}
       />
 
-      <div ref={calendarPrintRef} className="calendar-print-body">
-      <FullCalendar
-        key={`${slotMinTime}-${slotMaxTime}`}
-        ref={calendarRef}
-        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-        initialView={activeView}
-        initialDate={calendarDate}
-        headerToolbar={false}
-        locale="en-GB"
-        eventTimeFormat={time24h}
-        slotLabelFormat={time24h}
-        slotMinTime={slotMinTime}
-        slotMaxTime={slotMaxTime}
-        scrollTime={scrollTime}
-        nowIndicator
-        editable={canEditCalendar}
-        selectable={canEditCalendar}
-        selectMirror
-        unselectAuto
-        height={showPrintLayout ? 'auto' : '100%'}
-        events={events}
-        dayMaxEvents={3}
-        datesSet={handleDatesSet}
-        select={handleDateSelect}
-        eventClick={handleEventClick}
-        eventDrop={handleEventDrop}
-        eventResize={handleEventResize}
-        eventDidMount={(info) => {
-          const item = info.event.extendedProps.item as CalendarItem | undefined
-          if (!item) return
+      {showMobileListView ? (
+        <MobileCalendarAgenda
+          mode={showMobileWeekAgenda ? 'week' : 'day'}
+          items={filteredItems}
+          allItems={calendarItems}
+          personnel={personnel}
+          selectedDate={agendaDate}
+          onSelectDate={setAgendaDate}
+          onOpenItem={(item) => {
+            if (Date.now() < suppressEventClickUntilRef.current) return
+            openEditEvent(item)
+          }}
+          onOpenSeriesMenu={openSeriesMenu}
+          onSuppressItemClick={suppressEventClick}
+          canOpenSeriesMenu={canOpenSeriesMenu}
+          canCreate={canEditCalendar}
+          onCreateForDay={handleCreateForDay}
+        />
+      ) : (
+        <div ref={calendarPrintRef} className="calendar-print-body">
+          <FullCalendar
+            key={`${slotMinTime}-${slotMaxTime}`}
+            ref={calendarRef}
+            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+            initialView={activeView}
+            initialDate={calendarDate}
+            headerToolbar={false}
+            locale={calendarLocale}
+            eventTimeFormat={time24h}
+            slotLabelFormat={time24h}
+            slotMinTime={slotMinTime}
+            slotMaxTime={slotMaxTime}
+            scrollTime={scrollTime}
+            nowIndicator
+            editable={canEditCalendar}
+            selectable={canEditCalendar}
+            selectMirror
+            unselectAuto
+            height={showPrintLayout ? 'auto' : '100%'}
+            events={events}
+            dayMaxEvents={3}
+            datesSet={handleDatesSet}
+            select={handleDateSelect}
+            eventClick={handleEventClick}
+            eventDrop={handleEventDrop}
+            eventResize={handleEventResize}
+            eventDidMount={(info) => {
+              const item = info.event.extendedProps.item as CalendarItem | undefined
+              if (!item) return
 
-          const cleanup = attachEventSeriesMenuTriggers(
-            info.el,
-            item,
-            canOpenSeriesMenu(item),
-            ({ x, y }) => openSeriesMenu(item, x, y),
-            suppressEventClick,
-          )
-          seriesMenuCleanupRef.current.set(info.event.id, cleanup)
-        }}
-        eventWillUnmount={(info) => {
-          const cleanup = seriesMenuCleanupRef.current.get(info.event.id)
-          cleanup?.()
-          seriesMenuCleanupRef.current.delete(info.event.id)
-        }}
-        eventContent={(arg) => {
-          // selectMirror placeholder events have no extendedProps — skip custom chip.
-          if (arg.isMirror) return true
+              const cleanup = attachEventSeriesMenuTriggers(
+                info.el,
+                item,
+                canOpenSeriesMenu(item),
+                ({ x, y }) => openSeriesMenu(item, x, y),
+                suppressEventClick,
+              )
+              seriesMenuCleanupRef.current.set(info.event.id, cleanup)
+            }}
+            eventWillUnmount={(info) => {
+              const cleanup = seriesMenuCleanupRef.current.get(info.event.id)
+              cleanup?.()
+              seriesMenuCleanupRef.current.delete(info.event.id)
+            }}
+            eventContent={(arg) => {
+              // selectMirror placeholder events have no extendedProps — skip custom chip.
+              if (arg.isMirror) return true
 
-          const item = arg.event.extendedProps.item as CalendarItem | undefined
-          if (!item) return true
+              const item = arg.event.extendedProps.item as CalendarItem | undefined
+              if (!item) return true
 
-          return (
-            <EventChip
-              allDay={arg.event.allDay}
-              start={arg.event.start}
-              end={arg.event.end}
-              item={item}
-              personnel={personnel}
-              hasConflict={Boolean(arg.event.extendedProps.hasConflict)}
-            />
-          )
-        }}
-        windowResize={() => {
-          calendarRef.current?.getApi().updateSize()
-        }}
-      />
-      </div>
+              return (
+                <EventChip
+                  allDay={arg.event.allDay}
+                  start={arg.event.start}
+                  end={arg.event.end}
+                  item={item}
+                  personnel={personnel}
+                  hasConflict={Boolean(arg.event.extendedProps.hasConflict)}
+                />
+              )
+            }}
+            windowResize={() => {
+              calendarRef.current?.getApi().updateSize()
+            }}
+          />
+        </div>
+      )}
 
       <CalendarPrintPreview
         open={printPreviewOpen}

@@ -1,0 +1,48 @@
+{
+  "panel": {
+    "title": "Notifications"
+  },
+  "metrics": {
+    "dueNow": "Due now",
+    "upcoming": "Upcoming",
+    "acksDue": "Acks due",
+    "totalRules": "Total rules"
+  },
+  "desktop": {
+    "enable": "Enable desktop alerts",
+    "on": "Desktop alerts on",
+    "blocked": "Desktop alerts blocked in browser settings"
+  },
+  "actions": {
+    "clearDue": "Clear due",
+    "refreshJobs": "Refresh jobs",
+    "acknowledge": "Acknowledge",
+    "ack": "Ack",
+    "dismissAria": "Dismiss notification"
+  },
+  "section": {
+    "acksDue": "Acknowledgements due",
+    "dueNow": "Due now",
+    "upcoming": "Upcoming",
+    "emptyDue": "No notifications are due right now."
+  },
+  "item": {
+    "fallbackTitle": "{{kind}} item",
+    "fallbackReminder": "{{kind}} reminder",
+    "ackRequired": " · acknowledgement required"
+  },
+  "engine": {
+    "title": "Notification engine",
+    "description": "Reminders appear when due. Open or dismiss clears them from the bell; acknowledgements stay until you confirm."
+  },
+  "timing": {
+    "beforeStart": "{{clock}} ({{minutes}}m before start)",
+    "atStart": "{{clock}} (at start)",
+    "during": "{{clock}} ({{minutes}}m after start)",
+    "beforeEnd": "{{clock}} ({{minutes}}m before end)",
+    "afterEnd": "{{clock}} ({{minutes}}m after end)"
+  },
+  "toast": {
+    "stackAria": "Notifications"
+  }
+}

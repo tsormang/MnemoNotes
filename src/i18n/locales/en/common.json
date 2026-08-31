@@ -1,0 +1,82 @@
+{
+  "brand": {
+    "name": "MnemoNotes"
+  },
+  "nav": {
+    "appActions": "App actions",
+    "calendar": "Calendar",
+    "searchFilter": "Search & filter",
+    "personnelRoles": "Personnel and roles",
+    "auditLog": "Audit log",
+    "workforceStats": "Workforce statistics",
+    "configuration": "Configuration",
+    "notifications": "Notifications",
+    "notificationsDue": "Notifications ({{count}} due)",
+    "openMenu": "Open menu",
+    "menu": "Menu"
+  },
+  "actions": {
+    "signOut": "Sign out",
+    "close": "Close",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "open": "Open",
+    "copy": "Copy",
+    "refresh": "Refresh",
+    "clear": "Clear",
+    "today": "Today",
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "filter": {
+    "type": "Type",
+    "typeAll": "All types",
+    "typeShift": "Shifts",
+    "typeNote": "Notes",
+    "typeTask": "Tasks",
+    "staff": "Staff",
+    "staffAnyone": "Anyone",
+    "searchCalendar": "Search calendar",
+    "searchPlaceholder": "Search shifts, notes, tasks…",
+    "applyHint": "Filters apply to the calendar immediately."
+  },
+  "field": {
+    "email": "Email",
+    "password": "Password",
+    "fullName": "Full name",
+    "title": "Title",
+    "name": "Name",
+    "description": "Description",
+    "from": "From",
+    "to": "To",
+    "type": "Type",
+    "priority": "Priority",
+    "category": "Category",
+    "status": "Status",
+    "actions": "Actions",
+    "icon": "Icon",
+    "account": "Account",
+    "role": "Role",
+    "optional": "Optional"
+  },
+  "priority": {
+    "low": "Low",
+    "normal": "Normal",
+    "high": "High",
+    "critical": "Critical"
+  },
+  "eventKind": {
+    "shift": "Shift",
+    "note": "Note",
+    "task": "Task"
+  },
+  "loading": "Loading…",
+  "copiedToClipboard": "Copied to clipboard.",
+  "errors": {
+    "organizationUnavailable": "Organization is not available.",
+    "genericSave": "Could not save.",
+    "genericDelete": "Could not delete."
+  }
+}

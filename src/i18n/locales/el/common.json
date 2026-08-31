@@ -1,0 +1,82 @@
+{
+  "brand": {
+    "name": "MnemoNotes"
+  },
+  "nav": {
+    "appActions": "Ενέργειες εφαρμογής",
+    "calendar": "Ημερολόγιο",
+    "searchFilter": "Αναζήτηση & φίλτρα",
+    "personnelRoles": "Προσωπικό και ρόλοι",
+    "auditLog": "Αρχείο ελέγχου",
+    "workforceStats": "Στατιστικά προσωπικού",
+    "configuration": "Ρυθμίσεις",
+    "notifications": "Ειδοποιήσεις",
+    "notificationsDue": "Ειδοποιήσεις ({{count}} εκκρεμείς)",
+    "openMenu": "Άνοιγμα μενού",
+    "menu": "Μενού"
+  },
+  "actions": {
+    "signOut": "Αποσύνδεση",
+    "close": "Κλείσιμο",
+    "save": "Αποθήκευση",
+    "saving": "Αποθήκευση…",
+    "cancel": "Ακύρωση",
+    "delete": "Διαγραφή",
+    "open": "Άνοιγμα",
+    "copy": "Αντιγραφή",
+    "refresh": "Ανανέωση",
+    "clear": "Εκκαθάριση",
+    "today": "Σήμερα",
+    "previous": "Προηγούμενο",
+    "next": "Επόμενο"
+  },
+  "filter": {
+    "type": "Τύπος",
+    "typeAll": "Όλα",
+    "typeShift": "Βάρδιες",
+    "typeNote": "Σημειώσεις",
+    "typeTask": "Εργασίες",
+    "staff": "Προσωπικό",
+    "staffAnyone": "Οποιοσδήποτε",
+    "searchCalendar": "Αναζήτηση ημερολογίου",
+    "searchPlaceholder": "Αναζήτηση βαρδιών, σημειώσεων, εργασιών…",
+    "applyHint": "Τα φίλτρα εφαρμόζονται στο ημερολόγιο αμέσως."
+  },
+  "field": {
+    "email": "Email",
+    "password": "Κωδικός",
+    "fullName": "Ονοματεπώνυμο",
+    "title": "Τίτλος",
+    "name": "Όνομα",
+    "description": "Περιγραφή",
+    "from": "Από",
+    "to": "Έως",
+    "type": "Τύπος",
+    "priority": "Προτεραιότητα",
+    "category": "Κατηγορία",
+    "status": "Κατάσταση",
+    "actions": "Ενέργειες",
+    "icon": "Εικονίδιο",
+    "account": "Λογαριασμός",
+    "role": "Ρόλος",
+    "optional": "Προαιρετικό"
+  },
+  "priority": {
+    "low": "Χαμηλή",
+    "normal": "Κανονική",
+    "high": "Υψηλή",
+    "critical": "Κρίσιμη"
+  },
+  "eventKind": {
+    "shift": "Βάρδια",
+    "note": "Σημείωση",
+    "task": "Εργασία"
+  },
+  "loading": "Φόρτωση…",
+  "copiedToClipboard": "Αντιγράφηκε στο πρόχειρο.",
+  "errors": {
+    "organizationUnavailable": "Ο οργανισμός δεν είναι διαθέσιμος.",
+    "genericSave": "Αποτυχία αποθήκευσης.",
+    "genericDelete": "Αποτυχία διαγραφής."
+  }
+}

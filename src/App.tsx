@@ -1,20 +1,14 @@
-import {
-  BarChart3,
-  Bell,
-  CalendarDays,
-  ClipboardList,
-  Plus,
-  Search,
-  Settings,
-  Users,
-} from 'lucide-react'
+import { Search } from 'lucide-react'
 import { useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Navigate, NavLink, Outlet, Route, Routes, useNavigate } from 'react-router-dom'
 import './App.css'
+import { AppBarActions } from './components/AppBarActions'
 import { BrandMark } from './components/BrandMark'
+import { DevVersionLabel } from './components/DevVersionLabel'
 import { Modal } from './components/Modal'
 import { AdminConsole } from './features/admin/AdminConsole'
-import { AcceptInviteScreen, LoginScreen, SignOutButton } from './features/auth/AuthScreens'
+import { AcceptInviteScreen, LoginScreen } from './features/auth/AuthScreens'
 import {
   RedirectIfAuthenticated,
   RequireAuditAccess,
@@ -90,6 +84,7 @@ function App() {
 }
 
 function AppShell() {
+  const { t } = useTranslation(['common', 'notifications'])
   const navigate = useNavigate()
   const [openModal, setOpenModal] = useState<ShellModal>(null)
   const closeModal = useCallback(() => setOpenModal(null), [])
@@ -107,13 +102,15 @@ function AppShell() {
     setKindFilter,
     personnelFilterId,
     setPersonnelFilterId,
-    openCreateEvent,
   } = useCalendarShell()
   const { organizationId } = useWorkspace()
   const personnelQuery = usePersonnelList(organizationId)
-  const canCreateEvents = useCan('shifts.create') || useCan('notes.create')
 
   const { badgeCount } = useNotifications()
+
+  const openShellModal = useCallback((modal: Exclude<ShellModal, null>) => {
+    setOpenModal(modal)
+  }, [])
 
   const handleStatsDrillDown = useCallback(
     ({ personnelId }: { personnelId: string; fullName: string }) => {
@@ -131,101 +128,35 @@ function AppShell() {
         <NavLink className="brand" to="/app/calendar">
           <BrandMark />
           <div>
-            <strong className="brand-name">MnemoNotes</strong>
+            <div className="brand-title-row">
+              <strong className="brand-name">MnemoNotes</strong>
+              <DevVersionLabel />
+            </div>
             {membership ? <span className="brand-subtitle">{membership.workspaceLabel}</span> : null}
           </div>
         </NavLink>
 
-        <nav className="app-bar-actions" aria-label="App actions">
-          {showSecondaryNav ? (
-            <NavLink
-              className={({ isActive }) => `icon-ghost${isActive ? ' icon-ghost--active' : ''}`}
-              to="/app/calendar"
-              aria-label="Calendar"
-            >
-              <CalendarDays size={19} aria-hidden="true" />
-            </NavLink>
-          ) : null}
-          <button
-            className="icon-ghost"
-            type="button"
-            aria-label="Search"
-            onClick={() => setOpenModal('search')}
-          >
-            <Search size={19} aria-hidden="true" />
-          </button>
-          {showPeopleLink ? (
-            <NavLink
-              className={({ isActive }) => `icon-ghost${isActive ? ' icon-ghost--active' : ''}`}
-              to="/app/people"
-              aria-label="Personnel and roles"
-            >
-              <Users size={19} aria-hidden="true" />
-            </NavLink>
-          ) : null}
-          {canReadAudit ? (
-            <NavLink
-              className={({ isActive }) => `icon-ghost${isActive ? ' icon-ghost--active' : ''}`}
-              to="/app/audit"
-              aria-label="Audit log"
-            >
-              <ClipboardList size={19} aria-hidden="true" />
-            </NavLink>
-          ) : null}
-          {canReadStats ? (
-            <button
-              className="icon-ghost"
-              type="button"
-              aria-label="Workforce statistics"
-              onClick={() => setOpenModal('stats')}
-            >
-              <BarChart3 size={19} aria-hidden="true" />
-            </button>
-          ) : null}
-          <button
-            className="icon-ghost"
-            type="button"
-            aria-label="Configuration"
-            onClick={() => setOpenModal('security')}
-          >
-            <Settings size={19} aria-hidden="true" />
-          </button>
-          <button
-            className={`icon-ghost${badgeCount > 0 ? ' icon-ghost--badged' : ''}`}
-            type="button"
-            aria-label={badgeCount > 0 ? `Notifications (${badgeCount} due)` : 'Notifications'}
-            onClick={() => setOpenModal('notifications')}
-          >
-            <Bell size={19} aria-hidden="true" />
-            {badgeCount > 0 ? <span className="icon-badge">{badgeCount}</span> : null}
-          </button>
-          <button
-            className="icon-primary"
-            type="button"
-            aria-label="Create event"
-            disabled={!canCreateEvents}
-            onClick={() => {
-              closeModal()
-              openCreateEvent()
-            }}
-          >
-            <Plus size={20} aria-hidden="true" />
-          </button>
-          <SignOutButton />
-        </nav>
+        <AppBarActions
+          showSecondaryNav={showSecondaryNav}
+          showPeopleLink={showPeopleLink}
+          canReadAudit={canReadAudit}
+          canReadStats={canReadStats}
+          badgeCount={badgeCount}
+          onOpenModal={openShellModal}
+        />
       </header>
 
       <main className="main-surface">
         <Outlet />
       </main>
 
-      <Modal open={openModal === 'search'} onClose={closeModal} title="Search & filter">
+      <Modal open={openModal === 'search'} onClose={closeModal} title={t('common:nav.searchFilter')}>
         <label className="search-field">
-          <span className="visually-hidden">Search calendar</span>
+          <span className="visually-hidden">{t('common:filter.searchCalendar')}</span>
           <Search size={18} aria-hidden="true" />
           <input
             type="search"
-            placeholder="Search shifts, notes, tasks…"
+            placeholder={t('common:filter.searchPlaceholder')}
             autoFocus
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
@@ -234,29 +165,29 @@ function AppShell() {
 
         <div className="filter-row">
           <label>
-            Type
+            {t('common:filter.type')}
             <select
               value={kindFilter}
               onChange={(event) =>
                 setKindFilter(event.target.value as typeof kindFilter)
               }
             >
-              <option value="all">All types</option>
-              <option value="shift">Shifts</option>
-              <option value="note">Notes</option>
-              <option value="task">Tasks</option>
+              <option value="all">{t('common:filter.typeAll')}</option>
+              <option value="shift">{t('common:filter.typeShift')}</option>
+              <option value="note">{t('common:filter.typeNote')}</option>
+              <option value="task">{t('common:filter.typeTask')}</option>
             </select>
           </label>
 
           <label>
-            Staff
+            {t('common:filter.staff')}
             <select
               value={personnelFilterId ?? ''}
               onChange={(event) =>
                 setPersonnelFilterId(event.target.value ? event.target.value : null)
               }
             >
-              <option value="">Anyone</option>
+              <option value="">{t('common:filter.staffAnyone')}</option>
               {(personnelQuery.data ?? []).map((person) => (
                 <option key={person.id} value={person.id}>
                   {person.fullName}
@@ -266,23 +197,23 @@ function AppShell() {
           </label>
         </div>
 
-        <p className="modal-hint">Filters apply to the calendar immediately.</p>
+        <p className="modal-hint">{t('common:filter.applyHint')}</p>
       </Modal>
 
-      <Modal open={openModal === 'security'} onClose={closeModal} title="Configuration" wide>
+      <Modal open={openModal === 'security'} onClose={closeModal} title={t('common:nav.configuration')} wide>
         <UserSecurityScreen />
       </Modal>
 
       <Modal
         open={openModal === 'notifications'}
         onClose={closeModal}
-        title="Notifications"
+        title={t('notifications:panel.title')}
         variant="panel"
       >
         <NotificationsPanel />
       </Modal>
 
-      <Modal open={openModal === 'stats'} onClose={closeModal} title="Workforce statistics" wide>
+      <Modal open={openModal === 'stats'} onClose={closeModal} title={t('common:nav.workforceStats')} wide>
         <StatsPanel onDrillDown={handleStatsDrillDown} />
       </Modal>
 

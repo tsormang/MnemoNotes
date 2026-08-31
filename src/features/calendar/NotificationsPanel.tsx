@@ -1,5 +1,6 @@
 import { Bell, Check, Clock, Monitor, RefreshCw, ShieldAlert, X } from 'lucide-react'
 import { format } from 'date-fns'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthProvider'
 import { useWorkspace } from '../auth/WorkspaceProvider'
 import { useNotifications } from '../notifications/NotificationProvider'
@@ -18,19 +19,21 @@ import {
   type InAppNotification,
 } from '../../lib/queries/notifications'
 import { useCalendarItems, usePersonnelList } from '../../lib/queries/workspace'
-import type { CalendarItem } from '../../types/domain'
+import type { CalendarItem, CalendarItemKind } from '../../types/domain'
 
 function notificationLabel(
   notification: InAppNotification,
   calendarItems: CalendarItem[],
   personnel: { id: string; fullName: string }[],
+  fallbackReminder: string,
 ): string {
   const item = calendarItems.find((entry) => entry.id === notification.calendarItemId)
   if (item) return getCalendarItemDisplayLabel(item, personnel)
-  return notification.title || `${notification.kind} reminder`
+  return notification.title || fallbackReminder
 }
 
 export function NotificationsPanel() {
+  const { t } = useTranslation(['notifications', 'common'])
   const { user } = useAuth()
   const { organizationId } = useWorkspace()
   const calendarQuery = useCalendarItems(organizationId)
@@ -70,23 +73,28 @@ export function NotificationsPanel() {
     (item) => !isActiveDueNotification(item, calendarItems) && item.status !== 'expired',
   )
 
+  const kindLabel = (kind: CalendarItemKind) => t(`common:eventKind.${kind}`)
+
+  const reminderFallback = (kind: CalendarItemKind) =>
+    t('notifications:item.fallbackReminder', { kind: kindLabel(kind) })
+
   return (
     <div className="notifications-panel">
       <div className="metric-grid">
         <div className="metric">
-          <span>Due now</span>
+          <span>{t('notifications:metrics.dueNow')}</span>
           <strong>{activeDueNotifications.length}</strong>
         </div>
         <div className="metric">
-          <span>Upcoming</span>
+          <span>{t('notifications:metrics.upcoming')}</span>
           <strong>{upcomingNotifications.length}</strong>
         </div>
         <div className="metric">
-          <span>Acks due</span>
+          <span>{t('notifications:metrics.acksDue')}</span>
           <strong>{pendingAcks.length}</strong>
         </div>
         <div className="metric">
-          <span>Total rules</span>
+          <span>{t('notifications:metrics.totalRules')}</span>
           <strong>{notifications.length}</strong>
         </div>
       </div>
@@ -100,18 +108,18 @@ export function NotificationsPanel() {
               onClick={() => void requestDesktopPermission()}
             >
               <Monitor size={16} aria-hidden="true" />
-              Enable desktop alerts
+              {t('notifications:desktop.enable')}
             </button>
           ) : null}
           {desktopPermission === 'granted' ? (
             <span className="notifications-status">
               <Monitor size={14} aria-hidden="true" />
-              Desktop alerts on
+              {t('notifications:desktop.on')}
             </span>
           ) : null}
           {desktopPermission === 'denied' ? (
             <span className="notifications-status notifications-status--muted">
-              Desktop alerts blocked in browser settings
+              {t('notifications:desktop.blocked')}
             </span>
           ) : null}
           {activeDueNotifications.length > 0 ? (
@@ -122,7 +130,7 @@ export function NotificationsPanel() {
               onClick={() => void clearAllDueNotifications()}
             >
               <X size={16} aria-hidden="true" />
-              Clear due
+              {t('notifications:actions.clearDue')}
             </button>
           ) : null}
           <button
@@ -132,21 +140,24 @@ export function NotificationsPanel() {
             onClick={() => void refreshNotifications.mutateAsync()}
           >
             <RefreshCw size={16} aria-hidden="true" />
-            Refresh jobs
+            {t('notifications:actions.refreshJobs')}
           </button>
         </div>
       ) : null}
 
       {pendingAcks.length > 0 ? (
         <div className="timeline-list">
-          <p className="eyebrow">Acknowledgements due</p>
+          <p className="eyebrow">{t('notifications:section.acksDue')}</p>
           {pendingAcks.map((item) => (
             <article className="timeline-item" key={item.calendarItemId}>
               <div className="timeline-icon note">
                 <ShieldAlert size={18} aria-hidden="true" />
               </div>
               <div className="timeline-item__body">
-                <h3>{item.title || `${item.kind} item`}</h3>
+                <h3>
+                  {item.title ||
+                    t('notifications:item.fallbackTitle', { kind: kindLabel(item.kind) })}
+                </h3>
                 <p>
                   {format(new Date(item.startsAt), 'EEE d MMM, HH:mm')}
                   {' — '}
@@ -160,7 +171,7 @@ export function NotificationsPanel() {
                 onClick={() => void acknowledgeItem.mutateAsync(item.calendarItemId)}
               >
                 <Check size={16} aria-hidden="true" />
-                Acknowledge
+                {t('notifications:actions.acknowledge')}
               </button>
             </article>
           ))}
@@ -168,9 +179,9 @@ export function NotificationsPanel() {
       ) : null}
 
       <div className="timeline-list">
-        <p className="eyebrow">Due now</p>
+        <p className="eyebrow">{t('notifications:section.dueNow')}</p>
         {activeDueNotifications.length === 0 ? (
-          <p className="modal-hint">No notifications are due right now.</p>
+          <p className="modal-hint">{t('notifications:section.emptyDue')}</p>
         ) : (
           activeDueNotifications.map((item) => (
             <article className="timeline-item" key={item.id}>
@@ -182,14 +193,21 @@ export function NotificationsPanel() {
                 )}
               </div>
               <div className="timeline-item__body">
-                <h3>{notificationLabel(item, calendarItems, personnel)}</h3>
+                <h3>
+                  {notificationLabel(
+                    item,
+                    calendarItems,
+                    personnel,
+                    reminderFallback(item.kind as CalendarItemKind),
+                  )}
+                </h3>
                 <p>
                   {formatNotificationTiming(
                     item.scheduledFor,
                     item.triggerKind,
                     item.offsetMinutes,
                   )}
-                  {item.requiresAcknowledgement ? ' · acknowledgement required' : ''}
+                  {item.requiresAcknowledgement ? t('notifications:item.ackRequired') : ''}
                 </p>
               </div>
               <div className="timeline-item__actions">
@@ -201,7 +219,7 @@ export function NotificationsPanel() {
                     onClick={() => void acknowledgeItem.mutateAsync(item.calendarItemId)}
                   >
                     <Check size={16} aria-hidden="true" />
-                    Ack
+                    {t('notifications:actions.ack')}
                   </button>
                 ) : null}
                 <button
@@ -209,12 +227,12 @@ export function NotificationsPanel() {
                   type="button"
                   onClick={() => openNotificationAndDismiss(item)}
                 >
-                  Open
+                  {t('common:actions.open')}
                 </button>
                 <button
                   className="icon-ghost timeline-item__dismiss"
                   type="button"
-                  aria-label="Dismiss notification"
+                  aria-label={t('notifications:actions.dismissAria')}
                   disabled={isClearingNotifications}
                   onClick={() => clearNotification(item)}
                 >
@@ -228,14 +246,21 @@ export function NotificationsPanel() {
 
       {upcomingNotifications.length > 0 ? (
         <div className="timeline-list">
-          <p className="eyebrow">Upcoming</p>
+          <p className="eyebrow">{t('notifications:section.upcoming')}</p>
           {upcomingNotifications.map((item) => (
             <article className="timeline-item" key={item.id}>
               <div className={`timeline-icon ${item.kind}`}>
                 <Clock size={18} aria-hidden="true" />
               </div>
               <div className="timeline-item__body">
-                <h3>{notificationLabel(item, calendarItems, personnel)}</h3>
+                <h3>
+                  {notificationLabel(
+                    item,
+                    calendarItems,
+                    personnel,
+                    reminderFallback(item.kind as CalendarItemKind),
+                  )}
+                </h3>
                 <p>
                   {formatNotificationTiming(
                     item.scheduledFor,
@@ -252,11 +277,8 @@ export function NotificationsPanel() {
       <div className="notification-card">
         <Bell size={20} aria-hidden="true" />
         <div>
-          <h3>Notification engine</h3>
-          <p>
-            Reminders appear when due. Open or dismiss clears them from the bell; acknowledgements
-            stay until you confirm.
-          </p>
+          <h3>{t('notifications:engine.title')}</h3>
+          <p>{t('notifications:engine.description')}</p>
         </div>
       </div>
     </div>

@@ -21,6 +21,8 @@ export function useCreatePersonnel(organizationId: string | null) {
       companyRoleId: string
       locationId: string
       title?: string
+      iconId?: string
+      avatarGender?: 'male' | 'female'
     }) => {
       if (!organizationId || !supabase) {
         throw new Error('Organization is not available.')
@@ -33,6 +35,8 @@ export function useCreatePersonnel(organizationId: string | null) {
         title: values.title?.trim() || 'Personnel',
         status: 'active',
         company_role_id: values.companyRoleId,
+        icon_id: values.iconId ?? (values.avatarGender === 'male' ? 'avatar-male-001' : 'avatar-female-002'),
+        avatar_gender: values.avatarGender ?? 'female',
       })
 
       if (error) throw error
@@ -58,6 +62,7 @@ export function useCreateCompanyRole(organizationId: string | null) {
           organization_id: organizationId,
           name: values.name.trim(),
           description: values.description?.trim() ?? '',
+          icon_id: values.iconId ?? 'role-user-cog',
         })
         .select('id')
         .single()
@@ -79,10 +84,12 @@ export function useUpdateCompanyRole(organizationId: string | null) {
       roleId,
       name,
       description,
+      iconId,
     }: {
       roleId: string
       name?: string
       description?: string
+      iconId?: string
     }) => {
       if (!organizationId || !supabase) {
         throw new Error('Organization is not available.')
@@ -91,6 +98,7 @@ export function useUpdateCompanyRole(organizationId: string | null) {
       const updates: Record<string, string> = { updated_at: new Date().toISOString() }
       if (name !== undefined) updates.name = name.trim()
       if (description !== undefined) updates.description = description.trim()
+      if (iconId !== undefined) updates.icon_id = iconId
 
       const { error } = await supabase
         .from('company_roles')
@@ -177,20 +185,29 @@ export function useUpdatePersonnel(organizationId: string | null) {
   return useMutation({
     mutationFn: async ({
       personnelId,
+      fullName,
       companyRoleId,
       title,
+      iconId,
+      avatarGender,
     }: {
       personnelId: string
+      fullName?: string
       companyRoleId?: string
       title?: string
+      iconId?: string
+      avatarGender?: 'male' | 'female'
     }) => {
       if (!organizationId || !supabase) {
         throw new Error('Organization is not available.')
       }
 
       const updates: Record<string, string> = {}
+      if (fullName !== undefined) updates.full_name = fullName.trim()
       if (companyRoleId) updates.company_role_id = companyRoleId
       if (title !== undefined) updates.title = title
+      if (iconId !== undefined) updates.icon_id = iconId
+      if (avatarGender !== undefined) updates.avatar_gender = avatarGender
 
       const { error } = await supabase
         .from('personnel')
@@ -231,6 +248,9 @@ function buildCalendarMetadata(
   }
   if (values.noteCategory?.trim()) {
     metadata.noteCategory = values.noteCategory.trim()
+  }
+  if (values.iconId?.trim()) {
+    metadata.iconId = values.iconId.trim()
   }
   if (seriesId) {
     metadata.seriesId = seriesId
@@ -354,6 +374,7 @@ export function useUpsertCalendarItem(organizationId: string | null, userId: str
         assignedPersonnelIds: values.assignedPersonnelIds,
         priority: values.priority,
         noteCategory: values.noteCategory,
+        iconId: values.iconId,
         seriesId: values.seriesId,
         notificationOffsets: resolvedOffsets,
         requiresAcknowledgement: values.requiresAcknowledgement,
@@ -430,6 +451,7 @@ function cloneInputFromItem(
     assignedPersonnelIds: item.assignedPersonnelIds,
     priority: item.priority,
     noteCategory: item.noteCategory ?? '',
+    iconId: item.iconId ?? '',
     requiresAcknowledgement: item.requiresAcknowledgement,
     notificationOffsets: item.notificationOffsets,
     useCustomNotificationOffsets: true,

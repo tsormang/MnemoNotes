@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
   }
   graphql_public: {
     Tables: {
@@ -39,6 +39,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_icons: {
+        Row: {
+          avatar_gender: Database["public"]["Enums"]["avatar_gender"] | null
+          created_at: string
+          entity_types: Database["public"]["Enums"]["icon_entity_type"][]
+          id: string
+          label: string
+          path: string
+          sort_order: number
+          tags: string[]
+        }
+        Insert: {
+          avatar_gender?: Database["public"]["Enums"]["avatar_gender"] | null
+          created_at?: string
+          entity_types: Database["public"]["Enums"]["icon_entity_type"][]
+          id: string
+          label: string
+          path: string
+          sort_order?: number
+          tags?: string[]
+        }
+        Update: {
+          avatar_gender?: Database["public"]["Enums"]["avatar_gender"] | null
+          created_at?: string
+          entity_types?: Database["public"]["Enums"]["icon_entity_type"][]
+          id?: string
+          label?: string
+          path?: string
+          sort_order?: number
+          tags?: string[]
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
@@ -256,7 +289,7 @@ export type Database = {
         Row: {
           created_at: string
           description: string
-          icon: string
+          icon_id: string
           id: string
           is_system: boolean
           name: string
@@ -266,7 +299,7 @@ export type Database = {
         Insert: {
           created_at?: string
           description?: string
-          icon?: string
+          icon_id?: string
           id?: string
           is_system?: boolean
           name: string
@@ -276,7 +309,7 @@ export type Database = {
         Update: {
           created_at?: string
           description?: string
-          icon?: string
+          icon_id?: string
           id?: string
           is_system?: boolean
           name?: string
@@ -284,6 +317,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "company_roles_icon_id_fkey"
+            columns: ["icon_id"]
+            isOneToOne: false
+            referencedRelation: "app_icons"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "company_roles_organization_id_fkey"
             columns: ["organization_id"]
@@ -528,6 +568,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          icon_id: string
           id: string
           name: string
           settings: Json
@@ -541,6 +582,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          icon_id?: string
           id?: string
           name: string
           settings?: Json
@@ -554,6 +596,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          icon_id?: string
           id?: string
           name?: string
           settings?: Json
@@ -564,13 +607,23 @@ export type Database = {
           working_day_end?: string
           working_day_start?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "organizations_icon_id_fkey"
+            columns: ["icon_id"]
+            isOneToOne: false
+            referencedRelation: "app_icons"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       personnel: {
         Row: {
+          avatar_gender: Database["public"]["Enums"]["avatar_gender"]
           company_role_id: string | null
           created_at: string
           full_name: string
+          icon_id: string
           id: string
           location_id: string | null
           organization_id: string
@@ -581,9 +634,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          avatar_gender?: Database["public"]["Enums"]["avatar_gender"]
           company_role_id?: string | null
           created_at?: string
           full_name: string
+          icon_id?: string
           id?: string
           location_id?: string | null
           organization_id: string
@@ -594,9 +649,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          avatar_gender?: Database["public"]["Enums"]["avatar_gender"]
           company_role_id?: string | null
           created_at?: string
           full_name?: string
+          icon_id?: string
           id?: string
           location_id?: string | null
           organization_id?: string
@@ -612,6 +669,13 @@ export type Database = {
             columns: ["company_role_id"]
             isOneToOne: false
             referencedRelation: "company_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personnel_icon_id_fkey"
+            columns: ["icon_id"]
+            isOneToOne: false
+            referencedRelation: "app_icons"
             referencedColumns: ["id"]
           },
           {
@@ -914,9 +978,16 @@ export type Database = {
         | "audit.read"
         | "stats.read"
       app_role: "developer_admin" | "owner" | "manager" | "personnel" | "viewer"
+      avatar_gender: "male" | "female"
       business_vertical: "pharmacy" | "generic"
       calendar_item_kind: "shift" | "note" | "task"
       calendar_item_status: "draft" | "published" | "cancelled" | "completed"
+      icon_entity_type:
+        | "organization"
+        | "personnel"
+        | "company_role"
+        | "note"
+        | "task"
       member_status: "invited" | "active" | "disabled"
       notification_channel: "in_app" | "push" | "email" | "sms" | "teams"
       notification_status:
@@ -1093,9 +1164,17 @@ export const Constants = {
         "stats.read",
       ],
       app_role: ["developer_admin", "owner", "manager", "personnel", "viewer"],
+      avatar_gender: ["male", "female"],
       business_vertical: ["pharmacy", "generic"],
       calendar_item_kind: ["shift", "note", "task"],
       calendar_item_status: ["draft", "published", "cancelled", "completed"],
+      icon_entity_type: [
+        "organization",
+        "personnel",
+        "company_role",
+        "note",
+        "task",
+      ],
       member_status: ["invited", "active", "disabled"],
       notification_channel: ["in_app", "push", "email", "sms", "teams"],
       notification_status: [

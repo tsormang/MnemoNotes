@@ -1,14 +1,15 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Clock3, Save } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
+import { Trans, useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { TimeInput } from '../../components/TimeInput'
 import { useWorkspace } from '../auth/WorkspaceProvider'
 import { formatClockLabel } from '../../lib/calendar-hours'
 import { useOrganization } from '../../lib/queries/workspace'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
-import { workingDaySchema, type WorkingDayInput } from '../../lib/validation'
+import { createWorkingDaySchema, type WorkingDayInput } from '../../lib/validation'
 
 interface WorkingDaySettingsProps {
   /** Compact layout for embedded modals. */
@@ -17,10 +18,13 @@ interface WorkingDaySettingsProps {
 }
 
 export function WorkingDaySettings({ compact = false, organizationId: orgIdProp }: WorkingDaySettingsProps) {
+  const { t } = useTranslation(['settings', 'common'])
+  const { t: tv } = useTranslation('validation')
   const { organizationId: workspaceOrgId, can } = useWorkspace()
   const organizationId = orgIdProp ?? workspaceOrgId
   const orgQuery = useOrganization(organizationId)
   const queryClient = useQueryClient()
+  const workingDaySchema = useMemo(() => createWorkingDaySchema(tv), [tv])
 
   const workingDayStart = orgQuery.data?.workingDayStart ?? '07:00'
   const workingDayEnd = orgQuery.data?.workingDayEnd ?? '21:00'
@@ -41,7 +45,7 @@ export function WorkingDaySettings({ compact = false, organizationId: orgIdProp 
   const saveMutation = useMutation({
     mutationFn: async (values: WorkingDayInput) => {
       if (!organizationId || !supabase) {
-        throw new Error('Organization is not available.')
+        throw new Error(t('common:errors.organizationUnavailable'))
       }
 
       const { error } = await supabase
@@ -64,7 +68,7 @@ export function WorkingDaySettings({ compact = false, organizationId: orgIdProp 
       await saveMutation.mutateAsync(values)
     } catch (error) {
       form.setError('end', {
-        message: error instanceof Error ? error.message : 'Could not save working hours.',
+        message: error instanceof Error ? error.message : t('settings:workingDay.errorSave'),
       })
     }
   })
@@ -76,25 +80,28 @@ export function WorkingDaySettings({ compact = false, organizationId: orgIdProp 
           <Clock3 size={18} />
         </div>
         <div>
-          <h2>Working day duration</h2>
+          <h2>{t('settings:workingDay.title')}</h2>
           <p>
-            Calendar day and week views show{' '}
-            <strong>
-              {formatClockLabel(workingDayStart)} – {formatClockLabel(workingDayEnd)}
-            </strong>{' '}
-            by default. Owners and admins can change this window; any week can still opt into
-            00:00–24:00 for night shifts.
+            <Trans
+              i18nKey="workingDay.description"
+              ns="settings"
+              values={{
+                start: formatClockLabel(workingDayStart),
+                end: formatClockLabel(workingDayEnd),
+              }}
+              components={{ 1: <strong /> }}
+            />
           </p>
         </div>
       </div>
 
       <form className="working-day-form" onSubmit={onSubmit}>
         <label>
-          From
+          {t('common:field.from')}
           <TimeInput
             value={form.watch('start')}
             disabled={!canEdit || !isSupabaseConfigured}
-            aria-label="Working day start time"
+            aria-label={t('settings:workingDay.startAria')}
             onChange={(value) => form.setValue('start', value, { shouldValidate: true })}
           />
           {form.formState.errors.start ? (
@@ -102,11 +109,11 @@ export function WorkingDaySettings({ compact = false, organizationId: orgIdProp 
           ) : null}
         </label>
         <label>
-          To
+          {t('common:field.to')}
           <TimeInput
             value={form.watch('end')}
             disabled={!canEdit || !isSupabaseConfigured}
-            aria-label="Working day end time"
+            aria-label={t('settings:workingDay.endAria')}
             onChange={(value) => form.setValue('end', value, { shouldValidate: true })}
           />
           {form.formState.errors.end ? (
@@ -116,7 +123,7 @@ export function WorkingDaySettings({ compact = false, organizationId: orgIdProp 
         {canEdit ? (
           <button className="icon-button" type="submit" disabled={saveMutation.isPending}>
             <Save size={16} aria-hidden="true" />
-            {saveMutation.isPending ? 'Saving…' : 'Save hours'}
+            {saveMutation.isPending ? t('common:actions.saving') : t('settings:workingDay.save')}
           </button>
         ) : null}
       </form>

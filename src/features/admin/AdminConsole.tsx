@@ -19,6 +19,7 @@ import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useQueryClient } from '@tanstack/react-query'
 import { BrandMark } from '../../components/BrandMark'
+import { DevVersionLabel } from '../../components/DevVersionLabel'
 import { calendarItems, personnel, pharmacyLocations } from '../../data/demo'
 import { formatDateTime24 } from '../../lib/calendar-datetime'
 import { invokeEdgeFunction } from '../../lib/edge-functions'
@@ -182,7 +183,10 @@ export function AdminConsole() {
         <div className="brand">
           <BrandMark />
           <div>
-            <strong className="brand-name">MnemoNotes Admin</strong>
+            <div className="brand-title-row">
+              <strong className="brand-name">MnemoNotes Admin</strong>
+              <DevVersionLabel />
+            </div>
             <span className="brand-subtitle">Platform company management</span>
           </div>
         </div>

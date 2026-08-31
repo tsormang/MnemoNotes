@@ -1,0 +1,21 @@
+{
+  "emailInvalid": "Use a valid email address",
+  "passwordRequired": "Password is required",
+  "tokenRequired": "Invite token is required",
+  "passwordMinLength": "Use at least 10 characters",
+  "fullNameRequired": "Full name is required",
+  "roleNameRequired": "Role name is required",
+  "roleNameMinLength": "Name must be at least 2 characters.",
+  "chooseRole": "Choose a company role",
+  "chooseCompany": "Choose a company",
+  "personnelRequired": "Personnel is required",
+  "companyNameRequired": "Company name is required",
+  "timezoneRequired": "Timezone is required",
+  "ownerNameRequired": "Owner name is required",
+  "clockFormat": "Use 24-hour time (HH:mm)",
+  "endAfterStart": "End time must be after start time",
+  "startRequired": "Start time is required",
+  "endRequired": "End time is required",
+  "titleRequired": "Title is required",
+  "locationRequired": "Choose a location"
+}

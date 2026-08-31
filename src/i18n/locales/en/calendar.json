@@ -1,0 +1,57 @@
+{
+  "aria": {
+    "main": "Pharmacy operations calendar",
+    "utilityRibbon": "Calendar utility ribbon",
+    "viewSwitch": "Calendar view",
+    "print": "Print calendar"
+  },
+  "view": {
+    "day": "Day",
+    "week": "Week",
+    "month": "Month",
+    "defaultTitle": "Calendar"
+  },
+  "nightShift": {
+    "on": "Night shifts on · {{range}}",
+    "off": "Night shifts off · {{range}}"
+  },
+  "event": {
+    "untitled": "Untitled"
+  },
+  "series": {
+    "error": "Could not update event series."
+  },
+  "eventModal": {
+    "createTitle": "Create event",
+    "editTitle": "Edit event",
+    "titlePlaceholder": "Stock note, closing checklist…",
+    "categoryPlaceholder": "Stock, handover…",
+    "descriptionPlaceholder": "Optional details shown when the event is opened…",
+    "starts": "Starts",
+    "ends": "Ends",
+    "startDate": "Start date",
+    "startTime": "Start time",
+    "endDate": "End date",
+    "endTime": "End time",
+    "requiresAck": "Requires acknowledgement",
+    "assignedStaff": "Assigned staff",
+    "staffFallback": "Staff",
+    "conflictTitle": "Scheduling conflict",
+    "conflictLine": "{{name}} overlaps with “{{event}}”",
+    "locationUnavailable": "Company location is not available yet. Try again in a moment.",
+    "saveEvent": "Save event",
+    "saveChanges": "Save changes",
+    "errorSave": "Could not save event.",
+    "errorDelete": "Could not delete event."
+  },
+  "reminders": {
+    "legend": "Reminders",
+    "customToggle": "Custom reminders for this event",
+    "groupAria": "Reminder times",
+    "useDefaults": "Uses workspace default reminder times."
+  },
+  "print": {
+    "title": "Print preview",
+    "previewAria": "Calendar print preview"
+  }
+}

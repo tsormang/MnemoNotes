@@ -1,5 +1,6 @@
 import { Bell, Save } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useWorkspace } from '../auth/WorkspaceProvider'
 import {
@@ -20,29 +21,6 @@ interface NotificationDefaultsSettingsProps {
 
 type DefaultsKey = keyof NotificationDefaults
 
-const defaultRows: Array<{ key: DefaultsKey; label: string; description: string }> = [
-  {
-    key: 'shift',
-    label: 'Shifts',
-    description: 'Default reminders for shift events.',
-  },
-  {
-    key: 'ackRequired',
-    label: 'Ack-required items',
-    description: 'Used when an item requires acknowledgement.',
-  },
-  {
-    key: 'note',
-    label: 'Notes',
-    description: 'Default reminders for notes without acknowledgement.',
-  },
-  {
-    key: 'task',
-    label: 'Tasks',
-    description: 'Default reminders for tasks without acknowledgement.',
-  },
-]
-
 function toggleOffset(current: number[], preset: number): number[] {
   return current.includes(preset)
     ? current.filter((value) => value !== preset)
@@ -53,6 +31,32 @@ export function NotificationDefaultsSettings({
   compact = false,
   organizationId: orgIdProp,
 }: NotificationDefaultsSettingsProps) {
+  const { t } = useTranslation(['settings', 'common'])
+  const defaultRows = useMemo(
+    (): Array<{ key: DefaultsKey; label: string; description: string }> => [
+      {
+        key: 'shift',
+        label: t('settings:reminders.shift'),
+        description: t('settings:reminders.shiftDesc'),
+      },
+      {
+        key: 'ackRequired',
+        label: t('settings:reminders.ackRequired'),
+        description: t('settings:reminders.ackRequiredDesc'),
+      },
+      {
+        key: 'note',
+        label: t('settings:reminders.note'),
+        description: t('settings:reminders.noteDesc'),
+      },
+      {
+        key: 'task',
+        label: t('settings:reminders.task'),
+        description: t('settings:reminders.taskDesc'),
+      },
+    ],
+    [t],
+  )
   const { organizationId: workspaceOrgId, can } = useWorkspace()
   const organizationId = orgIdProp ?? workspaceOrgId
   const orgQuery = useOrganization(organizationId)
@@ -70,7 +74,7 @@ export function NotificationDefaultsSettings({
   const saveMutation = useMutation({
     mutationFn: async (values: NotificationDefaults) => {
       if (!organizationId || !supabase) {
-        throw new Error('Organization is not available.')
+        throw new Error(t('common:errors.organizationUnavailable'))
       }
 
       const currentSettings =
@@ -116,11 +120,8 @@ export function NotificationDefaultsSettings({
           <Bell size={18} />
         </div>
         <div>
-          <h2>Reminder defaults</h2>
-          <p>
-            Choose how many reminders fire before each event type. Managers can override these on
-            individual calendar items.
-          </p>
+          <h2>{t('settings:reminders.title')}</h2>
+          <p>{t('settings:reminders.description')}</p>
         </div>
       </div>
 
@@ -131,7 +132,7 @@ export function NotificationDefaultsSettings({
               <strong>{row.label}</strong>
               <p className="modal-hint">{row.description}</p>
             </div>
-            <div className="offset-chip-row" role="group" aria-label={`${row.label} reminders`}>
+            <div className="offset-chip-row" role="group" aria-label={t('settings:reminders.groupAria', { type: row.label })}>
               {NOTIFICATION_OFFSET_PRESETS.map((preset) => {
                 const selected = defaults[row.key].includes(preset)
                 return (
@@ -165,7 +166,7 @@ export function NotificationDefaultsSettings({
           onClick={() => void handleSave()}
         >
           <Save size={16} aria-hidden="true" />
-          {saveMutation.isPending ? 'Saving…' : 'Save reminder defaults'}
+          {saveMutation.isPending ? t('common:actions.saving') : t('settings:reminders.save')}
         </button>
       ) : null}
     </section>

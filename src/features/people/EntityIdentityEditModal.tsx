@@ -3,6 +3,7 @@ import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { Modal } from '../../components/Modal'
+import { FieldLabel } from '../../components/FieldLabel'
 import {
   AvatarSelectField,
   syncPersonnelIconForGender,
@@ -104,7 +105,7 @@ export function PersonnelIdentityEditModal({
     <Modal open={open} onClose={onClose} title={title}>
       <form className="create-event-form entity-edit-form" onSubmit={handleSubmit}>
         <label>
-          {t('common:field.fullName')}
+          <FieldLabel required>{t('common:field.fullName')}</FieldLabel>
           <input type="text" autoFocus {...form.register('fullName')} />
         </label>
         <AvatarSelectField
@@ -121,6 +122,7 @@ export function PersonnelIdentityEditModal({
             )
           }}
           disabled={isPending}
+          required
         />
         {error ? <p className="field-error">{error}</p> : null}
         <EditModalActions onClose={onClose} isPending={isPending} />
@@ -166,7 +168,7 @@ export function CompanyRoleIdentityEditModal({
     <Modal open={open} onClose={onClose} title={title}>
       <form className="create-event-form entity-edit-form" onSubmit={handleSubmit}>
         <label>
-          {t('people:roles.nameLabel')}
+          <FieldLabel required>{t('people:roles.nameLabel')}</FieldLabel>
           <input type="text" autoFocus {...form.register('name')} />
         </label>
         <AvatarSelectField
@@ -175,6 +177,7 @@ export function CompanyRoleIdentityEditModal({
           onChange={(iconId) => form.setValue('iconId', iconId, { shouldDirty: true })}
           disabled={isPending}
           iconLabel={t('people:roles.iconLabel')}
+          required
         />
         {error ? <p className="field-error">{error}</p> : null}
         <EditModalActions onClose={onClose} isPending={isPending} />

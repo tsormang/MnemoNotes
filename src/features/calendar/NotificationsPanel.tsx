@@ -6,7 +6,9 @@ import { useWorkspace } from '../auth/WorkspaceProvider'
 import { useNotifications } from '../notifications/NotificationProvider'
 import { calendarItems as demoCalendarItems } from '../../data/demo'
 import { getCalendarItemDisplayLabel } from '../../lib/calendar-display'
+import { filterVisibleCalendarItems, filterVisibleTaskKinds } from '../../lib/display-preferences'
 import { isSupabaseConfigured } from '../../lib/supabase'
+import { useDisplayPreferences } from '../../store/display-preferences'
 import {
   formatNotificationTiming,
   getDemoNotifications,
@@ -38,9 +40,11 @@ export function NotificationsPanel() {
   const { organizationId } = useWorkspace()
   const calendarQuery = useCalendarItems(organizationId)
   const personnelQuery = usePersonnelList(organizationId)
-  const calendarItems = isSupabaseConfigured
-    ? (calendarQuery.data ?? [])
-    : demoCalendarItems
+  const showTasks = useDisplayPreferences((state) => state.showTasks)
+  const calendarItems = filterVisibleCalendarItems(
+    isSupabaseConfigured ? (calendarQuery.data ?? []) : demoCalendarItems,
+    showTasks,
+  )
   const personnel = personnelQuery.data ?? []
   const notificationsQuery = useInAppNotifications(organizationId, user?.id ?? null)
   const pendingAcksQuery = usePendingAcknowledgements(
@@ -59,13 +63,17 @@ export function NotificationsPanel() {
     isClearingNotifications,
   } = useNotifications()
 
-  const notifications = isSupabaseConfigured
-    ? (notificationsQuery.data ?? [])
-    : getDemoNotifications()
+  const notifications = filterVisibleTaskKinds(
+    isSupabaseConfigured ? (notificationsQuery.data ?? []) : getDemoNotifications(),
+    showTasks,
+  )
 
-  const pendingAcks = isSupabaseConfigured
-    ? (pendingAcksQuery.data ?? [])
-    : getDemoPendingAcknowledgements(demoCalendarItems)
+  const pendingAcks = filterVisibleTaskKinds(
+    isSupabaseConfigured
+      ? (pendingAcksQuery.data ?? [])
+      : getDemoPendingAcknowledgements(calendarItems),
+    showTasks,
+  )
   const activeDueNotifications = notifications.filter((item) =>
     isActiveDueNotification(item, calendarItems),
   )
@@ -112,7 +120,10 @@ export function NotificationsPanel() {
             </button>
           ) : null}
           {desktopPermission === 'granted' ? (
-            <span className="notifications-status">
+            <span
+              className="notifications-status"
+              title={t('notifications:desktop.onHint')}
+            >
               <Monitor size={14} aria-hidden="true" />
               {t('notifications:desktop.on')}
             </span>
@@ -134,13 +145,17 @@ export function NotificationsPanel() {
             </button>
           ) : null}
           <button
-            className="button-secondary button-secondary--compact"
+            className="icon-ghost"
             type="button"
+            aria-label={t('notifications:actions.refreshJobs')}
             disabled={refreshNotifications.isPending}
             onClick={() => void refreshNotifications.mutateAsync()}
           >
-            <RefreshCw size={16} aria-hidden="true" />
-            {t('notifications:actions.refreshJobs')}
+            <RefreshCw
+              size={16}
+              aria-hidden="true"
+              data-spin={refreshNotifications.isPending ? 'true' : undefined}
+            />
           </button>
         </div>
       ) : null}
@@ -164,15 +179,17 @@ export function NotificationsPanel() {
                   {format(new Date(item.endsAt), 'HH:mm')}
                 </p>
               </div>
-              <button
-                className="button-primary button-primary--compact"
-                type="button"
-                disabled={acknowledgeItem.isPending}
-                onClick={() => void acknowledgeItem.mutateAsync(item.calendarItemId)}
-              >
-                <Check size={16} aria-hidden="true" />
-                {t('notifications:actions.acknowledge')}
-              </button>
+              <div className="timeline-item__actions">
+                <button
+                  className="button-primary button-primary--compact"
+                  type="button"
+                  disabled={acknowledgeItem.isPending}
+                  onClick={() => void acknowledgeItem.mutateAsync(item.calendarItemId)}
+                >
+                  <Check size={16} aria-hidden="true" />
+                  {t('notifications:actions.acknowledge')}
+                </button>
+              </div>
             </article>
           ))}
         </div>

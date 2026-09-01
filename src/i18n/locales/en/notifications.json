@@ -11,6 +11,7 @@
   "desktop": {
     "enable": "Enable desktop alerts",
     "on": "Desktop alerts on",
+    "onHint": "The browser is allowed to show desktop alerts for due reminders.",
     "blocked": "Desktop alerts blocked in browser settings"
   },
   "actions": {

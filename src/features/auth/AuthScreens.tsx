@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { FieldLabel } from '../../components/FieldLabel'
 import { invokeEdgeFunction } from '../../lib/edge-functions'
 import { resolvePostLoginPath } from '../../lib/auth-routing'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
@@ -55,12 +56,12 @@ export function LoginScreen() {
     >
       <form className="auth-form" onSubmit={onSubmit}>
         <label>
-          {t('common:field.email')}
+          <FieldLabel required>{t('common:field.email')}</FieldLabel>
           <input type="email" autoComplete="email" placeholder={t('auth:login.emailPlaceholder')} {...form.register('email')} />
           <FieldError message={form.formState.errors.email?.message} />
         </label>
         <label>
-          {t('common:field.password')}
+          <FieldLabel required>{t('common:field.password')}</FieldLabel>
           <input
             type="password"
             autoComplete="current-password"
@@ -125,17 +126,17 @@ export function AcceptInviteScreen() {
     >
       <form className="auth-form" onSubmit={onSubmit}>
         <label>
-          {t('auth:acceptInvite.token')}
+          <FieldLabel required>{t('auth:acceptInvite.token')}</FieldLabel>
           <input type="text" placeholder={t('auth:acceptInvite.tokenPlaceholder')} {...form.register('token')} />
           <FieldError message={form.formState.errors.token?.message} />
         </label>
         <label>
-          {t('common:field.fullName')}
+          <FieldLabel>{t('common:field.fullName')}</FieldLabel>
           <input type="text" placeholder={t('auth:acceptInvite.fullNamePlaceholder')} {...form.register('fullName')} />
           <FieldError message={form.formState.errors.fullName?.message} />
         </label>
         <label>
-          {t('common:field.password')}
+          <FieldLabel required>{t('common:field.password')}</FieldLabel>
           <input type="password" placeholder={t('auth:acceptInvite.passwordPlaceholder')} {...form.register('password')} />
           <FieldError message={form.formState.errors.password?.message} />
         </label>

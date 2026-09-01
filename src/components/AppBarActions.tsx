@@ -25,6 +25,7 @@ interface AppBarActionsProps {
   canReadAudit: boolean
   canReadStats: boolean
   badgeCount: number
+  notificationsOpen?: boolean
   onOpenModal: (modal: ShellModal) => void
 }
 
@@ -44,8 +45,13 @@ export function AppBarActions({
   canReadAudit,
   canReadStats,
   badgeCount,
+  notificationsOpen = false,
   onOpenModal,
 }: AppBarActionsProps) {
+  const hasNotificationAttention = badgeCount > 0
+  const notificationButtonClass = `icon-ghost${
+    hasNotificationAttention || notificationsOpen ? ' icon-ghost--active' : ''
+  }${hasNotificationAttention ? ' icon-ghost--badged' : ''}`
   const { t } = useTranslation('common')
   const [menuOpen, setMenuOpen] = useState(false)
   const location = useLocation()
@@ -178,7 +184,7 @@ export function AppBarActions({
             <Settings size={19} aria-hidden="true" />
           </button>
           <button
-            className={`icon-ghost${badgeCount > 0 ? ' icon-ghost--badged' : ''}`}
+            className={notificationButtonClass}
             type="button"
             aria-label={
               badgeCount > 0

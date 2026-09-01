@@ -7,6 +7,7 @@ interface StatsPrintPreviewProps {
   onClose: () => void
   organizationName: string
   report: WorkspaceStatsReport
+  showTasks?: boolean
 }
 
 function formatHours(value: number): string {
@@ -18,6 +19,7 @@ export function StatsPrintPreview({
   onClose,
   organizationName,
   report,
+  showTasks = true,
 }: StatsPrintPreviewProps) {
   const handlePrint = () => {
     document.body.classList.add('stats-print-mode')
@@ -50,10 +52,12 @@ export function StatsPrintPreview({
             <span>Notes</span>
             <strong>{report.totalNotes}</strong>
           </div>
-          <div>
-            <span>Tasks</span>
-            <strong>{report.totalTasks}</strong>
-          </div>
+          {showTasks ? (
+            <div>
+              <span>Tasks</span>
+              <strong>{report.totalTasks}</strong>
+            </div>
+          ) : null}
           <div>
             <span>Unassigned</span>
             <strong>{report.unassignedShifts}</strong>
@@ -70,7 +74,7 @@ export function StatsPrintPreview({
                 <th>Shift h</th>
                 <th>Shifts</th>
                 <th>Notes</th>
-                <th>Tasks</th>
+                {showTasks ? <th>Tasks</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -81,7 +85,7 @@ export function StatsPrintPreview({
                   <td>{formatHours(row.shiftHours)}</td>
                   <td>{row.shiftCount}</td>
                   <td>{row.noteCount}</td>
-                  <td>{row.taskCount}</td>
+                  {showTasks ? <td>{row.taskCount}</td> : null}
                 </tr>
               ))}
             </tbody>

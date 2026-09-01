@@ -3,8 +3,10 @@ import { useMemo, useState } from 'react'
 import { useCalendarItems, usePersonnelList } from '../../lib/queries/workspace'
 import { useWorkspace } from '../auth/WorkspaceProvider'
 import { buildWorkspaceStatsReport } from '../../lib/stats/aggregate'
+import { filterVisibleCalendarItems } from '../../lib/display-preferences'
 import { downloadStatsCsv } from '../../lib/stats/export'
 import { formatStatsRangeLabel, resolveStatsRange, type StatsRangePreset } from '../../lib/stats/range'
+import { useDisplayPreferences } from '../../store/display-preferences'
 import { StatsPrintPreview } from './StatsPrintPreview'
 
 interface StatsPanelProps {
@@ -19,6 +21,7 @@ export function StatsPanel({ onDrillDown }: StatsPanelProps) {
   const { organizationId, membership } = useWorkspace()
   const calendarQuery = useCalendarItems(organizationId)
   const personnelQuery = usePersonnelList(organizationId)
+  const showTasks = useDisplayPreferences((state) => state.showTasks)
 
   const [preset, setPreset] = useState<StatsRangePreset>('week')
   const [customStart, setCustomStart] = useState('')
@@ -42,10 +45,10 @@ export function StatsPanel({ onDrillDown }: StatsPanelProps) {
     return buildWorkspaceStatsReport({
       range,
       rangeLabel: formatStatsRangeLabel(range),
-      items: calendarQuery.data ?? [],
+      items: filterVisibleCalendarItems(calendarQuery.data ?? [], showTasks),
       personnel,
     })
-  }, [calendarQuery.data, personnelQuery.data, range])
+  }, [calendarQuery.data, personnelQuery.data, range, showTasks])
 
   const maxPersonHours = Math.max(...(report?.personnelRows ?? []).map((row) => row.shiftHours), 1)
   const maxDailyHours = Math.max(...(report?.dailyShiftHours ?? []).map((row) => row.hours), 1)
@@ -61,41 +64,39 @@ export function StatsPanel({ onDrillDown }: StatsPanelProps) {
   return (
     <div className="stats-panel">
       <div className="stats-toolbar">
-        <div className="stats-range-controls">
-          <label>
-            Period
-            <select
-              value={preset}
-              onChange={(event) => setPreset(event.target.value as StatsRangePreset)}
-            >
-              <option value="week">This week</option>
-              <option value="month">This month</option>
-              <option value="last30">Last 30 days</option>
-              <option value="custom">Custom range</option>
-            </select>
-          </label>
+        <label className="stats-period-field">
+          Period
+          <select
+            value={preset}
+            onChange={(event) => setPreset(event.target.value as StatsRangePreset)}
+          >
+            <option value="week">This week</option>
+            <option value="month">This month</option>
+            <option value="last30">Last 30 days</option>
+            <option value="custom">Custom range</option>
+          </select>
+        </label>
 
-          {preset === 'custom' ? (
-            <>
-              <label>
-                From
-                <input
-                  type="date"
-                  value={customStart}
-                  onChange={(event) => setCustomStart(event.target.value)}
-                />
-              </label>
-              <label>
-                To
-                <input
-                  type="date"
-                  value={customEnd}
-                  onChange={(event) => setCustomEnd(event.target.value)}
-                />
-              </label>
-            </>
-          ) : null}
-        </div>
+        {preset === 'custom' ? (
+          <div className="stats-range-controls">
+            <label>
+              From
+              <input
+                type="date"
+                value={customStart}
+                onChange={(event) => setCustomStart(event.target.value)}
+              />
+            </label>
+            <label>
+              To
+              <input
+                type="date"
+                value={customEnd}
+                onChange={(event) => setCustomEnd(event.target.value)}
+              />
+            </label>
+          </div>
+        ) : null}
 
         <div className="stats-export-actions">
           <button type="button" className="icon-button" onClick={handleExportCsv} disabled={loading || !statsReady}>
@@ -139,10 +140,12 @@ export function StatsPanel({ onDrillDown }: StatsPanelProps) {
           <span>Notes</span>
           <strong>{report.totalNotes}</strong>
         </article>
-        <article className="stats-summary-card">
-          <span>Tasks</span>
-          <strong>{report.totalTasks}</strong>
-        </article>
+        {showTasks ? (
+          <article className="stats-summary-card">
+            <span>Tasks</span>
+            <strong>{report.totalTasks}</strong>
+          </article>
+        ) : null}
         <article className="stats-summary-card stats-summary-card--warn">
           <span>Unassigned shifts</span>
           <strong>{report.unassignedShifts}</strong>
@@ -241,7 +244,7 @@ export function StatsPanel({ onDrillDown }: StatsPanelProps) {
                 <th>Shift h</th>
                 <th>Shifts</th>
                 <th>Notes</th>
-                <th>Tasks</th>
+                {showTasks ? <th>Tasks</th> : null}
                 <th aria-label="Actions" />
               </tr>
             </thead>
@@ -253,7 +256,7 @@ export function StatsPanel({ onDrillDown }: StatsPanelProps) {
                   <td>{formatHours(row.shiftHours)}</td>
                   <td>{row.shiftCount}</td>
                   <td>{row.noteCount}</td>
-                  <td>{row.taskCount}</td>
+                  {showTasks ? <td>{row.taskCount}</td> : null}
                   <td>
                     {onDrillDown ? (
                       <button
@@ -280,6 +283,7 @@ export function StatsPanel({ onDrillDown }: StatsPanelProps) {
           onClose={() => setPrintOpen(false)}
           organizationName={membership?.organizationName ?? 'Workspace'}
           report={report}
+          showTasks={showTasks}
         />
       ) : null}
     </div>

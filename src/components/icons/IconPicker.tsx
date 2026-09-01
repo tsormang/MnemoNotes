@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { ChevronDown } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { FieldLabel } from '../FieldLabel'
 import { useIconCatalog } from '../../lib/queries/icons'
 import { defaultNoteIconId, defaultPersonnelIconId } from '../../lib/icons/defaults'
 import type { AvatarGender, IconEntityType, NoteIconCollection } from '../../lib/icons/types'
@@ -12,6 +13,7 @@ export interface IconPickerProps {
   onChange: (iconId: string) => void
   disabled?: boolean
   label?: string
+  required?: boolean
   avatarGender?: AvatarGender
   onAvatarGenderChange?: (gender: AvatarGender) => void
   noteIconCollection?: NoteIconCollection
@@ -27,6 +29,7 @@ export function IconPicker({
   onChange,
   disabled = false,
   label,
+  required = false,
   avatarGender = 'female',
   onAvatarGenderChange,
   noteIconCollection = 'medical',
@@ -60,7 +63,9 @@ export function IconPicker({
 
   return (
     <fieldset className="icon-picker" disabled={disabled}>
-      <legend>{resolvedLabel}</legend>
+      <legend>
+        <FieldLabel required={required}>{resolvedLabel}</FieldLabel>
+      </legend>
       {showGenderPicker ? (
         <div
           className="avatar-gender-picker"
@@ -144,6 +149,7 @@ export function AvatarSelectField({
   onAvatarGenderChange,
   iconLabel,
   genderLabel,
+  required = false,
 }: {
   entityType: IconEntityType
   value: string
@@ -153,6 +159,7 @@ export function AvatarSelectField({
   onAvatarGenderChange?: (gender: AvatarGender) => void
   iconLabel?: string
   genderLabel?: string
+  required?: boolean
 }) {
   const { t } = useTranslation(['people', 'common'])
   const resolvedIconLabel =
@@ -217,7 +224,7 @@ export function AvatarSelectField({
       ) : null}
       <div className="avatar-icon-select" ref={controlRef}>
         <span className="avatar-icon-select__label" id={`${listboxId}-label`}>
-          {resolvedIconLabel}
+          <FieldLabel required={required}>{resolvedIconLabel}</FieldLabel>
         </span>
         <button
           type="button"

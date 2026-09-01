@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { Trans, useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { TimeInput } from '../../components/TimeInput'
+import { FieldLabel } from '../../components/FieldLabel'
 import { useWorkspace } from '../auth/WorkspaceProvider'
 import { formatClockLabel } from '../../lib/calendar-hours'
 import { useOrganization } from '../../lib/queries/workspace'
@@ -97,7 +98,7 @@ export function WorkingDaySettings({ compact = false, organizationId: orgIdProp 
 
       <form className="working-day-form" onSubmit={onSubmit}>
         <label>
-          {t('common:field.from')}
+          <FieldLabel required>{t('common:field.from')}</FieldLabel>
           <TimeInput
             value={form.watch('start')}
             disabled={!canEdit || !isSupabaseConfigured}
@@ -109,7 +110,7 @@ export function WorkingDaySettings({ compact = false, organizationId: orgIdProp 
           ) : null}
         </label>
         <label>
-          {t('common:field.to')}
+          <FieldLabel required>{t('common:field.to')}</FieldLabel>
           <TimeInput
             value={form.watch('end')}
             disabled={!canEdit || !isSupabaseConfigured}

@@ -82,8 +82,14 @@ export function usePendingAcknowledgements(
   userId: string | null,
   calendarItems: CalendarItem[],
 ) {
+  const ackScopeKey = calendarItems
+    .filter((item) => item.requiresAcknowledgement)
+    .map((item) => item.id)
+    .sort()
+    .join(',')
+
   return useQuery({
-    queryKey: ['pending-acks', organizationId, userId],
+    queryKey: ['pending-acks', organizationId, userId, ackScopeKey],
     queryFn: async (): Promise<PendingAcknowledgement[]> => {
       if (!organizationId || !userId || !supabase) {
         return calendarItems

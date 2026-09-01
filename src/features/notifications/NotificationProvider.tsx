@@ -11,6 +11,8 @@ import {
 import { useAuth } from '../auth/AuthProvider'
 import { useWorkspace } from '../auth/WorkspaceProvider'
 import { useCalendarShell } from '../calendar/CalendarShellContext'
+import { filterVisibleCalendarItems, filterVisibleTaskKinds } from '../../lib/display-preferences'
+import { useDisplayPreferences } from '../../store/display-preferences'
 import { calendarItems as demoCalendarItems } from '../../data/demo'
 import {
   getDemoNotifications,
@@ -82,11 +84,13 @@ export function NotificationProvider({ children }: PropsWithChildren) {
   const { user } = useAuth()
   const { organizationId } = useWorkspace()
   const { openEditEvent } = useCalendarShell()
+  const showTasks = useDisplayPreferences((state) => state.showTasks)
   const calendarQuery = useCalendarItems(organizationId)
 
-  const calendarItems = isSupabaseConfigured
-    ? (calendarQuery.data ?? [])
-    : demoCalendarItems
+  const calendarItems = filterVisibleCalendarItems(
+    isSupabaseConfigured ? (calendarQuery.data ?? []) : demoCalendarItems,
+    showTasks,
+  )
 
   const notificationsQuery = useInAppNotifications(organizationId, user?.id ?? null, 30_000)
   const pendingAcksQuery = usePendingAcknowledgements(
@@ -105,6 +109,7 @@ export function NotificationProvider({ children }: PropsWithChildren) {
   )
 
   const [toasts, setToasts] = useState<NotificationToast[]>([])
+  const [, setDueTick] = useState(0)
   const [desktopPermission, setDesktopPermission] = useState<NotificationPermission>(
     getDesktopNotificationPermission(),
   )
@@ -114,9 +119,10 @@ export function NotificationProvider({ children }: PropsWithChildren) {
   const shownNotificationIds = useRef(new Set<string>())
   const staleExpiryAttempted = useRef(new Set<string>())
 
-  const notifications = isSupabaseConfigured
-    ? (notificationsQuery.data ?? [])
-    : getDemoNotifications()
+  const notifications = filterVisibleTaskKinds(
+    isSupabaseConfigured ? (notificationsQuery.data ?? []) : getDemoNotifications(),
+    showTasks,
+  )
 
   const activeDueNotifications = notifications.filter((item) =>
     isActiveDueNotification(item, calendarItems),
@@ -131,10 +137,18 @@ export function NotificationProvider({ children }: PropsWithChildren) {
           !demoNotificationState.dismissed.includes(item.id),
       )
 
-  const pendingAcks = isSupabaseConfigured
-    ? (pendingAcksQuery.data ?? [])
-    : getDemoPendingAcknowledgements(demoCalendarItems)
+  const pendingAcks = filterVisibleTaskKinds(
+    isSupabaseConfigured
+      ? (pendingAcksQuery.data ?? [])
+      : getDemoPendingAcknowledgements(calendarItems),
+    showTasks,
+  )
   const badgeCount = activeDueNotifications.length + pendingAcks.length
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setDueTick((tick) => tick + 1), 30_000)
+    return () => window.clearInterval(intervalId)
+  }, [])
 
   useEffect(() => {
     if (!isSupabaseConfigured || activeDueNotifications.length === 0) return

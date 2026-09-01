@@ -23,6 +23,7 @@ import {
 } from '../../lib/validation'
 import { IconAvatar } from '../../components/icons/IconAvatar'
 import { IconPicker } from '../../components/icons/IconPicker'
+import { FieldLabel } from '../../components/FieldLabel'
 import { DEFAULT_ROLE_ICON_ID } from '../../lib/icons/role-icons.generated'
 import { CompanyRoleIdentityEditModal } from './EntityIdentityEditModal'
 
@@ -334,11 +335,11 @@ export function CompanyRolesMatrix() {
       {addOpen ? (
         <form className="create-event-form people-panel__invite-form" onSubmit={onCreateRole}>
           <label>
-            {t('roles.nameLabel')}
+            <FieldLabel required>{t('roles.nameLabel')}</FieldLabel>
             <input type="text" placeholder={t('roles.namePlaceholder')} {...form.register('name')} />
           </label>
           <label>
-            {t('common:field.description')}
+            <FieldLabel>{t('common:field.description')}</FieldLabel>
             <input type="text" placeholder={t('common:field.optional')} {...form.register('description')} />
           </label>
           <IconPicker

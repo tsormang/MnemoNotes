@@ -1,5 +1,5 @@
 import { Search } from 'lucide-react'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Navigate, NavLink, Outlet, Route, Routes, useNavigate } from 'react-router-dom'
 import './App.css'
@@ -27,6 +27,7 @@ import { PeopleScreen } from './features/people/PeopleScreen'
 import { AuditLogScreen } from './features/audit/AuditLogScreen'
 import { UserSecurityScreen } from './features/settings/UserSecurityScreen'
 import { StatsPanel } from './features/stats/StatsPanel'
+import { useDisplayPreferences } from './store/display-preferences'
 
 type ShellModal = 'search' | 'security' | 'notifications' | 'stats' | null
 
@@ -105,8 +106,15 @@ function AppShell() {
   } = useCalendarShell()
   const { organizationId } = useWorkspace()
   const personnelQuery = usePersonnelList(organizationId)
+  const showTasks = useDisplayPreferences((state) => state.showTasks)
 
   const { badgeCount } = useNotifications()
+
+  useEffect(() => {
+    if (!showTasks && kindFilter === 'task') {
+      setKindFilter('all')
+    }
+  }, [kindFilter, setKindFilter, showTasks])
 
   const openShellModal = useCallback((modal: Exclude<ShellModal, null>) => {
     setOpenModal(modal)
@@ -142,6 +150,7 @@ function AppShell() {
           canReadAudit={canReadAudit}
           canReadStats={canReadStats}
           badgeCount={badgeCount}
+          notificationsOpen={openModal === 'notifications'}
           onOpenModal={openShellModal}
         />
       </header>
@@ -175,7 +184,7 @@ function AppShell() {
               <option value="all">{t('common:filter.typeAll')}</option>
               <option value="shift">{t('common:filter.typeShift')}</option>
               <option value="note">{t('common:filter.typeNote')}</option>
-              <option value="task">{t('common:filter.typeTask')}</option>
+              {showTasks ? <option value="task">{t('common:filter.typeTask')}</option> : null}
             </select>
           </label>
 

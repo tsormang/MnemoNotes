@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Trans, useTranslation } from 'react-i18next'
 import { useCan } from '../auth/WorkspaceProvider'
+import { DisplayPreferencesSettings } from './DisplayPreferencesSettings'
 import { LanguageSettings } from './LanguageSettings'
 import { NotificationDefaultsSettings } from './NotificationDefaultsSettings'
 import { WorkingDaySettings } from './WorkingDaySettings'
@@ -19,6 +20,7 @@ export function UserSecurityScreen() {
       </div>
 
       <LanguageSettings compact />
+      <DisplayPreferencesSettings compact />
       <WorkingDaySettings compact />
       <NotificationDefaultsSettings compact />
 

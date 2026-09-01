@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { FormToggle } from '../../components/FormToggle'
+import { FieldLabel } from '../../components/FieldLabel'
 import { Modal } from '../../components/Modal'
 import { CompanyLocationField } from '../../components/CompanyLocationField'
 import { DatetimeInput } from '../../components/DatetimeInput'
@@ -44,6 +45,8 @@ import { defaultIconIdForKind, defaultNoteIconId } from '../../lib/icons/default
 import type { NoteIconCollection } from '../../lib/icons/types'
 import { useIconCatalog } from '../../lib/queries/icons'
 import { suggestIconIdForCategory } from '../../lib/icons/note-category-icons'
+import { visibleCalendarKinds } from '../../lib/display-preferences'
+import { useDisplayPreferences } from '../../store/display-preferences'
 import { useCalendarShell, type CalendarEventDraft } from './CalendarShellContext'
 
 const kindOptions: CalendarItemKind[] = ['shift', 'note', 'task']
@@ -133,6 +136,7 @@ function CalendarEventModalContent({
   const deleteItem = useDeleteCalendarItem(organizationId)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [noteIconCollection, setNoteIconCollection] = useState<NoteIconCollection>('medical')
+  const showTasks = useDisplayPreferences((state) => state.showTasks)
 
   const personnel = personnelQuery.data ?? []
   const defaultLocationId = companyLocation.locationId
@@ -140,7 +144,9 @@ function CalendarEventModalContent({
     ? 'shift'
     : canCreateKind(can, 'note')
       ? 'note'
-      : 'task'
+      : showTasks && canCreateKind(can, 'task')
+        ? 'task'
+        : 'shift'
 
   const orgNotificationDefaults = orgQuery.data?.notificationDefaults ?? ORG_NOTIFICATION_DEFAULTS
   const canManageNotifications = can('organization.update') || can('notifications.manage')
@@ -266,7 +272,7 @@ function CalendarEventModalContent({
   const showDescription = watchedKind === 'shift' || watchedKind === 'note'
   const showEndTime = watchedKind !== 'note'
 
-  const availableKinds = kindOptions.filter((kind) =>
+  const availableKinds = visibleCalendarKinds(kindOptions, showTasks).filter((kind) =>
     isEditing ? true : canCreateKind(can, kind),
   )
 
@@ -369,7 +375,7 @@ function CalendarEventModalContent({
 
       {watchedKind !== 'shift' ? (
         <label>
-          {t('common:field.title')}
+          <FieldLabel required>{t('common:field.title')}</FieldLabel>
           <input
             type="text"
             placeholder={t('calendar:eventModal.titlePlaceholder')}
@@ -389,7 +395,7 @@ function CalendarEventModalContent({
 
       <div className={clsx('create-event-form__row', !showEndTime && 'create-event-form__row--single')}>
         <label>
-          {t('calendar:eventModal.starts')}
+          <FieldLabel required>{t('calendar:eventModal.starts')}</FieldLabel>
           <DatetimeInput
             value={startsAt}
             dateLabel={t('calendar:eventModal.startDate')}
@@ -401,7 +407,7 @@ function CalendarEventModalContent({
 
         {showEndTime ? (
           <label>
-            {t('calendar:eventModal.ends')}
+            <FieldLabel required>{t('calendar:eventModal.ends')}</FieldLabel>
             <DatetimeInput
               value={endsAt}
               dateLabel={t('calendar:eventModal.endDate')}
@@ -420,7 +426,7 @@ function CalendarEventModalContent({
       {watchedKind !== 'shift' ? (
         <>
           <label>
-            {t('common:field.category')}
+            <FieldLabel>{t('common:field.category')}</FieldLabel>
             <input
               type="text"
               placeholder={t('calendar:eventModal.categoryPlaceholder')}
@@ -470,7 +476,7 @@ function CalendarEventModalContent({
 
       {showDescription ? (
         <label>
-          {t('common:field.description')}
+          <FieldLabel>{t('common:field.description')}</FieldLabel>
           <textarea
             rows={2}
             placeholder={t('calendar:eventModal.descriptionPlaceholder')}

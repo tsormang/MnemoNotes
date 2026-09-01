@@ -34,6 +34,7 @@ import {
 import { isSupabaseConfigured } from '../../lib/supabase'
 import { provisionCompanySchema, type ProvisionCompanyInput } from '../../lib/validation'
 import { Modal } from '../../components/Modal'
+import { FieldLabel } from '../../components/FieldLabel'
 import { SignOutButton } from '../auth/AuthScreens'
 import { WorkingDaySettings } from '../settings/WorkingDaySettings'
 
@@ -362,23 +363,23 @@ export function AdminConsole() {
               </p>
               <form className="create-event-form" onSubmit={onProvision}>
                 <label>
-                  Company name
+                  <FieldLabel required>Company name</FieldLabel>
                   <input type="text" {...provisionForm.register('organizationName')} />
                 </label>
                 <label>
-                  Owner name
+                  <FieldLabel required>Owner name</FieldLabel>
                   <input type="text" {...provisionForm.register('ownerName')} />
                 </label>
                 <label>
-                  Owner email
+                  <FieldLabel required>Owner email</FieldLabel>
                   <input type="email" {...provisionForm.register('ownerEmail')} />
                 </label>
                 <label>
-                  Timezone
+                  <FieldLabel required>Timezone</FieldLabel>
                   <input type="text" {...provisionForm.register('timezone')} />
                 </label>
                 <label>
-                  Owner password (optional, local dev only)
+                  <FieldLabel>Owner password (optional, local dev only)</FieldLabel>
                   <input
                     type="password"
                     placeholder="Leave blank to send a registration invite"

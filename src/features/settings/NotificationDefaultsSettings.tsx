@@ -2,6 +2,8 @@ import { Bell, Save } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { ToggleOption } from '../../components/FormToggle'
+import { useDisplayPreferences } from '../../store/display-preferences'
 import { useWorkspace } from '../auth/WorkspaceProvider'
 import {
   formatOffsetLabel,
@@ -32,6 +34,7 @@ export function NotificationDefaultsSettings({
   organizationId: orgIdProp,
 }: NotificationDefaultsSettingsProps) {
   const { t } = useTranslation(['settings', 'common'])
+  const showTasks = useDisplayPreferences((state) => state.showTasks)
   const defaultRows = useMemo(
     (): Array<{ key: DefaultsKey; label: string; description: string }> => [
       {
@@ -49,13 +52,17 @@ export function NotificationDefaultsSettings({
         label: t('settings:reminders.note'),
         description: t('settings:reminders.noteDesc'),
       },
-      {
-        key: 'task',
-        label: t('settings:reminders.task'),
-        description: t('settings:reminders.taskDesc'),
-      },
+      ...(showTasks
+        ? [
+            {
+              key: 'task' as const,
+              label: t('settings:reminders.task'),
+              description: t('settings:reminders.taskDesc'),
+            },
+          ]
+        : []),
     ],
-    [t],
+    [showTasks, t],
   )
   const { organizationId: workspaceOrgId, can } = useWorkspace()
   const organizationId = orgIdProp ?? workspaceOrgId
@@ -132,16 +139,14 @@ export function NotificationDefaultsSettings({
               <strong>{row.label}</strong>
               <p className="modal-hint">{row.description}</p>
             </div>
-            <div className="offset-chip-row" role="group" aria-label={t('settings:reminders.groupAria', { type: row.label })}>
+            <div className="toggle-option-list" role="group" aria-label={t('settings:reminders.groupAria', { type: row.label })}>
               {NOTIFICATION_OFFSET_PRESETS.map((preset) => {
                 const selected = defaults[row.key].includes(preset)
                 return (
-                  <button
+                  <ToggleOption
                     key={`${row.key}-${preset}`}
-                    type="button"
-                    className={`offset-chip${selected ? ' offset-chip--selected' : ''}`}
+                    pressed={selected}
                     disabled={!canEdit || !isSupabaseConfigured}
-                    aria-pressed={selected}
                     onClick={() =>
                       setDefaults((current) => ({
                         ...current,
@@ -150,7 +155,7 @@ export function NotificationDefaultsSettings({
                     }
                   >
                     {formatOffsetLabel(preset)}
-                  </button>
+                  </ToggleOption>
                 )
               })}
             </div>

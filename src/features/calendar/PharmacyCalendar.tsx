@@ -45,6 +45,7 @@ import i18n from '../../i18n'
 import { localeToFullCalendar } from '../../i18n/types'
 import { useLocaleStore } from '../../store/locale'
 import type { CalendarItem, CalendarItemKind, Personnel } from '../../types/domain'
+import { useDisplayPreferences } from '../../store/display-preferences'
 import { filterCalendarItems, useCalendarShell } from './CalendarShellContext'
 import { CalendarPrintPreview } from './CalendarPrintPreview'
 import {
@@ -280,6 +281,7 @@ export function PharmacyCalendar() {
   const { organizationId, can } = useWorkspace()
   const { searchQuery, kindFilter, personnelFilterId, openCreateEvent, openEditEvent } =
     useCalendarShell()
+  const showTasks = useDisplayPreferences((state) => state.showTasks)
   const orgQuery = useOrganization(organizationId)
   const calendarQuery = useCalendarItems(organizationId)
   const personnelQuery = usePersonnelList(organizationId)
@@ -375,8 +377,9 @@ export function PharmacyCalendar() {
         searchQuery,
         kindFilter,
         personnelFilterId,
+        showTasks,
       }),
-    [calendarItems, personnel, searchQuery, kindFilter, personnelFilterId],
+    [calendarItems, personnel, searchQuery, kindFilter, personnelFilterId, showTasks],
   )
 
   const canEditCalendar = isSupabaseConfigured && canCreateAnyCalendarItem(can)

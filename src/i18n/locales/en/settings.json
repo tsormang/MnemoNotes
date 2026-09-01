@@ -9,6 +9,11 @@
     "description": "Choose the display language for the application interface.",
     "label": "Display language"
   },
+  "display": {
+    "title": "Calendar display",
+    "description": "Control which event types appear across the calendar, filters, notifications, and stats.",
+    "showTasks": "Show tasks on calendar"
+  },
   "workingDay": {
     "title": "Working day duration",
     "description": "Calendar day and week views show <1>{{start}} – {{end}}</1> by default. Owners and admins can change this window; any week can still opt into 00:00–24:00 for night shifts.",

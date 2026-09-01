@@ -22,6 +22,7 @@ import {
   usePersonnelList,
 } from '../../lib/queries/workspace'
 import { CompanyLocationField } from '../../components/CompanyLocationField'
+import { FieldLabel } from '../../components/FieldLabel'
 import { IconAvatar } from '../../components/icons/IconAvatar'
 import { IconPicker, syncPersonnelIconForGender } from '../../components/icons/IconPicker'
 import { useIconCatalog } from '../../lib/queries/icons'
@@ -412,11 +413,11 @@ export function PersonnelManagement() {
       {addOpen ? (
         <form className="create-event-form people-panel__invite-form" onSubmit={onAddPersonnel}>
           <label>
-            {t('common:field.fullName')}
+            <FieldLabel required>{t('common:field.fullName')}</FieldLabel>
             <input type="text" {...addForm.register('fullName')} />
           </label>
           <label>
-            {t('personnel.companyRole')}
+            <FieldLabel required>{t('personnel.companyRole')}</FieldLabel>
             <select {...addForm.register('companyRoleId')} defaultValue="">
               <option value="" disabled>
                 {t('personnel.chooseRole')}
@@ -467,7 +468,7 @@ export function PersonnelManagement() {
           </p>
           <input type="hidden" {...inviteForm.register('personnelId')} />
           <label>
-            {t('common:field.email')}
+            <FieldLabel required>{t('common:field.email')}</FieldLabel>
             <input type="email" {...inviteForm.register('email')} autoFocus />
           </label>
           {inviteError ? <p className="field-error">{inviteError}</p> : null}

@@ -105,11 +105,17 @@ export function filterCalendarItems(
     searchQuery: string
     kindFilter: CalendarKindFilter
     personnelFilterId: string | null
+    showTasks?: boolean
   },
 ): CalendarItem[] {
   const query = filters.searchQuery.trim().toLowerCase()
+  const showTasks = filters.showTasks ?? true
 
   return items.filter((item) => {
+    if (!showTasks && item.kind === 'task') {
+      return false
+    }
+
     if (filters.kindFilter !== 'all' && item.kind !== filters.kindFilter) {
       return false
     }

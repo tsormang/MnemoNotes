@@ -28,6 +28,7 @@ export function LanguageSettings({ compact = false }: LanguageSettingsProps) {
         <label htmlFor="display-language">{t('language.label')}</label>
         <select
           id="display-language"
+          className="form-select"
           value={locale}
           onChange={(event) => setLocale(event.target.value as AppLocale)}
         >

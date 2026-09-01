@@ -1,4 +1,4 @@
-import { Bell, Check, Clock, Monitor, RefreshCw, ShieldAlert, X } from 'lucide-react'
+import { Bell, Check, Clock, Monitor, RefreshCw, ShieldAlert, Smartphone, X } from 'lucide-react'
 import { format } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthProvider'
@@ -57,6 +57,13 @@ export function NotificationsPanel() {
   const {
     desktopPermission,
     requestDesktopPermission,
+    isNativePushSupported,
+    mobilePermission,
+    mobilePushRegistered,
+    isRegisteringMobile,
+    mobileRegistrationError,
+    requestMobilePermission,
+    retryMobileRegistration,
     openNotificationAndDismiss,
     clearNotification,
     clearAllDueNotifications,
@@ -109,30 +116,75 @@ export function NotificationsPanel() {
 
       {isSupabaseConfigured ? (
         <div className="notifications-toolbar">
-          {desktopPermission === 'default' ? (
-            <button
-              className="button-secondary button-secondary--compact"
-              type="button"
-              onClick={() => void requestDesktopPermission()}
-            >
-              <Monitor size={16} aria-hidden="true" />
-              {t('notifications:desktop.enable')}
-            </button>
-          ) : null}
-          {desktopPermission === 'granted' ? (
-            <span
-              className="notifications-status"
-              title={t('notifications:desktop.onHint')}
-            >
-              <Monitor size={14} aria-hidden="true" />
-              {t('notifications:desktop.on')}
-            </span>
-          ) : null}
-          {desktopPermission === 'denied' ? (
-            <span className="notifications-status notifications-status--muted">
-              {t('notifications:desktop.blocked')}
-            </span>
-          ) : null}
+          {isNativePushSupported ? (
+            <>
+              {mobilePermission === 'prompt' || (mobilePermission === 'granted' && !mobilePushRegistered) ? (
+                <button
+                  className="button-secondary button-secondary--compact"
+                  type="button"
+                  disabled={isRegisteringMobile}
+                  onClick={() =>
+                    void (mobilePermission === 'granted'
+                      ? retryMobileRegistration()
+                      : requestMobilePermission())
+                  }
+                >
+                  <Smartphone size={16} aria-hidden="true" />
+                  {isRegisteringMobile
+                    ? t('notifications:mobile.registering')
+                    : mobilePermission === 'granted'
+                      ? t('notifications:mobile.retry')
+                      : t('notifications:mobile.enable')}
+                </button>
+              ) : null}
+              {mobilePermission === 'granted' && mobilePushRegistered ? (
+                <span
+                  className="notifications-status"
+                  title={t('notifications:mobile.onHint')}
+                >
+                  <Smartphone size={14} aria-hidden="true" />
+                  {t('notifications:mobile.on')}
+                </span>
+              ) : null}
+              {mobilePermission === 'denied' ? (
+                <span className="notifications-status notifications-status--muted">
+                  {t('notifications:mobile.blocked')}
+                </span>
+              ) : null}
+              {mobileRegistrationError ? (
+                <span className="notifications-status notifications-status--muted" title={mobileRegistrationError}>
+                  {t('notifications:mobile.failed')}
+                </span>
+              ) : null}
+            </>
+          ) : (
+            <>
+              {desktopPermission === 'default' ? (
+                <button
+                  className="button-secondary button-secondary--compact"
+                  type="button"
+                  onClick={() => void requestDesktopPermission()}
+                >
+                  <Monitor size={16} aria-hidden="true" />
+                  {t('notifications:desktop.enable')}
+                </button>
+              ) : null}
+              {desktopPermission === 'granted' ? (
+                <span
+                  className="notifications-status"
+                  title={t('notifications:desktop.onHint')}
+                >
+                  <Monitor size={14} aria-hidden="true" />
+                  {t('notifications:desktop.on')}
+                </span>
+              ) : null}
+              {desktopPermission === 'denied' ? (
+                <span className="notifications-status notifications-status--muted">
+                  {t('notifications:desktop.blocked')}
+                </span>
+              ) : null}
+            </>
+          )}
           {activeDueNotifications.length > 0 ? (
             <button
               className="button-secondary button-secondary--compact"

@@ -20,12 +20,23 @@
     "admin:create": "node scripts/admin-create-from-env.mjs",
     "admin:only": "node scripts/admin-only.mjs",
     "setup:check": "node scripts/check-hosted.mjs",
+    "setup:check-push": "node scripts/check-push-setup.mjs",
+    "setup:generate-cron-secret": "node scripts/generate-cron-secret.mjs",
     "setup:bundle-sql": "node scripts/bundle-migrations.mjs",
     "setup:push-db": "node scripts/push-hosted-db.mjs",
     "setup:hosted": "powershell -ExecutionPolicy Bypass -File scripts/setup-hosted.ps1",
-    "functions:deploy": "node scripts/deploy-functions.mjs"
+    "functions:deploy": "node scripts/deploy-functions.mjs",
+    "android:icons": "node scripts/generate-android-icons.mjs",
+    "build:android": "pnpm build && cap sync android",
+    "android:open": "cap open android",
+    "android:apk:debug": "cd android && gradlew.bat assembleDebug",
+    "android:install-firebase": "powershell -ExecutionPolicy Bypass -File scripts/install-google-services.ps1"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/push-notifications": "^8.1.2",
     "@date-fns/tz": "^1.5.0",
     "@fullcalendar/daygrid": "^6.1.21",
     "@fullcalendar/interaction": "^6.1.21",
@@ -50,6 +61,8 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.0",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^24.13.3",

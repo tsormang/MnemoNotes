@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MnemoNotes</string>
+    <string name="title_activity_main">MnemoNotes</string>
+    <string name="package_name">com.mnemonotes.app</string>
+    <string name="custom_url_scheme">com.mnemonotes.app</string>
+</resources>

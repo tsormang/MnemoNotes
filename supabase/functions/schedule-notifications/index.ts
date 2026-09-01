@@ -1,4 +1,5 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { authorizeNotificationManager } from '../_shared/cron-auth.ts'
 import { corsHeaders, json } from '../_shared/http.ts'
 
 type NotificationTrigger = 'before_start' | 'at_start' | 'during' | 'before_end' | 'after_end'
@@ -43,84 +44,55 @@ function computeScheduledFor(
   }
 }
 
+async function resolveRecipientIds(
+  serviceClient: SupabaseClient,
+  rule: NotificationRuleRow,
+): Promise<Set<string>> {
+  const item = rule.calendar_items
+  const recipientIds = new Set<string>()
+
+  if (item.kind === 'shift') {
+    const { data: assignments } = await serviceClient
+      .from('shift_assignments')
+      .select('personnel_id, personnel:personnel_id(profile_id)')
+      .eq('calendar_item_id', rule.calendar_item_id)
+
+    for (const assignment of assignments ?? []) {
+      const profileId = (assignment.personnel as { profile_id: string | null } | null)?.profile_id
+      if (profileId) recipientIds.add(profileId)
+    }
+
+    return recipientIds
+  }
+
+  const { data: personnel } = await serviceClient
+    .from('personnel')
+    .select('profile_id')
+    .eq('organization_id', rule.organization_id)
+    .eq('status', 'active')
+    .not('profile_id', 'is', null)
+
+  for (const row of personnel ?? []) {
+    if (row.profile_id) recipientIds.add(row.profile_id)
+  }
+
+  return recipientIds
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
+    const authError = await authorizeNotificationManager(request)
+    if (authError) return authError
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
-    if (!supabaseUrl || !anonKey || !serviceRoleKey) {
+    if (!supabaseUrl || !serviceRoleKey) {
       throw new Error('Missing Supabase function environment variables.')
-    }
-
-    const authorization = request.headers.get('Authorization') ?? ''
-    const cronSecret = Deno.env.get('CRON_SECRET')
-    const isCron = Boolean(cronSecret && authorization === `Bearer ${cronSecret}`)
-
-    if (!isCron) {
-      const jwt = authorization.replace('Bearer ', '')
-      if (!jwt) {
-        return json({ error: 'Missing bearer token.' }, 401)
-      }
-
-      const userClient = createClient(supabaseUrl, anonKey, {
-        global: { headers: { Authorization: `Bearer ${jwt}` } },
-      })
-      const {
-        data: { user },
-        error: userError,
-      } = await userClient.auth.getUser()
-
-      if (userError || !user) {
-        return json({ error: 'Invalid session.' }, 401)
-      }
-
-      const serviceClient = createClient(supabaseUrl, serviceRoleKey)
-      const { data: platformAdmin } = await serviceClient
-        .from('platform_admins')
-        .select('user_id')
-        .eq('user_id', user.id)
-        .maybeSingle()
-
-      if (!platformAdmin) {
-        const { data: memberships } = await serviceClient
-          .from('organization_members')
-          .select('organization_id, role')
-          .eq('user_id', user.id)
-          .eq('status', 'active')
-
-        const orgIds = (memberships ?? []).map((row) => row.organization_id)
-        if (orgIds.length === 0) {
-          return json({ error: 'Forbidden.' }, 403)
-        }
-
-        const { data: permissions } = await serviceClient
-          .from('company_role_permissions')
-          .select('permission')
-          .in(
-            'company_role_id',
-            (
-              await serviceClient
-                .from('personnel')
-                .select('company_role_id')
-                .eq('profile_id', user.id)
-                .in('organization_id', orgIds)
-            ).data?.map((row) => row.company_role_id) ?? [],
-          )
-
-        const isOwner = (memberships ?? []).some((row) => row.role === 'owner')
-        const canManage =
-          isOwner ||
-          (permissions ?? []).some((row) => row.permission === 'notifications.manage')
-
-        if (!canManage) {
-          return json({ error: 'Forbidden.' }, 403)
-        }
-      }
     }
 
     const serviceClient = createClient(supabaseUrl, serviceRoleKey)
@@ -151,17 +123,7 @@ Deno.serve(async (request) => {
 
       if (scheduledFor > horizon) continue
 
-      const { data: assignments } = await serviceClient
-        .from('shift_assignments')
-        .select('personnel_id, personnel:personnel_id(profile_id)')
-        .eq('calendar_item_id', rule.calendar_item_id)
-
-      const recipientIds = new Set<string>()
-      for (const assignment of assignments ?? []) {
-        const profileId = (assignment.personnel as { profile_id: string | null } | null)?.profile_id
-        if (profileId) recipientIds.add(profileId)
-      }
-
+      const recipientIds = await resolveRecipientIds(serviceClient, rule)
       if (recipientIds.size === 0) continue
 
       for (const recipientUserId of recipientIds) {

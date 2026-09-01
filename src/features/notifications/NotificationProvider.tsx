@@ -36,6 +36,7 @@ import {
   requestDesktopNotificationPermission,
   showDesktopNotification,
 } from './desktop'
+import { useNativePushNotifications } from './push'
 import { ToastStack, type NotificationToast } from './ToastStack'
 
 const DEMO_NOTIFICATION_STATE_KEY = 'mnemonotes-demo-notification-state'
@@ -71,6 +72,13 @@ interface NotificationContextValue {
   badgeCount: number
   desktopPermission: NotificationPermission
   requestDesktopPermission: () => Promise<NotificationPermission>
+  isNativePushSupported: boolean
+  mobilePermission: 'prompt' | 'granted' | 'denied' | 'unsupported'
+  mobilePushRegistered: boolean
+  isRegisteringMobile: boolean
+  mobileRegistrationError: string | null
+  requestMobilePermission: () => Promise<'prompt' | 'granted' | 'denied' | 'unsupported'>
+  retryMobileRegistration: () => Promise<void>
   openNotification: (notification: InAppNotification) => void
   openNotificationAndDismiss: (notification: InAppNotification) => void
   clearNotification: (notification: InAppNotification) => void
@@ -189,15 +197,37 @@ export function NotificationProvider({ children }: PropsWithChildren) {
     [dismissJob, dismissToast, demoNotificationState],
   )
 
-  const openNotification = useCallback(
-    (notification: InAppNotification) => {
-      const item = calendarItems.find((entry) => entry.id === notification.calendarItemId)
+  const openCalendarItem = useCallback(
+    (calendarItemId: string) => {
+      const item = calendarItems.find((entry) => entry.id === calendarItemId)
       if (item) {
         openEditEvent(item)
       }
     },
     [calendarItems, openEditEvent],
   )
+
+  const openNotification = useCallback(
+    (notification: InAppNotification) => {
+      openCalendarItem(notification.calendarItemId)
+    },
+    [openCalendarItem],
+  )
+
+  const {
+    isNativePushSupported,
+    mobilePermission,
+    registeredToken,
+    isRegisteringMobile,
+    mobileRegistrationError,
+    requestMobilePermission,
+    retryMobileRegistration,
+  } = useNativePushNotifications({
+    organizationId,
+    userId: user?.id ?? null,
+    onDeepLink: ({ calendarItemId }) => openCalendarItem(calendarItemId),
+    onForegroundPush: ({ calendarItemId }) => openCalendarItem(calendarItemId),
+  })
 
   const openNotificationAndDismiss = useCallback(
     (notification: InAppNotification) => {
@@ -280,6 +310,13 @@ export function NotificationProvider({ children }: PropsWithChildren) {
       badgeCount,
       desktopPermission,
       requestDesktopPermission,
+      isNativePushSupported,
+      mobilePermission,
+      mobilePushRegistered: Boolean(registeredToken),
+      isRegisteringMobile,
+      mobileRegistrationError,
+      requestMobilePermission,
+      retryMobileRegistration,
       openNotification,
       openNotificationAndDismiss,
       clearNotification,
@@ -294,9 +331,16 @@ export function NotificationProvider({ children }: PropsWithChildren) {
       desktopPermission,
       dismissJob.isPending,
       dismissJobs.isPending,
+      isNativePushSupported,
+      isRegisteringMobile,
+      mobilePermission,
+      mobileRegistrationError,
       openNotification,
       openNotificationAndDismiss,
+      registeredToken,
       requestDesktopPermission,
+      requestMobilePermission,
+      retryMobileRegistration,
     ],
   )
 

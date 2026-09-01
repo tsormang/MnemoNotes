@@ -17,6 +17,9 @@ const functions = [
   { name: 'invite-personnel', public: false },
   { name: 'accept-invite', public: true },
   { name: 'schedule-notifications', public: false },
+  { name: 'dispatch-push-notifications', public: false },
+  { name: 'register-device', public: false },
+  { name: 'process-notifications', public: false },
 ]
 
 function runSupabase(args) {

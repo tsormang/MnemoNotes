@@ -11,11 +11,21 @@ lerna-debug.log*
 .env
 .env.*
 !.env.example
+!.env.production.local.example
 
 node_modules
 dist
 dist-ssr
 *.local
+
+# Capacitor / Android
+android/app/google-services.json
+android/.gradle
+android/app/build
+android/build
+android/local.properties
+*.keystore
+*.jks
 
 # Supabase local state
 supabase/.branches

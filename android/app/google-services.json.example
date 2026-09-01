@@ -1,0 +1,3 @@
+# Place your Firebase Android config here after creating a Firebase project.
+# Download google-services.json from Firebase Console → Project settings → Your apps → Android.
+# Package name must match: com.mnemonotes.app

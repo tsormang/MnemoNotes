@@ -1,9 +1,16 @@
 {
+  "actions": {
+    "addEvent": "Add event"
+  },
   "aria": {
     "main": "Pharmacy operations calendar",
     "utilityRibbon": "Calendar utility ribbon",
     "viewSwitch": "Calendar view",
-    "print": "Print calendar"
+    "print": "Print calendar",
+    "addEventForDay": "Add event for {{day}}"
+  },
+  "agenda": {
+    "emptyDay": "No events scheduled"
   },
   "view": {
     "day": "Day",
@@ -34,6 +41,13 @@
     "endDate": "End date",
     "endTime": "End time",
     "requiresAck": "Requires acknowledgement",
+    "noteIcon": "Note icon",
+    "iconCollection": {
+      "label": "Icon collection",
+      "finance": "Finance",
+      "medical": "Medical & health"
+    },
+    "noNoteIcons": "No icons found for this collection.",
     "assignedStaff": "Assigned staff",
     "staffFallback": "Staff",
     "conflictTitle": "Scheduling conflict",

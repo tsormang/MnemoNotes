@@ -3,8 +3,8 @@ import { ChevronDown } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useIconCatalog } from '../../lib/queries/icons'
-import { defaultPersonnelIconId } from '../../lib/icons/defaults'
-import type { AvatarGender, IconEntityType } from '../../lib/icons/types'
+import { defaultNoteIconId, defaultPersonnelIconId } from '../../lib/icons/defaults'
+import type { AvatarGender, IconEntityType, NoteIconCollection } from '../../lib/icons/types'
 
 export interface IconPickerProps {
   entityType: IconEntityType
@@ -14,50 +14,100 @@ export interface IconPickerProps {
   label?: string
   avatarGender?: AvatarGender
   onAvatarGenderChange?: (gender: AvatarGender) => void
+  noteIconCollection?: NoteIconCollection
+  onNoteIconCollectionChange?: (collection: NoteIconCollection) => void
 }
 
-const genderOptions: Array<{ value: AvatarGender; label: string }> = [
-  { value: 'female', label: 'Female avatars' },
-  { value: 'male', label: 'Male avatars' },
-]
+const genderOptions: AvatarGender[] = ['female', 'male']
+const noteCollectionOptions: NoteIconCollection[] = ['medical', 'finance']
 
 export function IconPicker({
   entityType,
   value,
   onChange,
   disabled = false,
-  label = 'Icon',
+  label,
   avatarGender = 'female',
   onAvatarGenderChange,
+  noteIconCollection = 'medical',
+  onNoteIconCollectionChange,
 }: IconPickerProps) {
+  const { t } = useTranslation(['calendar', 'people', 'common'])
   const { iconsFor, defaultIconId } = useIconCatalog()
   const showGenderPicker = entityType === 'personnel' && Boolean(onAvatarGenderChange)
-  const options = iconsFor(entityType, showGenderPicker ? avatarGender : undefined)
-  const selectedId = value || defaultIconId(entityType, avatarGender)
+  const showNoteCollectionPicker = entityType === 'note' && Boolean(onNoteIconCollectionChange)
+  const options = iconsFor(
+    entityType,
+    showGenderPicker ? avatarGender : undefined,
+    showNoteCollectionPicker ? noteIconCollection : undefined,
+  )
+  const selectedId =
+    value ||
+    defaultIconId(
+      entityType,
+      showGenderPicker ? avatarGender : undefined,
+      showNoteCollectionPicker ? noteIconCollection : undefined,
+    )
+  const resolvedLabel =
+    label ??
+    (entityType === 'personnel'
+      ? t('people:personnel.avatar')
+      : entityType === 'company_role'
+        ? t('people:roles.iconLabel')
+      : entityType === 'note'
+        ? t('calendar:eventModal.noteIcon')
+        : t('common:field.icon'))
 
   return (
     <fieldset className="icon-picker" disabled={disabled}>
-      <legend>{label}</legend>
+      <legend>{resolvedLabel}</legend>
       {showGenderPicker ? (
-        <div className="avatar-gender-picker" role="tablist" aria-label="Avatar collection">
+        <div
+          className="avatar-gender-picker"
+          role="tablist"
+          aria-label={t('people:personnel.avatarCollection')}
+        >
           {genderOptions.map((option) => {
-            const selected = option.value === avatarGender
+            const selected = option === avatarGender
             return (
               <button
-                key={option.value}
+                key={option}
                 type="button"
                 role="tab"
                 aria-selected={selected}
                 className={clsx('avatar-gender-picker__option', selected && 'is-selected')}
-                onClick={() => onAvatarGenderChange?.(option.value)}
+                onClick={() => onAvatarGenderChange?.(option)}
               >
-                {option.label}
+                {t(`people:personnel.avatarGender.${option}`)}
               </button>
             )
           })}
         </div>
       ) : null}
-      <div className="icon-picker__grid" role="radiogroup" aria-label={label}>
+      {showNoteCollectionPicker ? (
+        <div
+          className="avatar-gender-picker"
+          role="tablist"
+          aria-label={t('calendar:eventModal.iconCollection.label')}
+        >
+          {noteCollectionOptions.map((option) => {
+            const selected = option === noteIconCollection
+            return (
+              <button
+                key={option}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                className={clsx('avatar-gender-picker__option', selected && 'is-selected')}
+                onClick={() => onNoteIconCollectionChange?.(option)}
+              >
+                {t(`calendar:eventModal.iconCollection.${option}`)}
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
+      <div className="icon-picker__grid" role="radiogroup" aria-label={resolvedLabel}>
         {options.map((icon) => {
           const selected = icon.id === selectedId
           return (
@@ -76,7 +126,10 @@ export function IconPicker({
         })}
       </div>
       {showGenderPicker && options.length === 0 ? (
-        <p className="page-hint">No avatars found for this collection.</p>
+        <p className="page-hint">{t('people:personnel.noAvatars')}</p>
+      ) : null}
+      {showNoteCollectionPicker && options.length === 0 ? (
+        <p className="page-hint">{t('calendar:eventModal.noNoteIcons')}</p>
       ) : null}
     </fieldset>
   )
@@ -155,8 +208,8 @@ export function AvatarSelectField({
             onChange={(event) => onAvatarGenderChange?.(event.target.value as AvatarGender)}
           >
             {genderOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
+              <option key={option} value={option}>
+                {t(`people:personnel.avatarGender.${option}`)}
               </option>
             ))}
           </select>
@@ -217,4 +270,15 @@ export function syncPersonnelIconForGender(
     return iconId ?? defaultPersonnelIconId(nextGender)
   }
   return defaultPersonnelIconId(nextGender)
+}
+
+export function syncNoteIconForCollection(
+  iconId: string | undefined,
+  nextCollection: NoteIconCollection,
+  matchesCollection: (iconId: string | undefined, collection: NoteIconCollection) => boolean,
+): string {
+  if (matchesCollection(iconId, nextCollection)) {
+    return iconId ?? defaultNoteIconId(nextCollection)
+  }
+  return defaultNoteIconId(nextCollection)
 }

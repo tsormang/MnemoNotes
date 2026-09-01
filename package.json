@@ -10,6 +10,8 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
+    "icons:notes:generate": "node scripts/generate-note-icon-catalog.mjs",
+    "icons:roles:generate": "node scripts/generate-role-icon-catalog.mjs",
     "avatars:generate": "node scripts/generate-avatar-catalog.mjs",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",

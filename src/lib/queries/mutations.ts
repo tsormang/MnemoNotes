@@ -9,6 +9,7 @@ import {
 import { resolveNotificationOffsets } from '../notification-schedule'
 import { invokeEdgeFunction } from '../edge-functions'
 import { supabase } from '../supabase'
+import { DEFAULT_ROLE_ICON_ID } from '../icons/role-icons.generated'
 import type { CalendarItemInput, CompanyRoleInput } from '../validation'
 import type { NotificationDefaults } from '../../types/domain'
 
@@ -20,7 +21,6 @@ export function useCreatePersonnel(organizationId: string | null) {
       fullName: string
       companyRoleId: string
       locationId: string
-      title?: string
       iconId?: string
       avatarGender?: 'male' | 'female'
     }) => {
@@ -32,7 +32,7 @@ export function useCreatePersonnel(organizationId: string | null) {
         organization_id: organizationId,
         location_id: values.locationId,
         full_name: values.fullName.trim(),
-        title: values.title?.trim() || 'Personnel',
+        title: '',
         status: 'active',
         company_role_id: values.companyRoleId,
         icon_id: values.iconId ?? (values.avatarGender === 'male' ? 'avatar-male-001' : 'avatar-female-002'),
@@ -62,7 +62,7 @@ export function useCreateCompanyRole(organizationId: string | null) {
           organization_id: organizationId,
           name: values.name.trim(),
           description: values.description?.trim() ?? '',
-          icon_id: values.iconId ?? 'role-user-cog',
+          icon_id: values.iconId ?? DEFAULT_ROLE_ICON_ID,
         })
         .select('id')
         .single()

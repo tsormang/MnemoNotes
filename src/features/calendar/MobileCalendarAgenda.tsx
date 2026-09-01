@@ -9,6 +9,7 @@ import {
   startOfWeek,
 } from 'date-fns'
 import { useEffect, useMemo, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { formatShiftStaffLabel } from '../../lib/calendar-display'
 import { itemHasShiftConflict } from '../../lib/calendar-conflicts'
 import { IconAvatar } from '../../components/icons/IconAvatar'
@@ -98,7 +99,7 @@ function MobileAgendaCard({
           iconId={bubbleIconId}
           entityType={bubbleEntityType}
           label={bubbleLabel}
-          size="md"
+          size="xl"
           className="mobile-agenda-card__avatar"
           initialsFallback={item.kind === 'shift'}
         />
@@ -127,7 +128,7 @@ export function MobileCalendarAgenda({
   onOpenSeriesMenu,
   onSuppressItemClick,
   canOpenSeriesMenu,
-  canCreate,
+  canCreate = false,
   onCreateForDay,
 }: {
   mode?: MobileAgendaMode
@@ -140,9 +141,10 @@ export function MobileCalendarAgenda({
   onOpenSeriesMenu: (item: CalendarItem, x: number, y: number) => void
   onSuppressItemClick: () => void
   canOpenSeriesMenu: (item: CalendarItem) => boolean
-  canCreate: boolean
-  onCreateForDay: (date: Date) => void
+  canCreate?: boolean
+  onCreateForDay?: (date: Date) => void
 }) {
+  const { t } = useTranslation('calendar')
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 })
   const weekDays = useMemo(
     () => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)),
@@ -195,10 +197,23 @@ export function MobileCalendarAgenda({
         <div className="mobile-agenda__list">
           {weekSections.map(({ day, items: sectionItems }) => (
             <section key={format(day, 'yyyy-MM-dd')} className="mobile-agenda__day-section">
-              <h3 className="mobile-agenda__heading">{dayHeading(day)}</h3>
+              <div className="mobile-agenda__day-section-header">
+                <h3 className="mobile-agenda__heading">{dayHeading(day)}</h3>
+                {canCreate && onCreateForDay ? (
+                  <button
+                    type="button"
+                    className="calendar-day-add-btn"
+                    aria-label={t('aria.addEventForDay', { day: format(day, 'EEEE d MMM') })}
+                    title={t('aria.addEventForDay', { day: format(day, 'EEEE d MMM') })}
+                    onClick={() => onCreateForDay(day)}
+                  >
+                    <span aria-hidden="true">+</span>
+                  </button>
+                ) : null}
+              </div>
 
               {sectionItems.length === 0 ? (
-                <p className="mobile-agenda__empty-day">No events scheduled</p>
+                <p className="mobile-agenda__empty-day">{t('agenda.emptyDay')}</p>
               ) : (
                 <ul className="mobile-agenda__cards">
                   {sectionItems.map((item) => (
@@ -257,16 +272,7 @@ export function MobileCalendarAgenda({
 
         {dayItems.length === 0 ? (
           <div className="mobile-agenda__empty">
-            <p>No events scheduled</p>
-            {canCreate ? (
-              <button
-                type="button"
-                className="icon-button"
-                onClick={() => onCreateForDay(selectedDate)}
-              >
-                Add event
-              </button>
-            ) : null}
+            <p>{t('agenda.emptyDay')}</p>
           </div>
         ) : (
           <ul className="mobile-agenda__cards">

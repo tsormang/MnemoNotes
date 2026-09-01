@@ -1,18 +1,21 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import clsx from 'clsx'
 import { AlertTriangle, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
+import { FormToggle } from '../../components/FormToggle'
 import { Modal } from '../../components/Modal'
 import { CompanyLocationField } from '../../components/CompanyLocationField'
 import { DatetimeInput } from '../../components/DatetimeInput'
 import { NotificationOffsetPicker } from '../../components/NotificationOffsetPicker'
 import { IconAvatar } from '../../components/icons/IconAvatar'
-import { IconPicker } from '../../components/icons/IconPicker'
+import { IconPicker, syncNoteIconForCollection } from '../../components/icons/IconPicker'
 import { useAuth } from '../auth/AuthProvider'
 import { useWorkspace } from '../auth/WorkspaceProvider'
 import { getCalendarItemDisplayLabel } from '../../lib/calendar-display'
 import { findShiftConflicts } from '../../lib/calendar-conflicts'
-import { defaultEventEnd, normalizeEventRange } from '../../lib/calendar-datetime'
+import { defaultEventEnd, normalizeEventRange, noteEventEnd } from '../../lib/calendar-datetime'
 import {
   canAssignShifts,
   canCreateKind,
@@ -37,15 +40,13 @@ import {
 } from '../../lib/notification-schedule'
 import type { CalendarItem, CalendarItemKind } from '../../types/domain'
 import { calendarItemSchema, type CalendarItemInput } from '../../lib/validation'
-import { defaultIconIdForKind } from '../../lib/icons/defaults'
+import { defaultIconIdForKind, defaultNoteIconId } from '../../lib/icons/defaults'
+import type { NoteIconCollection } from '../../lib/icons/types'
+import { useIconCatalog } from '../../lib/queries/icons'
 import { suggestIconIdForCategory } from '../../lib/icons/note-category-icons'
 import { useCalendarShell, type CalendarEventDraft } from './CalendarShellContext'
 
-const kindOptions: Array<{ value: CalendarItemKind; label: string }> = [
-  { value: 'shift', label: 'Shift' },
-  { value: 'note', label: 'Note' },
-  { value: 'task', label: 'Task' },
-]
+const kindOptions: CalendarItemKind[] = ['shift', 'note', 'task']
 
 function buildDefaults(
   item: CalendarItem | null,
@@ -56,6 +57,8 @@ function buildDefaults(
 ): CalendarItemInput {
   if (item) {
     const snapped = normalizeEventRange(item.startsAt, item.endsAt)
+    const endsAt =
+      item.kind === 'note' ? noteEventEnd(snapped.startsAt) : snapped.endsAt
     const orgResolved = resolveNotificationOffsets({
       kind: item.kind,
       requiresAcknowledgement: item.requiresAcknowledgement,
@@ -66,7 +69,7 @@ function buildDefaults(
       description: item.description ?? '',
       kind: item.kind,
       startsAt: snapped.startsAt,
-      endsAt: snapped.endsAt,
+      endsAt,
       locationId: item.locationId || defaultLocationId,
       assignedPersonnelIds: item.assignedPersonnelIds,
       priority: item.priority,
@@ -80,7 +83,10 @@ function buildDefaults(
 
   const kind = draft?.kind ?? defaultKind
   const startsAt = draft?.startsAt ?? new Date().toISOString()
-  const endsAt = draft?.endsAt ?? defaultEventEnd(startsAt)
+  const endsAt =
+    kind === 'note'
+      ? noteEventEnd(startsAt)
+      : (draft?.endsAt ?? defaultEventEnd(startsAt))
   const snapped = normalizeEventRange(startsAt, endsAt)
 
   return {
@@ -113,7 +119,9 @@ function CalendarEventModalContent({
   createDraft: CalendarEventDraft | null
   onClose: () => void
 }) {
+  const { t } = useTranslation(['calendar', 'common'])
   const { user } = useAuth()
+  const { iconMatchesNoteCollection, byId } = useIconCatalog()
   const { organizationId, membership, can } = useWorkspace()
   const orgQuery = useOrganization(organizationId)
   const companyLocation = useCompanyLocation(organizationId, {
@@ -124,6 +132,7 @@ function CalendarEventModalContent({
   const upsertItem = useUpsertCalendarItem(organizationId, user?.id ?? null)
   const deleteItem = useDeleteCalendarItem(organizationId)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [noteIconCollection, setNoteIconCollection] = useState<NoteIconCollection>('medical')
 
   const personnel = personnelQuery.data ?? []
   const defaultLocationId = companyLocation.locationId
@@ -177,6 +186,14 @@ function CalendarEventModalContent({
   const iconId = form.watch('iconId')
 
   useEffect(() => {
+    if (watchedKind !== 'note') return
+    const currentIcon = iconId ? byId.get(iconId) : undefined
+    if (currentIcon?.noteIconCollection) {
+      setNoteIconCollection(currentIcon.noteIconCollection)
+    }
+  }, [byId, iconId, watchedKind])
+
+  useEffect(() => {
     if (watchedKind === 'shift' || editingItem) return
     form.setValue('iconId', defaultIconIdForKind(watchedKind), { shouldDirty: false })
   }, [form, watchedKind, editingItem])
@@ -216,8 +233,20 @@ function CalendarEventModalContent({
     watchedKind,
   ])
 
+  useEffect(() => {
+    if (watchedKind !== 'note' || !startsAt) return
+    const nextEnd = noteEventEnd(startsAt)
+    if (endsAt === nextEnd) return
+    form.setValue('endsAt', nextEnd, { shouldValidate: true, shouldDirty: false })
+  }, [watchedKind, startsAt, endsAt, form])
+
   const handleStartsAtChange = useCallback(
-    (iso: string) => form.setValue('startsAt', iso, { shouldValidate: true, shouldDirty: true }),
+    (iso: string) => {
+      form.setValue('startsAt', iso, { shouldValidate: true, shouldDirty: true })
+      if (form.getValues('kind') === 'note') {
+        form.setValue('endsAt', noteEventEnd(iso), { shouldValidate: true, shouldDirty: false })
+      }
+    },
     [form],
   )
 
@@ -235,9 +264,10 @@ function CalendarEventModalContent({
     isEditing && editingItem && isSupabaseConfigured && canDeleteKind(can, editingItem.kind)
   const showAssignments = watchedKind === 'shift' && canAssignShifts(can)
   const showDescription = watchedKind === 'shift' || watchedKind === 'note'
+  const showEndTime = watchedKind !== 'note'
 
-  const availableKinds = kindOptions.filter((option) =>
-    isEditing ? true : canCreateKind(can, option.value),
+  const availableKinds = kindOptions.filter((kind) =>
+    isEditing ? true : canCreateKind(can, kind),
   )
 
   const conflicts = useMemo(() => {
@@ -257,14 +287,21 @@ function CalendarEventModalContent({
     const conflictLabel = conflictingItem
       ? getCalendarItemDisplayLabel(conflictingItem, personnel)
       : conflict.conflictingTitle
-    return `${person?.fullName ?? 'Staff'} overlaps with “${conflictLabel}”`
+    return t('calendar:eventModal.conflictLine', {
+      name: person?.fullName ?? t('calendar:eventModal.staffFallback'),
+      event: conflictLabel,
+    })
   })
 
   const onSubmit = form.handleSubmit(async (values) => {
     setSubmitError(null)
+    const payload =
+      values.kind === 'note'
+        ? { ...values, endsAt: noteEventEnd(values.startsAt) }
+        : values
     try {
       await upsertItem.mutateAsync({
-        ...values,
+        ...payload,
         locationId: defaultLocationId,
         id: editingItem?.id,
         seriesId: editingItem?.seriesId,
@@ -273,7 +310,9 @@ function CalendarEventModalContent({
       })
       onClose()
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Could not save event.')
+      setSubmitError(
+        error instanceof Error ? error.message : t('calendar:eventModal.errorSave'),
+      )
     }
   })
 
@@ -284,7 +323,9 @@ function CalendarEventModalContent({
       await deleteItem.mutateAsync(editingItem.id)
       onClose()
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Could not delete event.')
+      setSubmitError(
+        error instanceof Error ? error.message : t('calendar:eventModal.errorDelete'),
+      )
     }
   }
 
@@ -303,21 +344,37 @@ function CalendarEventModalContent({
 
   return (
     <form className="create-event-form" onSubmit={onSubmit}>
-      <label>
-        Type
-        <select {...form.register('kind')} disabled={isEditing || availableKinds.length === 0}>
-          {availableKinds.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="create-event-form__row">
+        <label>
+          {t('common:field.type')}
+          <select {...form.register('kind')} disabled={isEditing || availableKinds.length === 0}>
+            {availableKinds.map((kind) => (
+              <option key={kind} value={kind}>
+                {t(`common:eventKind.${kind}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          {t('common:field.priority')}
+          <select {...form.register('priority')}>
+            <option value="low">{t('common:priority.low')}</option>
+            <option value="normal">{t('common:priority.normal')}</option>
+            <option value="high">{t('common:priority.high')}</option>
+            <option value="critical">{t('common:priority.critical')}</option>
+          </select>
+        </label>
+      </div>
 
       {watchedKind !== 'shift' ? (
         <label>
-          Title
-          <input type="text" placeholder="Stock note, closing checklist…" {...form.register('title')} />
+          {t('common:field.title')}
+          <input
+            type="text"
+            placeholder={t('calendar:eventModal.titlePlaceholder')}
+            {...form.register('title')}
+          />
           {form.formState.errors.title ? (
             <span className="form-error">{form.formState.errors.title.message}</span>
           ) : null}
@@ -330,68 +387,93 @@ function CalendarEventModalContent({
       />
       <input type="hidden" {...form.register('locationId')} />
 
-      <label>
-        Starts
-        <DatetimeInput
-          value={startsAt}
-          dateLabel="Start date"
-          timeLabel="Start time"
-          disabled={!canSave}
-          onChange={handleStartsAtChange}
-        />
-      </label>
+      <div className={clsx('create-event-form__row', !showEndTime && 'create-event-form__row--single')}>
+        <label>
+          {t('calendar:eventModal.starts')}
+          <DatetimeInput
+            value={startsAt}
+            dateLabel={t('calendar:eventModal.startDate')}
+            timeLabel={t('calendar:eventModal.startTime')}
+            disabled={!canSave}
+            onChange={handleStartsAtChange}
+          />
+        </label>
 
-      <label>
-        Ends
-        <DatetimeInput
-          value={endsAt}
-          dateLabel="End date"
-          timeLabel="End time"
-          disabled={!canSave}
-          onChange={handleEndsAtChange}
-        />
-        {form.formState.errors.endsAt ? (
-          <span className="form-error">{form.formState.errors.endsAt.message}</span>
+        {showEndTime ? (
+          <label>
+            {t('calendar:eventModal.ends')}
+            <DatetimeInput
+              value={endsAt}
+              dateLabel={t('calendar:eventModal.endDate')}
+              timeLabel={t('calendar:eventModal.endTime')}
+              disabled={!canSave}
+              onChange={handleEndsAtChange}
+            />
+            {form.formState.errors.endsAt ? (
+              <span className="form-error">{form.formState.errors.endsAt.message}</span>
+            ) : null}
+          </label>
         ) : null}
-      </label>
-
-      <label>
-        Priority
-        <select {...form.register('priority')}>
-          <option value="low">Low</option>
-          <option value="normal">Normal</option>
-          <option value="high">High</option>
-          <option value="critical">Critical</option>
-        </select>
-      </label>
+      </div>
+      <input type="hidden" {...form.register('endsAt')} />
 
       {watchedKind !== 'shift' ? (
         <>
           <label>
-            Category
-            <input type="text" placeholder="Stock, handover…" {...form.register('noteCategory')} />
+            {t('common:field.category')}
+            <input
+              type="text"
+              placeholder={t('calendar:eventModal.categoryPlaceholder')}
+              {...form.register('noteCategory')}
+            />
           </label>
-          <IconPicker
-            entityType={watchedKind}
-            value={iconId ?? defaultIconIdForKind(watchedKind)}
-            onChange={(nextIconId) =>
-              form.setValue('iconId', nextIconId, { shouldDirty: true, shouldValidate: true })
-            }
+          {watchedKind === 'note' ? (
+            <IconPicker
+              entityType="note"
+              value={iconId ?? defaultNoteIconId(noteIconCollection)}
+              noteIconCollection={noteIconCollection}
+              onNoteIconCollectionChange={(collection) => {
+                setNoteIconCollection(collection)
+                form.setValue(
+                  'iconId',
+                  syncNoteIconForCollection(iconId, collection, iconMatchesNoteCollection),
+                  { shouldDirty: true, shouldValidate: true },
+                )
+              }}
+              onChange={(nextIconId) =>
+                form.setValue('iconId', nextIconId, { shouldDirty: true, shouldValidate: true })
+              }
+              disabled={!canSave}
+            />
+          ) : (
+            <IconPicker
+              entityType="task"
+              value={iconId ?? defaultIconIdForKind(watchedKind)}
+              onChange={(nextIconId) =>
+                form.setValue('iconId', nextIconId, { shouldDirty: true, shouldValidate: true })
+              }
+              disabled={!canSave}
+            />
+          )}
+          <FormToggle
+            block
+            pressed={Boolean(requiresAcknowledgement)}
             disabled={!canSave}
-          />
-          <label className="checkbox-field">
-            <input type="checkbox" {...form.register('requiresAcknowledgement')} />
-            Requires acknowledgement
-          </label>
+            onClick={() =>
+              form.setValue('requiresAcknowledgement', !requiresAcknowledgement, { shouldDirty: true })
+            }
+          >
+            {t('calendar:eventModal.requiresAck')}
+          </FormToggle>
         </>
       ) : null}
 
       {showDescription ? (
         <label>
-          Description
+          {t('common:field.description')}
           <textarea
-            rows={3}
-            placeholder="Optional details shown when the event is opened…"
+            rows={2}
+            placeholder={t('calendar:eventModal.descriptionPlaceholder')}
             {...form.register('description')}
           />
           {form.formState.errors.description ? (
@@ -402,24 +484,28 @@ function CalendarEventModalContent({
 
       {showAssignments ? (
         <fieldset className="assignee-fieldset">
-          <legend>Assigned staff</legend>
-          <div className="assignee-list">
-            {personnel.map((person) => (
-              <label key={person.id} className="checkbox-field assignee-option">
-                <input
-                  type="checkbox"
-                  checked={assignedPersonnelIds?.includes(person.id) ?? false}
-                  onChange={() => toggleAssignee(person.id)}
-                />
-                <IconAvatar
-                  iconId={person.iconId}
-                  entityType="personnel"
-                  label={person.fullName}
-                  size="sm"
-                />
-                {person.fullName}
-              </label>
-            ))}
+          <legend>{t('calendar:eventModal.assignedStaff')}</legend>
+          <div className="assignee-list" role="group" aria-label={t('calendar:eventModal.assignedStaff')}>
+            {personnel.map((person) => {
+              const selected = assignedPersonnelIds?.includes(person.id) ?? false
+              return (
+                <button
+                  key={person.id}
+                  type="button"
+                  className={clsx('assignee-option', selected && 'is-selected')}
+                  aria-pressed={selected}
+                  onClick={() => toggleAssignee(person.id)}
+                >
+                  <IconAvatar
+                    iconId={person.iconId}
+                    entityType="personnel"
+                    label={person.fullName}
+                    size="lg"
+                  />
+                  <span className="assignee-option__name">{person.fullName}</span>
+                </button>
+              )
+            })}
           </div>
         </fieldset>
       ) : null}
@@ -442,7 +528,7 @@ function CalendarEventModalContent({
         <div className="conflict-banner" role="status">
           <AlertTriangle size={16} aria-hidden="true" />
           <div>
-            <strong>Scheduling conflict</strong>
+            <strong>{t('calendar:eventModal.conflictTitle')}</strong>
             <ul>
               {conflictLabels.map((label) => (
                 <li key={label}>{label}</li>
@@ -453,7 +539,7 @@ function CalendarEventModalContent({
       ) : null}
 
       {!defaultLocationId && !companyLocation.loading ? (
-        <p className="form-error">Company location is not available yet. Try again in a moment.</p>
+        <p className="form-error">{t('calendar:eventModal.locationUnavailable')}</p>
       ) : null}
 
       {submitError ? <p className="form-error">{submitError}</p> : null}
@@ -467,11 +553,15 @@ function CalendarEventModalContent({
             disabled={deleteItem.isPending}
           >
             <Trash2 size={16} aria-hidden="true" />
-            Delete
+            {t('common:actions.delete')}
           </button>
         ) : null}
         <button className="icon-button" type="submit" disabled={!canSave || upsertItem.isPending}>
-          {upsertItem.isPending ? 'Saving…' : isEditing ? 'Save changes' : 'Save event'}
+          {upsertItem.isPending
+            ? t('common:actions.saving')
+            : isEditing
+              ? t('calendar:eventModal.saveChanges')
+              : t('calendar:eventModal.saveEvent')}
         </button>
       </div>
     </form>
@@ -479,6 +569,7 @@ function CalendarEventModalContent({
 }
 
 export function CalendarEventModal() {
+  const { t } = useTranslation('calendar')
   const { eventModalOpen, editingItem, createDraft, closeEventModal } = useCalendarShell()
 
   if (!eventModalOpen) return null
@@ -489,7 +580,7 @@ export function CalendarEventModal() {
     <Modal
       open
       onClose={closeEventModal}
-      title={editingItem ? 'Edit event' : 'Create event'}
+      title={editingItem ? t('eventModal.editTitle') : t('eventModal.createTitle')}
     >
       <CalendarEventModalContent
         key={modalKey}

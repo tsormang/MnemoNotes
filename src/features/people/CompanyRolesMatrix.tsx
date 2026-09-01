@@ -23,6 +23,7 @@ import {
 } from '../../lib/validation'
 import { IconAvatar } from '../../components/icons/IconAvatar'
 import { IconPicker } from '../../components/icons/IconPicker'
+import { DEFAULT_ROLE_ICON_ID } from '../../lib/icons/role-icons.generated'
 import { CompanyRoleIdentityEditModal } from './EntityIdentityEditModal'
 
 function PermissionToggle({
@@ -224,7 +225,7 @@ export function CompanyRolesMatrix() {
 
   const form = useForm<CompanyRoleInput>({
     resolver: zodResolver(companyRoleSchema),
-    defaultValues: { name: '', description: '', iconId: 'role-user-cog' },
+    defaultValues: { name: '', description: '', iconId: DEFAULT_ROLE_ICON_ID },
   })
 
   const roles = rolesQuery.data ?? []
@@ -342,7 +343,8 @@ export function CompanyRolesMatrix() {
           </label>
           <IconPicker
             entityType="company_role"
-            value={form.watch('iconId') ?? 'role-user-cog'}
+            label={t('roles.iconLabel')}
+            value={form.watch('iconId') ?? DEFAULT_ROLE_ICON_ID}
             onChange={(iconId) => form.setValue('iconId', iconId, { shouldDirty: true })}
             disabled={createRole.isPending}
           />
@@ -364,7 +366,7 @@ export function CompanyRolesMatrix() {
             : t('roles.editModalFallback')
         }
         initialName={editingRole?.name ?? ''}
-        initialIconId={editingRole?.iconId ?? 'role-user-cog'}
+        initialIconId={editingRole?.iconId ?? DEFAULT_ROLE_ICON_ID}
         onSubmit={onSaveProfile}
         isPending={updateRole.isPending}
         error={editError}

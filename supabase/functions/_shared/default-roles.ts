@@ -9,7 +9,7 @@ export const defaultCompanyRoles: DefaultCompanyRole[] = [
   {
     name: 'Manager',
     description: 'Delegated scheduling and personnel management',
-    iconId: 'role-user-cog',
+    iconId: 'role-manager',
     permissions: [
       'organization.read',
       'users.invite',
@@ -29,13 +29,13 @@ export const defaultCompanyRoles: DefaultCompanyRole[] = [
   {
     name: 'Pharmacist',
     description: 'Front-line staff with shift visibility and note acknowledgements',
-    iconId: 'role-pill',
+    iconId: 'role-pharmacist',
     permissions: ['organization.read', 'shifts.read', 'notes.read', 'notes.acknowledge'],
   },
   {
     name: 'Viewer',
     description: 'Read-only operational visibility',
-    iconId: 'role-eye',
+    iconId: 'role-generic-employee',
     permissions: ['organization.read', 'shifts.read', 'notes.read'],
   },
 ]

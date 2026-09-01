@@ -23,6 +23,27 @@ describe('icon catalog helpers', () => {
     expect(femaleAvatars.every((icon) => icon.avatarGender === 'female')).toBe(true)
   })
 
+  it('filters note icons by collection', () => {
+    const medicalIcons = iconsForEntityType(FALLBACK_APP_ICONS, 'note', undefined, 'medical')
+    expect(medicalIcons.length).toBeGreaterThan(0)
+    expect(medicalIcons.every((icon) => icon.noteIconCollection === 'medical')).toBe(true)
+  })
+
+  it('lists pharmacy role icons for company roles', () => {
+    const roleIcons = iconsForEntityType(FALLBACK_APP_ICONS, 'company_role')
+    expect(roleIcons.length).toBeGreaterThanOrEqual(20)
+    expect(roleIcons.some((icon) => icon.id === 'role-pharmacist')).toBe(true)
+    expect(resolveIconPath(lookup, 'role-pharmacist', 'company_role')).toBe(
+      '/icons/pharmacy-roles/pharmacist.png',
+    )
+  })
+
+  it('resolves note icon paths from generated catalog', () => {
+    expect(resolveIconPath(lookup, 'note-medical-capsule', 'note', undefined, 'medical')).toBe(
+      '/icons/medical-health/capsule-icon.png',
+    )
+  })
+
   it('falls back to gender default', () => {
     expect(resolveIconPath(lookup, 'missing-icon', 'personnel', 'male')).toBe(
       '/avatars/male/avatar_001.png',

@@ -30,5 +30,9 @@ describe('NotificationOffsetPicker', () => {
     )
 
     expect(screen.getByText('Uses workspace default reminder times.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Custom reminders for this event' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
   })
 })

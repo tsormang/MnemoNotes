@@ -4,7 +4,7 @@ import FullCalendar from '@fullcalendar/react'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import clsx from 'clsx'
 import { addDays, format, startOfWeek } from 'date-fns'
-import { ChevronLeft, ChevronRight, MoonStar, Printer } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MoonStar, Plus, Printer } from 'lucide-react'
 import { useMemo, useRef, useState, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -141,6 +141,41 @@ function EventChip({
   )
 }
 
+function WeekDayHeader({
+  label,
+  date,
+  showAdd,
+  addLabel,
+  onAdd,
+}: {
+  label: string
+  date: Date
+  showAdd?: boolean
+  addLabel?: string
+  onAdd?: (date: Date) => void
+}) {
+  return (
+    <div className="fc-day-header">
+      <span className="fc-day-header__label">{label}</span>
+      {showAdd && onAdd ? (
+        <button
+          type="button"
+          className="calendar-day-add-btn"
+          aria-label={addLabel}
+          title={addLabel}
+          onClick={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            onAdd(date)
+          }}
+        >
+          <span aria-hidden="true">+</span>
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
 function CalendarUtilityRibbon({
   title,
   activeView,
@@ -154,6 +189,7 @@ function CalendarUtilityRibbon({
   onPrint,
   showViewSwitch = true,
   showPrint = true,
+  showNightShift = true,
 }: {
   title: string
   activeView: CalendarViewId
@@ -167,6 +203,7 @@ function CalendarUtilityRibbon({
   onPrint: () => void
   showViewSwitch?: boolean
   showPrint?: boolean
+  showNightShift?: boolean
 }) {
   const { t } = useTranslation(['calendar', 'common'])
   const nightShiftLabel = nightShiftEnabled
@@ -202,16 +239,18 @@ function CalendarUtilityRibbon({
           </button>
         ) : null}
 
-        <button
-          type="button"
-          className={clsx('calendar-ribbon-toggle', nightShiftEnabled && 'is-active')}
-          aria-pressed={nightShiftEnabled}
-          aria-label={nightShiftLabel}
-          title={nightShiftLabel}
-          onClick={onToggleNightShift}
-        >
-          <MoonStar size={18} aria-hidden="true" />
-        </button>
+        {showNightShift ? (
+          <button
+            type="button"
+            className={clsx('calendar-ribbon-toggle', nightShiftEnabled && 'is-active')}
+            aria-pressed={nightShiftEnabled}
+            aria-label={nightShiftLabel}
+            title={nightShiftLabel}
+            onClick={onToggleNightShift}
+          >
+            <MoonStar size={18} aria-hidden="true" />
+          </button>
+        ) : null}
 
         {showViewSwitch ? (
           <div className="calendar-view-switch" role="group" aria-label={t('calendar:aria.viewSwitch')}>
@@ -463,6 +502,13 @@ export function PharmacyCalendar() {
     [openCreateEvent, workingDayStart],
   )
 
+  const createEventTargetDate = showMobileListView ? agendaDate : calendarDate
+  const createEventLabel = t('aria.addEventForDay', {
+    day: format(createEventTargetDate, 'EEEE d MMM'),
+  })
+  const showAddFab =
+    canEditCalendar && !showPrintLayout && activeView === 'timeGridDay'
+
   const handleSeriesAction = useCallback(
     async (action: CalendarSeriesAction) => {
       if (!seriesMenu) return
@@ -627,6 +673,7 @@ export function PharmacyCalendar() {
         showPrintLayout && 'calendar-print-layout',
         isMobileCalendar && !showPrintLayout && 'calendar-fill--mobile',
         showMobileListView && 'calendar-fill--mobile-agenda',
+        showAddFab && 'calendar-fill--has-add-fab',
       )}
       aria-label={t('aria.main')}
     >
@@ -642,6 +689,7 @@ export function PharmacyCalendar() {
         onToggleNightShift={handleToggleNightShift}
         onPrint={handlePrint}
         showPrint={!isMobileCalendar}
+        showNightShift={!isMobileCalendar}
       />
 
       {showMobileListView ? (
@@ -686,6 +734,22 @@ export function PharmacyCalendar() {
             events={events}
             dayMaxEvents={3}
             datesSet={handleDatesSet}
+            dayHeaderContent={(arg) => {
+              const showAdd =
+                canEditCalendar &&
+                !showPrintLayout &&
+                arg.view.type === 'timeGridWeek'
+
+              return (
+                <WeekDayHeader
+                  label={arg.text}
+                  date={arg.date}
+                  showAdd={showAdd}
+                  addLabel={t('aria.addEventForDay', { day: format(arg.date, 'EEEE d MMM') })}
+                  onAdd={handleCreateForDay}
+                />
+              )
+            }}
             select={handleDateSelect}
             eventClick={handleEventClick}
             eventDrop={handleEventDrop}
@@ -751,6 +815,18 @@ export function PharmacyCalendar() {
         onClose={closeSeriesMenu}
         onAction={handleSeriesAction}
       />
+
+      {showAddFab ? (
+        <button
+          type="button"
+          className="calendar-add-fab"
+          aria-label={createEventLabel}
+          title={createEventLabel}
+          onClick={() => handleCreateForDay(createEventTargetDate)}
+        >
+          <Plus size={24} aria-hidden="true" strokeWidth={2.5} />
+        </button>
+      ) : null}
     </div>
   )
 }

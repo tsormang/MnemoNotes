@@ -27,7 +27,6 @@ export function createCreatePersonnelSchema(t: TFunction<'validation'>) {
   return z.object({
     companyRoleId: z.uuid(t('chooseRole')),
     fullName: z.string().min(2, t('fullNameRequired')),
-    title: z.string().optional(),
     iconId: z.string().min(1).optional(),
     avatarGender: z.enum(['male', 'female']),
   })
@@ -134,13 +133,11 @@ export const invitePersonnelSchema = z.object({
   email: z.email('Use a valid email address'),
   companyRoleId: z.uuid('Choose a company role'),
   fullName: z.string().min(2, 'Full name is required'),
-  title: z.string().optional(),
 })
 
 export const createPersonnelSchema = z.object({
   companyRoleId: z.uuid('Choose a company role'),
   fullName: z.string().min(2, 'Full name is required'),
-  title: z.string().optional(),
   iconId: z.string().min(1).optional(),
   avatarGender: z.enum(['male', 'female']),
 })

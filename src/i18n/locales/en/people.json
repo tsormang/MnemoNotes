@@ -23,6 +23,11 @@
     "titlePlaceholder": "Pharmacist",
     "avatar": "Avatar",
     "avatarCollection": "Avatar collection",
+    "avatarGender": {
+      "female": "Female avatars",
+      "male": "Male avatars"
+    },
+    "noAvatars": "No avatars found for this collection.",
     "sendInvite": "Send invite",
     "invitePrompt": "Send invite to link <1>{{name}}</1> to an app account.",
     "inviteLinkHint": "Share this link with the invitee (valid 7 days):",

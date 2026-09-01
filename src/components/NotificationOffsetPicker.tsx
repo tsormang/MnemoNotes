@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import { FormToggle, ToggleOption } from './FormToggle'
 import {
   formatOffsetLabel,
   normalizeNotificationOffsets,
@@ -19,6 +21,8 @@ export function NotificationOffsetPicker({
   onOffsetsChange,
   onUseCustomChange,
 }: NotificationOffsetPickerProps) {
+  const { t } = useTranslation('calendar')
+
   const toggleOffset = (preset: number) => {
     const next = offsets.includes(preset)
       ? offsets.filter((value) => value !== preset)
@@ -28,36 +32,33 @@ export function NotificationOffsetPicker({
 
   return (
     <fieldset className="notification-offset-picker">
-      <legend>Reminders</legend>
-      <label className="checkbox-field">
-        <input
-          type="checkbox"
-          checked={useCustom}
-          disabled={disabled}
-          onChange={(event) => onUseCustomChange(event.target.checked)}
-        />
-        Custom reminders for this event
-      </label>
+      <legend>{t('reminders.legend')}</legend>
+      <FormToggle
+        block
+        pressed={useCustom}
+        disabled={disabled}
+        onClick={() => onUseCustomChange(!useCustom)}
+      >
+        {t('reminders.customToggle')}
+      </FormToggle>
       {useCustom ? (
-        <div className="offset-chip-row" role="group" aria-label="Reminder times">
+        <div className="toggle-option-list" role="group" aria-label={t('reminders.groupAria')}>
           {NOTIFICATION_OFFSET_PRESETS.map((preset) => {
             const selected = offsets.includes(preset)
             return (
-              <button
+              <ToggleOption
                 key={preset}
-                type="button"
-                className={`offset-chip${selected ? ' offset-chip--selected' : ''}`}
+                pressed={selected}
                 disabled={disabled}
-                aria-pressed={selected}
                 onClick={() => toggleOffset(preset)}
               >
                 {formatOffsetLabel(preset)}
-              </button>
+              </ToggleOption>
             )
           })}
         </div>
       ) : (
-        <p className="modal-hint">Uses workspace default reminder times.</p>
+        <p className="modal-hint">{t('reminders.useDefaults')}</p>
       )}
     </fieldset>
   )

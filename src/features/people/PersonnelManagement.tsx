@@ -176,7 +176,6 @@ function PersonnelCard({
   roleChangePending: boolean
 }) {
   const { t } = useTranslation(['people', 'common'])
-  const subtitle = person.title || person.companyRoleName
 
   return (
     <li className="personnel-card">
@@ -190,7 +189,6 @@ function PersonnelCard({
         />
         <div className="personnel-card__identity">
           <strong>{person.fullName}</strong>
-          {subtitle ? <span className="personnel-card__title">{subtitle}</span> : null}
         </div>
         <div className="personnel-card__badges">
           <AccountLinkBadge accountLink={person.accountLink} />
@@ -259,7 +257,6 @@ export function PersonnelManagement() {
     defaultValues: {
       companyRoleId: '',
       fullName: '',
-      title: '',
       iconId: defaultPersonnelIconId('female'),
       avatarGender: 'female',
     },
@@ -435,14 +432,6 @@ export function PersonnelManagement() {
             companyName={companyLocation.companyName}
             loading={companyLocation.companyNameLoading}
           />
-          <label>
-            {t('common:field.title')}
-            <input
-              type="text"
-              {...addForm.register('title')}
-              placeholder={t('personnel.titlePlaceholder')}
-            />
-          </label>
           <IconPicker
             entityType="personnel"
             label={t('personnel.avatar')}
@@ -560,7 +549,6 @@ export function PersonnelManagement() {
                   <th>{t('personnel.table.name')}</th>
                   <th>{t('personnel.table.email')}</th>
                   <th>{t('personnel.table.role')}</th>
-                  <th>{t('personnel.table.title')}</th>
                   <th>{t('personnel.table.status')}</th>
                   {canInvite ? <th aria-label={t('common:field.actions')} /> : null}
                   {canManagePersonnel ? <th aria-label={t('personnel.table.edit')} /> : null}
@@ -592,7 +580,6 @@ export function PersonnelManagement() {
                         disabled={updatePersonnel.isPending}
                       />
                     </td>
-                    <td>{person.title}</td>
                     <td>
                       <PersonnelStatus person={person} />
                     </td>

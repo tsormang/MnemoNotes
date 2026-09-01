@@ -66,3 +66,6 @@ export function defaultEventEnd(startIso: string): string {
   start.setHours(start.getHours() + 1)
   return start.toISOString()
 }
+
+/** Notes always use a fixed one-hour duration from the start time. */
+export const noteEventEnd = defaultEventEnd

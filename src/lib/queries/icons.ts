@@ -7,7 +7,7 @@ import {
   iconsForEntityType,
   resolveIconPath,
 } from '../icons/fallback-catalog'
-import type { AppIcon, AvatarGender, IconEntityType } from '../icons/types'
+import type { AppIcon, AvatarGender, IconEntityType, NoteIconCollection } from '../icons/types'
 import { defaultIconIdForEntityType } from '../icons/defaults'
 
 export const appIconsQueryKey = ['app-icons'] as const
@@ -68,12 +68,23 @@ export function useIconCatalog() {
       iconId: string | null | undefined,
       entityType: IconEntityType,
       avatarGender?: AvatarGender,
-    ) => resolveIconPath(byId, iconId, entityType, avatarGender),
-    iconsFor: (entityType: IconEntityType, avatarGender?: AvatarGender) =>
-      iconsForEntityType(icons, entityType, avatarGender),
-    defaultIconId: (entityType: IconEntityType, avatarGender?: AvatarGender) =>
-      defaultIconIdForEntityType(entityType, avatarGender),
+      noteIconCollection?: NoteIconCollection,
+    ) => resolveIconPath(byId, iconId, entityType, avatarGender, noteIconCollection),
+    iconsFor: (
+      entityType: IconEntityType,
+      avatarGender?: AvatarGender,
+      noteIconCollection?: NoteIconCollection,
+    ) => iconsForEntityType(icons, entityType, avatarGender, noteIconCollection),
+    defaultIconId: (
+      entityType: IconEntityType,
+      avatarGender?: AvatarGender,
+      noteIconCollection?: NoteIconCollection,
+    ) => defaultIconIdForEntityType(entityType, avatarGender, noteIconCollection),
     iconMatchesGender: (iconId: string | null | undefined, avatarGender: AvatarGender) =>
       byId.get(iconId ?? '')?.avatarGender === avatarGender,
+    iconMatchesNoteCollection: (
+      iconId: string | null | undefined,
+      noteIconCollection: NoteIconCollection,
+    ) => byId.get(iconId ?? '')?.noteIconCollection === noteIconCollection,
   }
 }

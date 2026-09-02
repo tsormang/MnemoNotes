@@ -33,10 +33,12 @@ Deno.serve(async (request) => {
     const serviceClient = createClient(supabaseUrl, serviceRoleKey)
     const now = new Date().toISOString()
 
+    // Include status "sent" jobs that never received push — the in-app toast path
+    // previously marked jobs sent before FCM could run.
     const { data: jobs, error: jobsError } = await serviceClient
       .from('notification_jobs')
       .select('id, organization_id, recipient_user_id, payload, attempts')
-      .eq('status', 'delivered')
+      .in('status', ['delivered', 'sent'])
       .is('push_sent_at', null)
       .lte('scheduled_for', now)
       .limit(100)

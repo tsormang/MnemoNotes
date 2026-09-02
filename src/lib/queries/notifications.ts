@@ -17,6 +17,7 @@ export interface InAppNotification {
   status: 'queued' | 'sent' | 'delivered' | 'failed' | 'acknowledged' | 'expired'
   triggerKind: NotificationTrigger
   offsetMinutes: number
+  inAppSurfacedAt?: string
 }
 
 export interface PendingAcknowledgement {
@@ -70,6 +71,8 @@ export function useInAppNotifications(
           status: row.status as InAppNotification['status'],
           triggerKind: rule?.trigger_kind ?? 'at_start',
           offsetMinutes: Number(payload.offsetMinutes ?? 0),
+          inAppSurfacedAt:
+            typeof payload.inAppSurfacedAt === 'string' ? payload.inAppSurfacedAt : undefined,
         }
       })
     },
@@ -137,15 +140,32 @@ export function useMarkNotificationsSurfaced(organizationId: string | null, user
     mutationFn: async (jobIds: string[]) => {
       if (!organizationId || !userId || !supabase || jobIds.length === 0) return
 
-      const { error } = await supabase
+      const surfacedAt = new Date().toISOString()
+
+      const { data: rows, error: readError } = await supabase
         .from('notification_jobs')
-        .update({ status: 'sent', updated_at: new Date().toISOString() })
+        .select('id, payload')
         .in('id', jobIds)
         .eq('organization_id', organizationId)
         .eq('recipient_user_id', userId)
         .eq('status', 'delivered')
 
-      if (error) throw error
+      if (readError) throw readError
+
+      for (const row of rows ?? []) {
+        const payload = {
+          ...((row.payload ?? {}) as Record<string, unknown>),
+          inAppSurfacedAt: surfacedAt,
+        }
+
+        const { error } = await supabase
+          .from('notification_jobs')
+          .update({ payload, updated_at: surfacedAt })
+          .eq('id', row.id)
+          .eq('status', 'delivered')
+
+        if (error) throw error
+      }
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['notifications', organizationId, userId] })
@@ -341,6 +361,7 @@ export function shouldPopupNotification(
 ): boolean {
   return (
     notification.status === 'delivered' &&
+    !notification.inAppSurfacedAt &&
     isNotificationDue(notification.scheduledFor) &&
     isActiveDueNotification(notification, calendarItems)
   )

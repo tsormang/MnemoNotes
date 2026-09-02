@@ -28,6 +28,9 @@ function makeNotification(
 describe('notification lifecycle helpers', () => {
   it('only popups delivered jobs that are due', () => {
     expect(shouldPopupNotification(makeNotification('a'))).toBe(true)
+    expect(
+      shouldPopupNotification(makeNotification('surfaced', { inAppSurfacedAt: '2026-08-28T08:00:00.000Z' })),
+    ).toBe(false)
     expect(shouldPopupNotification(makeNotification('b', { status: 'sent' }))).toBe(false)
     expect(
       shouldPopupNotification(

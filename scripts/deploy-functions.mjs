@@ -19,7 +19,8 @@ const functions = [
   { name: 'schedule-notifications', public: false },
   { name: 'dispatch-push-notifications', public: false },
   { name: 'register-device', public: false },
-  { name: 'process-notifications', public: false },
+  // Cron passes CRON_SECRET (not a JWT); function validates the secret itself.
+  { name: 'process-notifications', public: true },
 ]
 
 function runSupabase(args) {

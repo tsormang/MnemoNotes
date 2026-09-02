@@ -31,6 +31,7 @@ import {
   type InAppNotification,
 } from '../../lib/queries/notifications'
 import { useCalendarItems } from '../../lib/queries/workspace'
+import { isNativeApp } from '../../lib/capacitor'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import {
   getDesktopNotificationPermission,
@@ -226,7 +227,9 @@ export function NotificationProvider({ children }: PropsWithChildren) {
     organizationId,
     userId: user?.id ?? null,
     onDeepLink: ({ calendarItemId }) => openCalendarItem(calendarItemId),
-    onForegroundPush: ({ calendarItemId }) => openCalendarItem(calendarItemId),
+    onForegroundPush: isNativeApp()
+      ? undefined
+      : ({ calendarItemId }) => openCalendarItem(calendarItemId),
   })
 
   const openNotificationAndDismiss = useCallback(
@@ -281,6 +284,9 @@ export function NotificationProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     const fresh = markAndFilterNewDueNotifications(popupCandidates, shownNotificationIds.current)
     if (fresh.length === 0) return
+
+    // Native APK: system push only — keep panel/badge, skip toast popups.
+    if (isNativeApp()) return
 
     setToasts((current) => [
       ...current,
@@ -347,16 +353,18 @@ export function NotificationProvider({ children }: PropsWithChildren) {
   return (
     <NotificationContext.Provider value={value}>
       {children}
-      <ToastStack
-        toasts={toasts}
-        onOpen={openNotificationAndDismiss}
-        onDismiss={clearNotification}
-        onAcknowledge={
-          acknowledgeItem.isPending
-            ? undefined
-            : (calendarItemId) => void acknowledgeAndDismiss(calendarItemId)
-        }
-      />
+      {!isNativeApp() ? (
+        <ToastStack
+          toasts={toasts}
+          onOpen={openNotificationAndDismiss}
+          onDismiss={clearNotification}
+          onAcknowledge={
+            acknowledgeItem.isPending
+              ? undefined
+              : (calendarItemId) => void acknowledgeAndDismiss(calendarItemId)
+          }
+        />
+      ) : null}
     </NotificationContext.Provider>
   )
 }

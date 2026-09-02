@@ -7,6 +7,13 @@ export function isCronRequest(request: Request): boolean {
   return Boolean(cronSecret && authorization === `Bearer ${cronSecret}`)
 }
 
+/** Trusted server-to-server calls (e.g. process-notifications orchestrator). */
+export function isServiceRoleRequest(request: Request): boolean {
+  const authorization = request.headers.get('Authorization') ?? ''
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  return Boolean(serviceRoleKey && authorization === `Bearer ${serviceRoleKey}`)
+}
+
 export async function authorizeNotificationManager(request: Request): Promise<Response | null> {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
@@ -16,7 +23,7 @@ export async function authorizeNotificationManager(request: Request): Promise<Re
     throw new Error('Missing Supabase function environment variables.')
   }
 
-  if (isCronRequest(request)) {
+  if (isCronRequest(request) || isServiceRoleRequest(request)) {
     return null
   }
 

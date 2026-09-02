@@ -12,13 +12,13 @@ Deno.serve(async (request) => {
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const cronSecret = Deno.env.get('CRON_SECRET')
-    if (!supabaseUrl || !cronSecret) {
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    if (!supabaseUrl || !serviceRoleKey) {
       throw new Error('Missing Supabase function environment variables.')
     }
 
     const headers = {
-      Authorization: `Bearer ${cronSecret}`,
+      Authorization: `Bearer ${serviceRoleKey}`,
       'Content-Type': 'application/json',
     }
 

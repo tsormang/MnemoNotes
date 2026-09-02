@@ -188,9 +188,14 @@ pnpm android:apk:debug
 | Mobile shows empty / demo data | Rebuild APK with correct `.env.production.local` |
 | Desktop and mobile data differ | Different Supabase URLs or different user accounts |
 | No push when app closed | Missing `google-services.json`, `FCM_SERVICE_ACCOUNT`, or cron |
+| Cron returns Invalid JWT | Redeploy functions (`pnpm functions:deploy`); `process-notifications` must use `--no-verify-jwt` |
+| Phone signed in as different user than desktop | Push tokens and jobs are per-user; use the same account on both |
+| Jobs stuck in `queued` past due time | Cron not running — run `node scripts/diagnose-notifications.mjs` |
 | Gradle “requires Java 17” or “invalid source release: 21” | Install JDK 21: `winget install Microsoft.OpenJDK.21`, set `JAVA_HOME` |
 | `device_subscriptions` missing | Run Step 2 migrations |
 | Push works but no in-app toast | Expected when push marks job `sent` before app opens |
+| In-app works but no system notification | Rebuild APK after fixes; confirm Supabase cron runs every 2 min |
+| Verify Firebase end-to-end | `node scripts/test-fcm-push.mjs tsormang@yahoo.gr` (phone backgrounded) |
 
 ---
 

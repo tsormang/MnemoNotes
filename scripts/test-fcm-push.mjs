@@ -10,7 +10,11 @@ loadEnvLocal(process.cwd(), { override: true })
 const url = process.env.VITE_SUPABASE_URL
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 const cronSecret = process.env.CRON_SECRET
-const email = process.argv[2]?.trim().toLowerCase() ?? 'tsormang@yahoo.gr'
+const email = process.argv[2]?.trim().toLowerCase()
+if (!email) {
+  console.error('Usage: node scripts/test-fcm-push.mjs <user-email>')
+  process.exit(1)
+}
 
 if (!url || !serviceRoleKey || !cronSecret) {
   console.error('Need VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and CRON_SECRET in .env.local')

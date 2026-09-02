@@ -195,7 +195,7 @@ pnpm android:apk:debug
 | `device_subscriptions` missing | Run Step 2 migrations |
 | Push works but no in-app toast | Expected when push marks job `sent` before app opens |
 | In-app works but no system notification | Rebuild APK after fixes; confirm Supabase cron runs every 2 min |
-| Verify Firebase end-to-end | `node scripts/test-fcm-push.mjs tsormang@yahoo.gr` (phone backgrounded) |
+| Verify Firebase end-to-end | `node scripts/test-fcm-push.mjs user@example.com` (phone backgrounded) |
 
 ---
 

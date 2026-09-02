@@ -138,39 +138,65 @@ export function useMarkNotificationsSurfaced(organizationId: string | null, user
 
   return useMutation({
     mutationFn: async (jobIds: string[]) => {
-      if (!organizationId || !userId || !supabase || jobIds.length === 0) return
-
-      const surfacedAt = new Date().toISOString()
-
-      const { data: rows, error: readError } = await supabase
-        .from('notification_jobs')
-        .select('id, payload')
-        .in('id', jobIds)
-        .eq('organization_id', organizationId)
-        .eq('recipient_user_id', userId)
-        .eq('status', 'delivered')
-
-      if (readError) throw readError
-
-      for (const row of rows ?? []) {
-        const payload = {
-          ...((row.payload ?? {}) as Record<string, unknown>),
-          inAppSurfacedAt: surfacedAt,
-        }
-
-        const { error } = await supabase
-          .from('notification_jobs')
-          .update({ payload, updated_at: surfacedAt })
-          .eq('id', row.id)
-          .eq('status', 'delivered')
-
-        if (error) throw error
-      }
+      await markNotificationJobsSurfaced(organizationId, userId, jobIds)
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['notifications', organizationId, userId] })
     },
   })
+}
+
+async function markNotificationJobsSurfaced(
+  organizationId: string | null,
+  userId: string | null,
+  jobIds: string[],
+) {
+  if (!organizationId || !userId || !supabase || jobIds.length === 0) return
+
+  const surfacedAt = new Date().toISOString()
+
+  const { data: rows, error: readError } = await supabase
+    .from('notification_jobs')
+    .select('id, payload')
+    .in('id', jobIds)
+    .eq('organization_id', organizationId)
+    .eq('recipient_user_id', userId)
+    .eq('status', 'delivered')
+
+  if (readError) throw readError
+
+  const deliveredRows = rows ?? []
+  if (deliveredRows.length !== jobIds.length) {
+    throw new Error('One or more notification jobs are no longer deliverable.')
+  }
+
+  const updateResults = await Promise.all(
+    deliveredRows.map(async (row) => {
+      const payload = {
+        ...((row.payload ?? {}) as Record<string, unknown>),
+        inAppSurfacedAt: surfacedAt,
+      }
+
+      const { data: updated, error } = await supabase
+        .from('notification_jobs')
+        .update({ payload, updated_at: surfacedAt })
+        .eq('id', row.id)
+        .eq('status', 'delivered')
+        .select('id')
+        .maybeSingle()
+
+      if (error) throw error
+      return updated
+    }),
+  )
+
+  const failedIds = deliveredRows
+    .filter((_, index) => !updateResults[index])
+    .map((row) => row.id)
+
+  if (failedIds.length > 0) {
+    throw new Error(`Failed to mark notification jobs as surfaced: ${failedIds.join(', ')}`)
+  }
 }
 
 export function useDismissNotificationJob(organizationId: string | null, userId: string | null) {

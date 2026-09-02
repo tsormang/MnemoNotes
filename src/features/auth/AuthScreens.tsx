@@ -3,16 +3,21 @@ import { KeyRound, LogOut, Mail, ShieldCheck, UserPlus } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { FieldLabel } from '../../components/FieldLabel'
+import { PasswordInput } from '../../components/PasswordInput'
 import { invokeEdgeFunction } from '../../lib/edge-functions'
-import { resolvePostLoginPath } from '../../lib/auth-routing'
+import { authRedirectUrl, resolvePostLoginPath } from '../../lib/auth-routing'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 import {
   createAcceptInviteSchema,
+  createForgotPasswordSchema,
   createLoginSchema,
+  createResetPasswordSchema,
   type AcceptInviteInput,
+  type ForgotPasswordInput,
   type LoginInput,
+  type ResetPasswordInput,
 } from '../../lib/validation'
 import { useAuth } from './AuthProvider'
 
@@ -61,9 +66,13 @@ export function LoginScreen() {
           <FieldError message={form.formState.errors.email?.message} />
         </label>
         <label>
-          <FieldLabel required>{t('common:field.password')}</FieldLabel>
-          <input
-            type="password"
+          <div className="auth-form__label-row">
+            <FieldLabel required>{t('common:field.password')}</FieldLabel>
+            <Link className="auth-form__link" to="/forgot-password">
+              {t('auth:login.forgotPassword')}
+            </Link>
+          </div>
+          <PasswordInput
             autoComplete="current-password"
             placeholder={t('auth:login.passwordPlaceholder')}
             {...form.register('password')}
@@ -137,7 +146,7 @@ export function AcceptInviteScreen() {
         </label>
         <label>
           <FieldLabel required>{t('common:field.password')}</FieldLabel>
-          <input type="password" placeholder={t('auth:acceptInvite.passwordPlaceholder')} {...form.register('password')} />
+          <PasswordInput placeholder={t('auth:acceptInvite.passwordPlaceholder')} {...form.register('password')} />
           <FieldError message={form.formState.errors.password?.message} />
         </label>
         {error ? <p className="field-error">{error}</p> : null}
@@ -149,6 +158,177 @@ export function AcceptInviteScreen() {
         <Mail size={24} aria-hidden="true" />
         <p>{t('auth:acceptInvite.info')}</p>
       </div>
+      <SupabaseNotice />
+    </AuthFrame>
+  )
+}
+
+export function ForgotPasswordScreen() {
+  const { t } = useTranslation(['auth', 'common'])
+  const { t: tv } = useTranslation('validation')
+  const [error, setError] = useState<string | null>(null)
+  const [sent, setSent] = useState(false)
+  const forgotPasswordSchema = useMemo(() => createForgotPasswordSchema(tv), [tv])
+  const form = useForm<ForgotPasswordInput>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: { email: '' },
+  })
+
+  const onSubmit = form.handleSubmit(async (values) => {
+    setError(null)
+
+    if (!supabase) {
+      setError(t('auth:login.supabaseNotConfigured'))
+      return
+    }
+
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(values.email, {
+      redirectTo: authRedirectUrl('/reset-password'),
+    })
+
+    if (resetError) {
+      setError(resetError.message)
+      return
+    }
+
+    setSent(true)
+  })
+
+  return (
+    <AuthFrame
+      title={t('auth:forgotPassword.title')}
+      subtitle={t('auth:forgotPassword.subtitle')}
+      icon={<Mail size={22} aria-hidden="true" />}
+    >
+      {sent ? (
+        <p className="auth-message auth-message--success">{t('auth:forgotPassword.success')}</p>
+      ) : (
+        <form className="auth-form" onSubmit={onSubmit}>
+          <label>
+            <FieldLabel required>{t('common:field.email')}</FieldLabel>
+            <input
+              type="email"
+              autoComplete="email"
+              placeholder={t('auth:login.emailPlaceholder')}
+              {...form.register('email')}
+            />
+            <FieldError message={form.formState.errors.email?.message} />
+          </label>
+          {error ? <p className="field-error">{error}</p> : null}
+          <button type="submit" disabled={form.formState.isSubmitting}>
+            {form.formState.isSubmitting ? t('auth:forgotPassword.submitting') : t('auth:forgotPassword.submit')}
+          </button>
+        </form>
+      )}
+      <p className="auth-form__footer">
+        <Link className="auth-form__link" to="/login">
+          {t('auth:forgotPassword.backToLogin')}
+        </Link>
+      </p>
+      <SupabaseNotice />
+    </AuthFrame>
+  )
+}
+
+export function ResetPasswordScreen() {
+  const { t } = useTranslation(['auth', 'common'])
+  const { t: tv } = useTranslation('validation')
+  const navigate = useNavigate()
+  const { user, loading } = useAuth()
+  const [error, setError] = useState<string | null>(null)
+  const resetPasswordSchema = useMemo(() => createResetPasswordSchema(tv), [tv])
+  const form = useForm<ResetPasswordInput>({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: { password: '', confirmPassword: '' },
+  })
+
+  const onSubmit = form.handleSubmit(async (values) => {
+    setError(null)
+
+    if (!supabase) {
+      setError(t('auth:login.supabaseNotConfigured'))
+      return
+    }
+
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: values.password,
+    })
+
+    if (updateError) {
+      setError(updateError.message)
+      return
+    }
+
+    navigate(await resolvePostLoginPath())
+  })
+
+  if (!isSupabaseConfigured) {
+    return (
+      <AuthFrame
+        title={t('auth:resetPassword.title')}
+        subtitle={t('auth:resetPassword.subtitle')}
+        icon={<KeyRound size={22} aria-hidden="true" />}
+      >
+        <SupabaseNotice />
+      </AuthFrame>
+    )
+  }
+
+  if (loading) {
+    return (
+      <main className="auth-page">
+        <p>{t('auth:resetPassword.loading')}</p>
+      </main>
+    )
+  }
+
+  if (!user) {
+    return (
+      <AuthFrame
+        title={t('auth:resetPassword.title')}
+        subtitle={t('auth:resetPassword.invalidLink')}
+        icon={<KeyRound size={22} aria-hidden="true" />}
+      >
+        <p className="auth-form__footer">
+          <Link className="auth-form__link" to="/forgot-password">
+            {t('auth:resetPassword.requestNewLink')}
+          </Link>
+        </p>
+        <SupabaseNotice />
+      </AuthFrame>
+    )
+  }
+
+  return (
+    <AuthFrame
+      title={t('auth:resetPassword.title')}
+      subtitle={t('auth:resetPassword.subtitle')}
+      icon={<KeyRound size={22} aria-hidden="true" />}
+    >
+      <form className="auth-form" onSubmit={onSubmit}>
+        <label>
+          <FieldLabel required>{t('auth:resetPassword.newPassword')}</FieldLabel>
+          <PasswordInput
+            autoComplete="new-password"
+            placeholder={t('auth:acceptInvite.passwordPlaceholder')}
+            {...form.register('password')}
+          />
+          <FieldError message={form.formState.errors.password?.message} />
+        </label>
+        <label>
+          <FieldLabel required>{t('auth:resetPassword.confirmPassword')}</FieldLabel>
+          <PasswordInput
+            autoComplete="new-password"
+            placeholder={t('auth:resetPassword.confirmPasswordPlaceholder')}
+            {...form.register('confirmPassword')}
+          />
+          <FieldError message={form.formState.errors.confirmPassword?.message} />
+        </label>
+        {error ? <p className="field-error">{error}</p> : null}
+        <button type="submit" disabled={form.formState.isSubmitting}>
+          {form.formState.isSubmitting ? t('auth:resetPassword.submitting') : t('auth:resetPassword.submit')}
+        </button>
+      </form>
       <SupabaseNotice />
     </AuthFrame>
   )

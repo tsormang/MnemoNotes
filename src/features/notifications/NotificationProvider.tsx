@@ -11,6 +11,7 @@ import {
 import { useAuth } from '../auth/AuthProvider'
 import { useWorkspace } from '../auth/WorkspaceProvider'
 import { useCalendarShell } from '../calendar/CalendarShellContext'
+import { isCalendarItemPassed } from '../../lib/calendar-datetime'
 import { filterVisibleCalendarItems, filterVisibleTaskKinds } from '../../lib/display-preferences'
 import { useDisplayPreferences } from '../../store/display-preferences'
 import { calendarItems as demoCalendarItems } from '../../data/demo'
@@ -137,10 +138,10 @@ export function NotificationProvider({ children }: PropsWithChildren) {
   )
 
   const popupCandidates = isSupabaseConfigured
-    ? activeDueNotifications.filter(shouldPopupNotification)
+    ? activeDueNotifications.filter((item) => shouldPopupNotification(item, calendarItems))
     : activeDueNotifications.filter(
         (item) =>
-          shouldPopupNotification(item) &&
+          shouldPopupNotification(item, calendarItems) &&
           !demoNotificationState.surfaced.includes(item.id) &&
           !demoNotificationState.dismissed.includes(item.id),
       )
@@ -162,9 +163,8 @@ export function NotificationProvider({ children }: PropsWithChildren) {
     if (!isSupabaseConfigured || activeDueNotifications.length === 0) return
 
     const stale = activeDueNotifications.filter((notification) => {
-      if (notification.requiresAcknowledgement) return false
       const item = calendarItems.find((entry) => entry.id === notification.calendarItemId)
-      return item && new Date(item.endsAt).getTime() <= Date.now()
+      return item && isCalendarItemPassed(item)
     })
 
     const staleKey = stale.map((item) => item.id).join(',')

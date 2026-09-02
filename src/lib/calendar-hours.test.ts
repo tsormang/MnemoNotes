@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildHalfHourTimeSlots,
+  buildHourTimeSlots,
+  buildQuarterHourTimeSlots,
+  buildTimeSlots,
   clockToMinutes,
   formatClockLabel,
   getWeekStartKey,
+  inferTimeStepMinutes,
   isClockTime,
   isValidWorkingDayRange,
   snapToHalfHour,
+  snapToTimeStep,
   toSlotTime,
 } from './calendar-hours'
 
@@ -49,5 +54,22 @@ describe('calendar-hours', () => {
     expect(snapToHalfHour('08:10')).toBe('08:00')
     expect(snapToHalfHour('08:20')).toBe('08:30')
     expect(snapToHalfHour('23:50')).toBe('23:30')
+  })
+
+  it('builds hour and quarter-hour slots', () => {
+    expect(buildHourTimeSlots()).toHaveLength(24)
+    expect(buildHourTimeSlots()[8]).toBe('08:00')
+    expect(buildQuarterHourTimeSlots()).toHaveLength(96)
+    expect(buildQuarterHourTimeSlots()[7]).toBe('01:45')
+    expect(buildTimeSlots(15)[0]).toBe('00:00')
+  })
+
+  it('snaps to configurable steps and infers the coarsest matching step', () => {
+    expect(snapToTimeStep('08:10', 60)).toBe('08:00')
+    expect(snapToTimeStep('08:40', 30)).toBe('08:30')
+    expect(snapToTimeStep('08:22', 15)).toBe('08:15')
+    expect(inferTimeStepMinutes('09:00')).toBe(60)
+    expect(inferTimeStepMinutes('09:30')).toBe(30)
+    expect(inferTimeStepMinutes('09:15')).toBe(15)
   })
 })

@@ -3,6 +3,7 @@
   "passwordRequired": "Password is required",
   "tokenRequired": "Invite token is required",
   "passwordMinLength": "Use at least 10 characters",
+  "passwordMismatch": "Passwords do not match",
   "fullNameRequired": "Full name is required",
   "roleNameRequired": "Role name is required",
   "roleNameMinLength": "Name must be at least 2 characters.",

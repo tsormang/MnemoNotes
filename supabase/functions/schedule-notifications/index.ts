@@ -114,6 +114,8 @@ Deno.serve(async (request) => {
 
     for (const rule of (rules ?? []) as NotificationRuleRow[]) {
       const item = rule.calendar_items
+      if (new Date(item.ends_at).getTime() <= now.getTime()) continue
+
       const scheduledFor = computeScheduledFor(
         item.starts_at,
         item.ends_at,
@@ -122,6 +124,7 @@ Deno.serve(async (request) => {
       )
 
       if (scheduledFor > horizon) continue
+      if (scheduledFor.getTime() > new Date(item.ends_at).getTime()) continue
 
       const recipientIds = await resolveRecipientIds(serviceClient, rule)
       if (recipientIds.size === 0) continue
@@ -157,21 +160,70 @@ Deno.serve(async (request) => {
 
     const { data: dueJobs, error: dueError } = await serviceClient
       .from('notification_jobs')
-      .select('id')
+      .select('id, payload')
       .eq('status', 'queued')
       .lte('scheduled_for', now.toISOString())
 
     if (dueError) throw dueError
 
-    if ((dueJobs ?? []).length > 0) {
-      const { error: deliverError } = await serviceClient
-        .from('notification_jobs')
-        .update({ status: 'delivered', updated_at: now.toISOString() })
-        .eq('status', 'queued')
-        .lte('scheduled_for', now.toISOString())
+    const dueJobRows = dueJobs ?? []
+    if (dueJobRows.length > 0) {
+      const calendarItemIds = [
+        ...new Set(
+          dueJobRows
+            .map((job) => String((job.payload as Record<string, unknown> | null)?.calendarItemId ?? ''))
+            .filter(Boolean),
+        ),
+      ]
 
-      if (deliverError) throw deliverError
-      delivered = dueJobs?.length ?? 0
+      const endedItemIds = new Set<string>()
+      if (calendarItemIds.length > 0) {
+        const { data: endedItems, error: endedError } = await serviceClient
+          .from('calendar_items')
+          .select('id, ends_at')
+          .in('id', calendarItemIds)
+          .lte('ends_at', now.toISOString())
+
+        if (endedError) throw endedError
+        for (const row of endedItems ?? []) {
+          endedItemIds.add(row.id)
+        }
+      }
+
+      const deliverIds: string[] = []
+      const expireIds: string[] = []
+
+      for (const job of dueJobRows) {
+        const calendarItemId = String(
+          (job.payload as Record<string, unknown> | null)?.calendarItemId ?? '',
+        )
+        if (calendarItemId && endedItemIds.has(calendarItemId)) {
+          expireIds.push(job.id)
+        } else {
+          deliverIds.push(job.id)
+        }
+      }
+
+      if (expireIds.length > 0) {
+        const { error: expireError } = await serviceClient
+          .from('notification_jobs')
+          .update({ status: 'expired', updated_at: now.toISOString() })
+          .in('id', expireIds)
+          .eq('status', 'queued')
+
+        if (expireError) throw expireError
+      }
+
+      if (deliverIds.length > 0) {
+        const { error: deliverError } = await serviceClient
+          .from('notification_jobs')
+          .update({ status: 'delivered', updated_at: now.toISOString() })
+          .in('id', deliverIds)
+          .eq('status', 'queued')
+
+        if (deliverError) throw deliverError
+        delivered = deliverIds.length
+      }
     }
 
     return json({ ok: true, created, delivered }, 200)

@@ -8,7 +8,7 @@ import { BrandMark } from './components/BrandMark'
 import { DevVersionLabel } from './components/DevVersionLabel'
 import { Modal } from './components/Modal'
 import { AdminConsole } from './features/admin/AdminConsole'
-import { AcceptInviteScreen, LoginScreen } from './features/auth/AuthScreens'
+import { AcceptInviteScreen, ForgotPasswordScreen, LoginScreen, ResetPasswordScreen } from './features/auth/AuthScreens'
 import {
   RedirectIfAuthenticated,
   RequireAuditAccess,
@@ -42,6 +42,15 @@ function App() {
           </RedirectIfAuthenticated>
         }
       />
+      <Route
+        path="/forgot-password"
+        element={
+          <RedirectIfAuthenticated>
+            <ForgotPasswordScreen />
+          </RedirectIfAuthenticated>
+        }
+      />
+      <Route path="/reset-password" element={<ResetPasswordScreen />} />
       <Route path="/accept-invite" element={<AcceptInviteScreen />} />
       <Route path="/register-owner" element={<Navigate to="/login" replace />} />
       <Route element={<RequireAuth />}>

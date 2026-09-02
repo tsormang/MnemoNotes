@@ -1,13 +1,17 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import clsx from 'clsx'
-import { AlertTriangle, Trash2 } from 'lucide-react'
+import { AlertTriangle, CalendarClock, FileText, ListTodo, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { FormToggle } from '../../components/FormToggle'
+import {
+  FormToggle,
+  ToggleOption,
+  ToggleSegmentGroup,
+  ToggleSegmentOption,
+} from '../../components/FormToggle'
 import { FieldLabel } from '../../components/FieldLabel'
 import { Modal } from '../../components/Modal'
-import { CompanyLocationField } from '../../components/CompanyLocationField'
 import { DatetimeInput } from '../../components/DatetimeInput'
 import { NotificationOffsetPicker } from '../../components/NotificationOffsetPicker'
 import { IconAvatar } from '../../components/icons/IconAvatar'
@@ -16,7 +20,8 @@ import { useAuth } from '../auth/AuthProvider'
 import { useWorkspace } from '../auth/WorkspaceProvider'
 import { getCalendarItemDisplayLabel } from '../../lib/calendar-display'
 import { findShiftConflicts } from '../../lib/calendar-conflicts'
-import { defaultEventEnd, normalizeEventRange, noteEventEnd } from '../../lib/calendar-datetime'
+import { defaultEventEnd, normalizeEventRange, noteEventEnd, snapIsoToTimeStep, splitIsoDatetime } from '../../lib/calendar-datetime'
+import { inferTimeStepMinutes, type TimeStepMinutes } from '../../lib/calendar-hours'
 import {
   canAssignShifts,
   canCreateKind,
@@ -44,12 +49,19 @@ import { calendarItemSchema, type CalendarItemInput } from '../../lib/validation
 import { defaultIconIdForKind, defaultNoteIconId } from '../../lib/icons/defaults'
 import type { NoteIconCollection } from '../../lib/icons/types'
 import { useIconCatalog } from '../../lib/queries/icons'
-import { suggestIconIdForCategory } from '../../lib/icons/note-category-icons'
 import { visibleCalendarKinds } from '../../lib/display-preferences'
 import { useDisplayPreferences } from '../../store/display-preferences'
 import { useCalendarShell, type CalendarEventDraft } from './CalendarShellContext'
 
 const kindOptions: CalendarItemKind[] = ['shift', 'note', 'task']
+
+const kindSegmentIcons: Record<CalendarItemKind, typeof CalendarClock> = {
+  shift: CalendarClock,
+  note: FileText,
+  task: ListTodo,
+}
+
+const priorityOptions = ['low', 'normal', 'high', 'critical'] as const
 
 function buildDefaults(
   item: CalendarItem | null,
@@ -57,9 +69,10 @@ function buildDefaults(
   defaultLocationId: string,
   defaultKind: CalendarItemKind,
   orgNotificationDefaults = ORG_NOTIFICATION_DEFAULTS,
+  timeStepMinutes: TimeStepMinutes = 60,
 ): CalendarItemInput {
   if (item) {
-    const snapped = normalizeEventRange(item.startsAt, item.endsAt)
+    const snapped = normalizeEventRange(item.startsAt, item.endsAt, timeStepMinutes)
     const endsAt =
       item.kind === 'note' ? noteEventEnd(snapped.startsAt) : snapped.endsAt
     const orgResolved = resolveNotificationOffsets({
@@ -76,7 +89,6 @@ function buildDefaults(
       locationId: item.locationId || defaultLocationId,
       assignedPersonnelIds: item.assignedPersonnelIds,
       priority: item.priority,
-      noteCategory: item.noteCategory ?? '',
       iconId: item.iconId ?? defaultIconIdForKind(item.kind),
       requiresAcknowledgement: item.requiresAcknowledgement,
       notificationOffsets: item.notificationOffsets,
@@ -90,7 +102,7 @@ function buildDefaults(
     kind === 'note'
       ? noteEventEnd(startsAt)
       : (draft?.endsAt ?? defaultEventEnd(startsAt))
-  const snapped = normalizeEventRange(startsAt, endsAt)
+  const snapped = normalizeEventRange(startsAt, endsAt, timeStepMinutes)
 
   return {
     title: '',
@@ -101,7 +113,6 @@ function buildDefaults(
     locationId: defaultLocationId,
     assignedPersonnelIds: [],
     priority: 'normal',
-    noteCategory: '',
     iconId: defaultIconIdForKind(kind),
     requiresAcknowledgement: false,
     notificationOffsets: resolveNotificationOffsets({
@@ -136,6 +147,7 @@ function CalendarEventModalContent({
   const deleteItem = useDeleteCalendarItem(organizationId)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [noteIconCollection, setNoteIconCollection] = useState<NoteIconCollection>('medical')
+  const [timeStepMinutes, setTimeStepMinutes] = useState<TimeStepMinutes>(60)
   const showTasks = useDisplayPreferences((state) => state.showTasks)
 
   const personnel = personnelQuery.data ?? []
@@ -163,8 +175,20 @@ function CalendarEventModalContent({
   })
 
   useEffect(() => {
+    const sourceStartsAt = editingItem?.startsAt ?? createDraft?.startsAt
+    const initialStep = sourceStartsAt
+      ? inferTimeStepMinutes(splitIsoDatetime(sourceStartsAt).time)
+      : 60
+    setTimeStepMinutes(initialStep)
     form.reset(
-      buildDefaults(editingItem, createDraft, defaultLocationId, defaultKind, orgNotificationDefaults),
+      buildDefaults(
+        editingItem,
+        createDraft,
+        defaultLocationId,
+        defaultKind,
+        orgNotificationDefaults,
+        initialStep,
+      ),
     )
   }, [
     createDraft,
@@ -182,13 +206,13 @@ function CalendarEventModalContent({
   }, [defaultLocationId, form])
 
   const watchedKind = form.watch('kind')
+  const watchedPriority = form.watch('priority')
   const startsAt = form.watch('startsAt')
   const endsAt = form.watch('endsAt')
   const assignedPersonnelIds = form.watch('assignedPersonnelIds')
   const requiresAcknowledgement = form.watch('requiresAcknowledgement')
   const notificationOffsets = form.watch('notificationOffsets')
   const useCustomNotificationOffsets = form.watch('useCustomNotificationOffsets')
-  const noteCategory = form.watch('noteCategory')
   const iconId = form.watch('iconId')
 
   useEffect(() => {
@@ -203,22 +227,6 @@ function CalendarEventModalContent({
     if (watchedKind === 'shift' || editingItem) return
     form.setValue('iconId', defaultIconIdForKind(watchedKind), { shouldDirty: false })
   }, [form, watchedKind, editingItem])
-
-  useEffect(() => {
-    if (watchedKind === 'shift') return
-    if (!form.formState.dirtyFields.noteCategory) return
-    const suggested = suggestIconIdForCategory(noteCategory)
-    if (suggested && !form.formState.dirtyFields.iconId) {
-      form.setValue('iconId', suggested, { shouldDirty: false })
-    }
-  }, [
-    form,
-    noteCategory,
-    watchedKind,
-    editingItem,
-    form.formState.dirtyFields.noteCategory,
-    form.formState.dirtyFields.iconId,
-  ])
 
   useEffect(() => {
     if (useCustomNotificationOffsets) return
@@ -261,6 +269,32 @@ function CalendarEventModalContent({
     [form],
   )
 
+  const handleTimeStepChange = useCallback(
+    (step: 30 | 15) => {
+      const nextStep: TimeStepMinutes = timeStepMinutes === step ? 60 : step
+      setTimeStepMinutes(nextStep)
+
+      const currentStart = form.getValues('startsAt')
+      if (currentStart) {
+        form.setValue('startsAt', snapIsoToTimeStep(currentStart, nextStep), {
+          shouldValidate: true,
+          shouldDirty: true,
+        })
+      }
+
+      if (form.getValues('kind') !== 'note') {
+        const currentEnd = form.getValues('endsAt')
+        if (currentEnd) {
+          form.setValue('endsAt', snapIsoToTimeStep(currentEnd, nextStep), {
+            shouldValidate: true,
+            shouldDirty: true,
+          })
+        }
+      }
+    },
+    [form, timeStepMinutes],
+  )
+
   const isEditing = Boolean(editingItem)
   const canSave =
     isSupabaseConfigured &&
@@ -269,7 +303,6 @@ function CalendarEventModalContent({
   const canDelete =
     isEditing && editingItem && isSupabaseConfigured && canDeleteKind(can, editingItem.kind)
   const showAssignments = watchedKind === 'shift' && canAssignShifts(can)
-  const showDescription = watchedKind === 'shift' || watchedKind === 'note'
   const showEndTime = watchedKind !== 'note'
 
   const availableKinds = visibleCalendarKinds(kindOptions, showTasks).filter((kind) =>
@@ -351,26 +384,45 @@ function CalendarEventModalContent({
   return (
     <form className="create-event-form" onSubmit={onSubmit}>
       <div className="create-event-form__row">
-        <label>
-          {t('common:field.type')}
-          <select {...form.register('kind')} disabled={isEditing || availableKinds.length === 0}>
-            {availableKinds.map((kind) => (
-              <option key={kind} value={kind}>
-                {t(`common:eventKind.${kind}`)}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="create-event-form__segment-field">
+          <FieldLabel>{t('common:field.type')}</FieldLabel>
+          <ToggleSegmentGroup aria-label={t('common:field.type')}>
+            {availableKinds.map((kind) => {
+              const Icon = kindSegmentIcons[kind]
+              return (
+                <ToggleSegmentOption
+                  key={kind}
+                  pressed={watchedKind === kind}
+                  disabled={isEditing || availableKinds.length === 0}
+                  icon={<Icon size={15} strokeWidth={2.25} aria-hidden="true" />}
+                  onClick={() => form.setValue('kind', kind, { shouldValidate: true, shouldDirty: true })}
+                >
+                  {t(`common:eventKind.${kind}`)}
+                </ToggleSegmentOption>
+              )
+            })}
+          </ToggleSegmentGroup>
+          <input type="hidden" {...form.register('kind')} />
+        </div>
 
-        <label>
-          {t('common:field.priority')}
-          <select {...form.register('priority')}>
-            <option value="low">{t('common:priority.low')}</option>
-            <option value="normal">{t('common:priority.normal')}</option>
-            <option value="high">{t('common:priority.high')}</option>
-            <option value="critical">{t('common:priority.critical')}</option>
-          </select>
-        </label>
+        <div className="create-event-form__segment-field">
+          <FieldLabel>{t('common:field.priority')}</FieldLabel>
+          <ToggleSegmentGroup aria-label={t('common:field.priority')}>
+            {priorityOptions.map((priority) => (
+              <ToggleSegmentOption
+                key={priority}
+                pressed={watchedPriority === priority}
+                disabled={!canSave}
+                onClick={() =>
+                  form.setValue('priority', priority, { shouldValidate: true, shouldDirty: true })
+                }
+              >
+                {t(`common:priority.${priority}`)}
+              </ToggleSegmentOption>
+            ))}
+          </ToggleSegmentGroup>
+          <input type="hidden" {...form.register('priority')} />
+        </div>
       </div>
 
       {watchedKind !== 'shift' ? (
@@ -387,10 +439,20 @@ function CalendarEventModalContent({
         </label>
       ) : null}
 
-      <CompanyLocationField
-        companyName={companyLocation.companyName}
-        loading={companyLocation.companyNameLoading}
-      />
+      {watchedKind === 'note' ? (
+        <label>
+          <FieldLabel>{t('common:field.description')}</FieldLabel>
+          <textarea
+            rows={2}
+            placeholder={t('calendar:eventModal.descriptionPlaceholder')}
+            {...form.register('description')}
+          />
+          {form.formState.errors.description ? (
+            <span className="form-error">{form.formState.errors.description.message}</span>
+          ) : null}
+        </label>
+      ) : null}
+
       <input type="hidden" {...form.register('locationId')} />
 
       <div className={clsx('create-event-form__row', !showEndTime && 'create-event-form__row--single')}>
@@ -401,6 +463,7 @@ function CalendarEventModalContent({
             dateLabel={t('calendar:eventModal.startDate')}
             timeLabel={t('calendar:eventModal.startTime')}
             disabled={!canSave}
+            timeStepMinutes={timeStepMinutes}
             onChange={handleStartsAtChange}
           />
         </label>
@@ -413,6 +476,7 @@ function CalendarEventModalContent({
               dateLabel={t('calendar:eventModal.endDate')}
               timeLabel={t('calendar:eventModal.endTime')}
               disabled={!canSave}
+              timeStepMinutes={timeStepMinutes}
               onChange={handleEndsAtChange}
             />
             {form.formState.errors.endsAt ? (
@@ -423,16 +487,32 @@ function CalendarEventModalContent({
       </div>
       <input type="hidden" {...form.register('endsAt')} />
 
+      <div className="create-event-form__time-steps-field">
+        <FieldLabel>{t('calendar:eventModal.timeStepLabel')}</FieldLabel>
+        <div
+          className="create-event-form__time-steps"
+          role="group"
+          aria-label={t('calendar:eventModal.timeStepLabel')}
+        >
+          <ToggleOption
+            pressed={timeStepMinutes === 30}
+            disabled={!canSave}
+            onClick={() => handleTimeStepChange(30)}
+          >
+            {t('calendar:eventModal.timeStep30')}
+          </ToggleOption>
+          <ToggleOption
+            pressed={timeStepMinutes === 15}
+            disabled={!canSave}
+            onClick={() => handleTimeStepChange(15)}
+          >
+            {t('calendar:eventModal.timeStep15')}
+          </ToggleOption>
+        </div>
+      </div>
+
       {watchedKind !== 'shift' ? (
         <>
-          <label>
-            <FieldLabel>{t('common:field.category')}</FieldLabel>
-            <input
-              type="text"
-              placeholder={t('calendar:eventModal.categoryPlaceholder')}
-              {...form.register('noteCategory')}
-            />
-          </label>
           {watchedKind === 'note' ? (
             <IconPicker
               entityType="note"
@@ -474,7 +554,7 @@ function CalendarEventModalContent({
         </>
       ) : null}
 
-      {showDescription ? (
+      {watchedKind === 'shift' ? (
         <label>
           <FieldLabel>{t('common:field.description')}</FieldLabel>
           <textarea

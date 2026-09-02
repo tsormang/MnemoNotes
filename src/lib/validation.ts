@@ -15,6 +15,24 @@ export function createLoginSchema(t: TFunction<'validation'>) {
   })
 }
 
+export function createForgotPasswordSchema(t: TFunction<'validation'>) {
+  return z.object({
+    email: z.email(t('emailInvalid')),
+  })
+}
+
+export function createResetPasswordSchema(t: TFunction<'validation'>) {
+  return z
+    .object({
+      password: z.string().min(10, t('passwordMinLength')),
+      confirmPassword: z.string().min(1, t('passwordRequired')),
+    })
+    .refine((value) => value.password === value.confirmPassword, {
+      message: t('passwordMismatch'),
+      path: ['confirmPassword'],
+    })
+}
+
 export function createAcceptInviteSchema(t: TFunction<'validation'>) {
   return z.object({
     token: z.string().min(1, t('tokenRequired')),
@@ -85,7 +103,6 @@ export function createCalendarItemSchema(t: TFunction<'validation'>) {
       locationId: z.uuid(t('locationRequired')),
       assignedPersonnelIds: z.array(z.uuid()),
       priority: z.enum(['low', 'normal', 'high', 'critical']),
-      noteCategory: z.string().max(60).optional(),
       iconId: z.string().max(60).optional(),
       requiresAcknowledgement: z.boolean(),
       notificationOffsets: z.array(z.number().int()),
@@ -187,7 +204,6 @@ export const calendarItemSchema = z
     locationId: z.uuid('Choose a location'),
     assignedPersonnelIds: z.array(z.uuid()),
     priority: z.enum(['low', 'normal', 'high', 'critical']),
-    noteCategory: z.string().max(60).optional(),
     iconId: z.string().max(60).optional(),
     requiresAcknowledgement: z.boolean(),
     notificationOffsets: z.array(z.number().int()),
@@ -218,6 +234,8 @@ export const workingDaySchema = z
   })
 
 export type LoginInput = z.infer<typeof loginSchema>
+export type ForgotPasswordInput = z.infer<ReturnType<typeof createForgotPasswordSchema>>
+export type ResetPasswordInput = z.infer<ReturnType<typeof createResetPasswordSchema>>
 export type ProvisionCompanyInput = z.infer<typeof provisionCompanySchema>
 export type InviteOwnerInput = z.infer<typeof inviteOwnerSchema>
 export type InvitePersonnelInput = z.infer<typeof invitePersonnelSchema>

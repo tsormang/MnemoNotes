@@ -10,7 +10,7 @@ max_rows = 1000
 [auth]
 enabled = true
 site_url = "http://localhost:5173"
-additional_redirect_urls = ["http://localhost:5173/accept-invite"]
+additional_redirect_urls = ["http://localhost:5173/accept-invite", "http://localhost:5173/reset-password"]
 jwt_expiry = 3600
 enable_signup = true
 

@@ -1,5 +1,5 @@
-import { useId } from 'react'
-import { buildHalfHourTimeSlots } from '../lib/calendar-hours'
+import { useId, useMemo } from 'react'
+import { buildTimeSlots, type TimeStepMinutes } from '../lib/calendar-hours'
 
 interface TimeInputProps {
   value: string
@@ -9,11 +9,11 @@ interface TimeInputProps {
   'aria-label'?: string
   /** Include 24:00 (working-day end only). */
   includeEndOfDay?: boolean
+  /** Dropdown step size in minutes. Defaults to 30 for working-day settings. */
+  stepMinutes?: TimeStepMinutes
 }
 
-const defaultSlots = buildHalfHourTimeSlots()
-
-/** 24-hour time dropdown in 30-minute steps. */
+/** 24-hour time dropdown with configurable step size. */
 export function TimeInput({
   value,
   onChange,
@@ -21,10 +21,14 @@ export function TimeInput({
   id,
   'aria-label': ariaLabel,
   includeEndOfDay = false,
+  stepMinutes = 30,
 }: TimeInputProps) {
   const fallbackId = useId()
   const inputId = id ?? fallbackId
-  const slots = includeEndOfDay ? buildHalfHourTimeSlots({ includeEndOfDay: true }) : defaultSlots
+  const slots = useMemo(
+    () => buildTimeSlots(stepMinutes, includeEndOfDay ? { includeEndOfDay: true } : undefined),
+    [includeEndOfDay, stepMinutes],
+  )
   const selected = slots.includes(value) ? value : slots[0]
 
   return (

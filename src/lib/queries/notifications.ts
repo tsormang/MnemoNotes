@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { calendarItems as demoCalendarItems } from '../../data/demo'
+import { isCalendarItemPassed } from '../calendar-datetime'
 import { invokeEdgeFunction } from '../edge-functions'
 import { computeScheduledFor } from '../notification-schedule'
 import { isSupabaseConfigured, supabase } from '../supabase'
@@ -93,7 +94,7 @@ export function usePendingAcknowledgements(
     queryFn: async (): Promise<PendingAcknowledgement[]> => {
       if (!organizationId || !userId || !supabase) {
         return calendarItems
-          .filter((item) => item.requiresAcknowledgement)
+          .filter((item) => item.requiresAcknowledgement && !isCalendarItemPassed(item))
           .map((item) => ({
             calendarItemId: item.id,
             title: item.title,
@@ -115,7 +116,7 @@ export function usePendingAcknowledgements(
       const acknowledged = new Set((acks ?? []).map((row) => row.calendar_item_id))
 
       return calendarItems
-        .filter((item) => item.requiresAcknowledgement && !acknowledged.has(item.id))
+        .filter((item) => item.requiresAcknowledgement && !acknowledged.has(item.id) && !isCalendarItemPassed(item))
         .map((item) => ({
           calendarItemId: item.id,
           title: item.title,
@@ -212,9 +213,8 @@ export function useExpireStaleNotificationJobs(
 
       const staleIds = notifications
         .filter((notification) => {
-          if (notification.requiresAcknowledgement) return false
           const item = calendarItems.find((entry) => entry.id === notification.calendarItemId)
-          return item && new Date(item.endsAt).getTime() <= Date.now()
+          return item && isCalendarItemPassed(item)
         })
         .map((notification) => notification.id)
 
@@ -328,17 +328,22 @@ export function isActiveDueNotification(
   if (!ACTIVE_NOTIFICATION_STATUSES.includes(notification.status)) return false
   if (!isNotificationDue(notification.scheduledFor)) return false
 
-  if (!notification.requiresAcknowledgement) {
-    const item = calendarItems.find((entry) => entry.id === notification.calendarItemId)
-    if (item && new Date(item.endsAt).getTime() <= Date.now()) return false
-  }
+  const item = calendarItems.find((entry) => entry.id === notification.calendarItemId)
+  if (item && isCalendarItemPassed(item)) return false
 
   return true
 }
 
 /** Jobs that should auto-popup (not yet surfaced this session cycle). */
-export function shouldPopupNotification(notification: InAppNotification): boolean {
-  return notification.status === 'delivered' && isNotificationDue(notification.scheduledFor)
+export function shouldPopupNotification(
+  notification: InAppNotification,
+  calendarItems: CalendarItem[] = [],
+): boolean {
+  return (
+    notification.status === 'delivered' &&
+    isNotificationDue(notification.scheduledFor) &&
+    isActiveDueNotification(notification, calendarItems)
+  )
 }
 
 /** Skip notifications already surfaced as toasts or desktop popups. */
@@ -361,7 +366,7 @@ export function getDemoPendingAcknowledgements(
   calendarItems: CalendarItem[],
 ): PendingAcknowledgement[] {
   return calendarItems
-    .filter((item) => item.requiresAcknowledgement)
+    .filter((item) => item.requiresAcknowledgement && !isCalendarItemPassed(item))
     .map((item) => ({
       calendarItemId: item.id,
       title: item.title,

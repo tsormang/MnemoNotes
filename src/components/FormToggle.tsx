@@ -55,3 +55,45 @@ export function ToggleOption({ pressed, className, children, type = 'button', ..
     </button>
   )
 }
+
+interface ToggleSegmentGroupProps {
+  children: ReactNode
+  className?: string
+  'aria-label'?: string
+}
+
+export function ToggleSegmentGroup({ children, className, 'aria-label': ariaLabel }: ToggleSegmentGroupProps) {
+  return (
+    <div className={clsx('toggle-segment-group', className)} role="radiogroup" aria-label={ariaLabel}>
+      {children}
+    </div>
+  )
+}
+
+interface ToggleSegmentOptionProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  pressed: boolean
+  icon?: ReactNode
+  children: ReactNode
+}
+
+export function ToggleSegmentOption({
+  pressed,
+  icon,
+  className,
+  children,
+  type = 'button',
+  ...props
+}: ToggleSegmentOptionProps) {
+  return (
+    <button
+      type={type}
+      role="radio"
+      aria-checked={pressed}
+      className={clsx('toggle-segment-option', pressed && 'is-active', className)}
+      {...props}
+    >
+      {icon ? <span className="toggle-segment-option__icon">{icon}</span> : null}
+      <span className="toggle-segment-option__label">{children}</span>
+    </button>
+  )
+}

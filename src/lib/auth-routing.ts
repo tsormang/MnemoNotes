@@ -1,5 +1,13 @@
 import { isSupabaseConfigured, supabase } from './supabase'
 
+export function authRedirectUrl(path: string): string {
+  if (typeof window === 'undefined') {
+    return path
+  }
+
+  return `${window.location.origin}${path}`
+}
+
 export async function resolvePostLoginPath(): Promise<string> {
   if (!isSupabaseConfigured || !supabase) {
     return '/app/calendar'

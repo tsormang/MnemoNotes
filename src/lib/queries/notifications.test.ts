@@ -54,6 +54,7 @@ describe('notification lifecycle helpers', () => {
     ]
 
     expect(isActiveDueNotification(notification, calendarItems)).toBe(false)
+    expect(shouldPopupNotification(notification, calendarItems)).toBe(false)
   })
 })
 

@@ -1,5 +1,5 @@
 import { format, isValid, parseISO } from 'date-fns'
-import { snapToHalfHour } from './calendar-hours'
+import { snapToHalfHour, snapToTimeStep, type TimeStepMinutes } from './calendar-hours'
 
 /** Format an ISO timestamp for `<input type="datetime-local">`. */
 export function toDatetimeLocalValue(iso: string): string {
@@ -35,14 +35,29 @@ export function snapIsoToHalfHour(iso: string): string {
   return combineDateAndTime(date, snapToHalfHour(time))
 }
 
+/** Snap an ISO timestamp to the nearest slot for the given step (local time). */
+export function snapIsoToTimeStep(iso: string, stepMinutes: TimeStepMinutes): string {
+  const { date, time } = splitIsoDatetime(iso)
+  return combineDateAndTime(date, snapToTimeStep(time, stepMinutes))
+}
+
+/** Whether a calendar item has fully ended. */
+export function isCalendarItemPassed(item: { endsAt: string }, now = Date.now()): boolean {
+  return new Date(item.endsAt).getTime() <= now
+}
+
 /** Snap selection range and ensure end is strictly after start. */
-export function normalizeEventRange(startsAt: string, endsAt: string): { startsAt: string; endsAt: string } {
-  let start = snapIsoToHalfHour(startsAt)
-  let end = snapIsoToHalfHour(endsAt)
+export function normalizeEventRange(
+  startsAt: string,
+  endsAt: string,
+  stepMinutes: TimeStepMinutes = 30,
+): { startsAt: string; endsAt: string } {
+  let start = snapIsoToTimeStep(startsAt, stepMinutes)
+  let end = snapIsoToTimeStep(endsAt, stepMinutes)
 
   if (new Date(end).getTime() <= new Date(start).getTime()) {
     end = defaultEventEnd(start)
-    end = snapIsoToHalfHour(end)
+    end = snapIsoToTimeStep(end, stepMinutes)
   }
 
   return { startsAt: start, endsAt: end }

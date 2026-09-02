@@ -10,7 +10,8 @@
     "addEventForDay": "Προσθήκη συμβάντος για {{day}}"
   },
   "agenda": {
-    "emptyDay": "Δεν έχουν προγραμματιστεί συμβάντα"
+    "emptyDay": "Δεν έχουν προγραμματιστεί συμβάντα",
+    "passedEvent": "Το συμβάν έχει περάσει"
   },
   "view": {
     "day": "Ημέρα",
@@ -40,6 +41,10 @@
     "startTime": "Ώρα έναρξης",
     "endDate": "Ημερομηνία λήξης",
     "endTime": "Ώρα λήξης",
+    "timeStepLabel": "Επιλογές ώρας",
+    "timeStepAria": "Λεπτομέρεια επιλογής ώρας",
+    "timeStep30": "30",
+    "timeStep15": "15",
     "requiresAck": "Απαιτεί επιβεβαίωση",
     "noteIcon": "Εικονίδιο σημείωσης",
     "iconCollection": {

@@ -8,10 +8,12 @@ import {
   startOfDay,
   startOfWeek,
 } from 'date-fns'
+import { History } from 'lucide-react'
 import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatShiftStaffLabel } from '../../lib/calendar-display'
 import { itemHasShiftConflict } from '../../lib/calendar-conflicts'
+import { isCalendarItemPassed } from '../../lib/calendar-datetime'
 import { IconAvatar } from '../../components/icons/IconAvatar'
 import { defaultIconIdForKind } from '../../lib/icons/defaults'
 import type { CalendarItem, CalendarItemKind, Personnel } from '../../types/domain'
@@ -54,7 +56,9 @@ function MobileAgendaCard({
   onOpenSeriesMenu: (item: CalendarItem, x: number, y: number) => void
   onSuppressClick: () => void
 }) {
+  const { t } = useTranslation('calendar')
   const buttonRef = useRef<HTMLButtonElement>(null)
+  const isPassed = isCalendarItemPassed(item)
 
   useEffect(() => {
     const element = buttonRef.current
@@ -72,10 +76,7 @@ function MobileAgendaCard({
   const assignees = personnel.filter((person) => item.assignedPersonnelIds.includes(person.id))
   const headline =
     item.kind === 'shift' ? formatShiftStaffLabel(assignees) : item.title.trim() || 'Untitled'
-  const subtitle =
-    item.kind === 'shift'
-      ? kindLabels.shift
-      : item.noteCategory?.trim() || kindLabels[item.kind]
+  const subtitle = item.kind === 'shift' ? kindLabels.shift : kindLabels[item.kind]
   const bubbleIconId =
     item.kind === 'shift'
       ? assignees[0]?.iconId
@@ -91,6 +92,7 @@ function MobileAgendaCard({
         'mobile-agenda-card',
         `mobile-agenda-card--${item.kind}`,
         hasConflict && 'mobile-agenda-card--conflict',
+        isPassed && 'mobile-agenda-card--passed',
       )}
       onClick={() => onOpenItem(item)}
     >
@@ -111,6 +113,11 @@ function MobileAgendaCard({
         <span className="mobile-agenda-card__time">{formatEventTime(item)}</span>
         <span className="mobile-agenda-card__meta">{subtitle}</span>
       </span>
+      {isPassed ? (
+        <span className="mobile-agenda-card__passed" aria-label={t('agenda.passedEvent')}>
+          <History size={18} strokeWidth={2} aria-hidden="true" />
+        </span>
+      ) : null}
     </button>
   )
 }

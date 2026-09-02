@@ -1,6 +1,6 @@
 import { useId } from 'react'
 import { combineDateAndTime, splitIsoDatetime } from '../lib/calendar-datetime'
-import { snapToHalfHour } from '../lib/calendar-hours'
+import { snapToTimeStep, type TimeStepMinutes } from '../lib/calendar-hours'
 import { TimeInput } from './TimeInput'
 
 interface DatetimeInputProps {
@@ -9,6 +9,7 @@ interface DatetimeInputProps {
   disabled?: boolean
   dateLabel?: string
   timeLabel?: string
+  timeStepMinutes?: TimeStepMinutes
 }
 
 /** Date + 24-hour time fields. Avoids locale-dependent native datetime pickers. */
@@ -18,10 +19,11 @@ export function DatetimeInput({
   disabled,
   dateLabel = 'Date',
   timeLabel = 'Time',
+  timeStepMinutes = 60,
 }: DatetimeInputProps) {
   const baseId = useId()
   const { date, time } = splitIsoDatetime(value)
-  const displayTime = snapToHalfHour(time)
+  const displayTime = snapToTimeStep(time, timeStepMinutes)
 
   const update = (nextDate: string, nextTime: string) => {
     if (!nextDate || !nextTime) return
@@ -45,6 +47,7 @@ export function DatetimeInput({
         aria-label={timeLabel}
         value={displayTime}
         disabled={disabled}
+        stepMinutes={timeStepMinutes}
         onChange={(nextTime) => update(date, nextTime)}
       />
     </div>

@@ -28,7 +28,9 @@
     "clear": "Clear",
     "today": "Today",
     "previous": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "filter": {
     "type": "Type",

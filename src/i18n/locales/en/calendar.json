@@ -10,7 +10,8 @@
     "addEventForDay": "Add event for {{day}}"
   },
   "agenda": {
-    "emptyDay": "No events scheduled"
+    "emptyDay": "No events scheduled",
+    "passedEvent": "Event has passed"
   },
   "view": {
     "day": "Day",
@@ -40,6 +41,10 @@
     "startTime": "Start time",
     "endDate": "End date",
     "endTime": "End time",
+    "timeStepLabel": "Time choices",
+    "timeStepAria": "Time selection granularity",
+    "timeStep30": "30",
+    "timeStep15": "15",
     "requiresAck": "Requires acknowledgement",
     "noteIcon": "Note icon",
     "iconCollection": {

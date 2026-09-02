@@ -246,9 +246,6 @@ function buildCalendarMetadata(
   const metadata: Record<string, unknown> = {
     notificationOffsets,
   }
-  if (values.noteCategory?.trim()) {
-    metadata.noteCategory = values.noteCategory.trim()
-  }
   if (values.iconId?.trim()) {
     metadata.iconId = values.iconId.trim()
   }
@@ -373,7 +370,6 @@ export function useUpsertCalendarItem(organizationId: string | null, userId: str
         locationId: values.locationId,
         assignedPersonnelIds: values.assignedPersonnelIds,
         priority: values.priority,
-        noteCategory: values.noteCategory,
         iconId: values.iconId,
         seriesId: values.seriesId,
         notificationOffsets: resolvedOffsets,
@@ -450,7 +446,6 @@ function cloneInputFromItem(
     locationId: item.locationId,
     assignedPersonnelIds: item.assignedPersonnelIds,
     priority: item.priority,
-    noteCategory: item.noteCategory ?? '',
     iconId: item.iconId ?? '',
     requiresAcknowledgement: item.requiresAcknowledgement,
     notificationOffsets: item.notificationOffsets,

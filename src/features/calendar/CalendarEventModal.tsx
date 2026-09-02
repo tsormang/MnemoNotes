@@ -667,6 +667,7 @@ export function CalendarEventModal() {
       open
       onClose={closeEventModal}
       title={editingItem ? t('eventModal.editTitle') : t('eventModal.createTitle')}
+      wide
     >
       <CalendarEventModalContent
         key={modalKey}

@@ -4,7 +4,7 @@ import {
   eachDayOfInterval,
   endOfMonth,
   endOfWeek,
-  isSameDay,
+  getDay,
   parseISO,
   startOfDay,
   startOfMonth,
@@ -29,6 +29,11 @@ export interface DuplicateTarget {
   endsAt: string
 }
 
+/** Sunday — schedule copies never target this day (manual creation only). */
+export function isSunday(day: Date): boolean {
+  return getDay(day) === 0
+}
+
 export function parseSeriesId(metadata: Record<string, unknown> | null | undefined): string | undefined {
   return typeof metadata?.seriesId === 'string' && metadata.seriesId.length > 0
     ? metadata.seriesId
@@ -40,16 +45,6 @@ export function shiftIsoRange(startsAt: string, endsAt: string, dayOffset: numbe
     startsAt: addDays(parseISO(startsAt), dayOffset).toISOString(),
     endsAt: addDays(parseISO(endsAt), dayOffset).toISOString(),
   }
-}
-
-function hasSeriesInstanceOnDay(
-  items: Array<Pick<CalendarItem, 'startsAt' | 'seriesId'>>,
-  seriesId: string,
-  day: Date,
-): boolean {
-  return items.some(
-    (entry) => entry.seriesId === seriesId && isSameDay(parseISO(entry.startsAt), day),
-  )
 }
 
 /** Days in the week the user is currently viewing (or the event's week in month view). */
@@ -91,16 +86,15 @@ export function getVisibleMonthDays(calendarDate: Date): Date[] {
 }
 
 export function buildDuplicateTargets(
-  item: Pick<CalendarItem, 'startsAt' | 'endsAt' | 'seriesId'>,
+  item: Pick<CalendarItem, 'startsAt' | 'endsAt'>,
   mode: SeriesDuplicateMode,
   context: CalendarSeriesViewContext,
-  existingItems: Array<Pick<CalendarItem, 'startsAt' | 'seriesId'>>,
 ): DuplicateTarget[] {
   const sourceDay = startOfDay(parseISO(item.startsAt))
 
   if (mode === 'next-day') {
     const nextDay = addDays(sourceDay, 1)
-    if (item.seriesId && hasSeriesInstanceOnDay(existingItems, item.seriesId, nextDay)) {
+    if (isSunday(nextDay)) {
       return []
     }
     return [shiftIsoRange(item.startsAt, item.endsAt, 1)]
@@ -116,7 +110,7 @@ export function buildDuplicateTargets(
   for (const day of days) {
     const offset = differenceInCalendarDays(day, sourceDay)
     if (offset === 0) continue
-    if (item.seriesId && hasSeriesInstanceOnDay(existingItems, item.seriesId, day)) continue
+    if (isSunday(day)) continue
     targets.push(shiftIsoRange(item.startsAt, item.endsAt, offset))
   }
 

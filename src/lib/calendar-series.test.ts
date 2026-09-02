@@ -35,8 +35,8 @@ describe('calendar-series', () => {
     expect(days[0].getDate()).toBe(24)
     expect(days[6].getDate()).toBe(30)
 
-    const targets = buildDuplicateTargets(baseItem, 'week', context, [])
-    expect(targets).toHaveLength(6)
+    const targets = buildDuplicateTargets(baseItem, 'week', context)
+    expect(targets).toHaveLength(5)
   })
 
   it('does not use month-grid padding when building week targets from month view', () => {
@@ -54,7 +54,7 @@ describe('calendar-series', () => {
     expect(days[6].getDate()).toBe(30)
   })
 
-  it('skips days that already have a series instance', () => {
+  it('still targets days that already have a series instance (overwrite confirms separately)', () => {
     const context: CalendarSeriesViewContext = {
       activeView: 'timeGridWeek',
       visibleRange: {
@@ -63,14 +63,25 @@ describe('calendar-series', () => {
       },
       calendarDate: new Date(2026, 7, 27, 0, 0, 0, 0),
     }
-    const existing = [
-      {
-        startsAt: '2026-08-28T06:00:00.000Z',
-        seriesId: 'series-1',
+    const targets = buildDuplicateTargets(baseItem, 'week', context)
+    expect(targets.some((target) => target.startsAt.startsWith('2026-08-28'))).toBe(true)
+  })
+
+  it('skips Sunday when duplicating to the next day', () => {
+    const saturdayItem: Pick<CalendarItem, 'startsAt' | 'endsAt' | 'seriesId'> = {
+      startsAt: '2026-08-29T06:00:00.000Z',
+      endsAt: '2026-08-29T14:00:00.000Z',
+      seriesId: undefined,
+    }
+    const targets = buildDuplicateTargets(saturdayItem, 'next-day', {
+      activeView: 'timeGridDay',
+      visibleRange: {
+        start: new Date(2026, 7, 29, 0, 0, 0, 0),
+        end: new Date(2026, 7, 30, 0, 0, 0, 0),
       },
-    ]
-    const targets = buildDuplicateTargets(baseItem, 'week', context, existing)
-    expect(targets.some((target) => target.startsAt.startsWith('2026-08-28'))).toBe(false)
+      calendarDate: new Date(2026, 7, 29, 0, 0, 0, 0),
+    })
+    expect(targets).toHaveLength(0)
   })
 
   it('groups siblings by series id', () => {

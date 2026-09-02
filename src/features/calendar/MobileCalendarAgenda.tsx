@@ -13,6 +13,12 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatShiftStaffLabel } from '../../lib/calendar-display'
 import { itemHasShiftConflict } from '../../lib/calendar-conflicts'
+import {
+  buildPersonnelBubbleColorMap,
+  resolveCalendarBubbleColors,
+  toCalendarBubbleStyle,
+  type CalendarBubbleColors,
+} from '../../lib/calendar-bubble-colors'
 import { isCalendarItemPassed } from '../../lib/calendar-datetime'
 import { IconAvatar } from '../../components/icons/IconAvatar'
 import { defaultIconIdForKind } from '../../lib/icons/defaults'
@@ -47,6 +53,7 @@ function MobileAgendaCard({
   onOpenItem,
   onOpenSeriesMenu,
   onSuppressClick,
+  personnelColors,
 }: {
   item: CalendarItem
   personnel: Personnel[]
@@ -55,10 +62,12 @@ function MobileAgendaCard({
   onOpenItem: (item: CalendarItem) => void
   onOpenSeriesMenu: (item: CalendarItem, x: number, y: number) => void
   onSuppressClick: () => void
+  personnelColors: Map<string, CalendarBubbleColors>
 }) {
   const { t } = useTranslation('calendar')
   const buttonRef = useRef<HTMLButtonElement>(null)
-  const isPassed = isCalendarItemPassed(item)
+  const isPassed =
+    (item.kind === 'shift' || item.kind === 'note') && isCalendarItemPassed(item)
 
   useEffect(() => {
     const element = buttonRef.current
@@ -83,6 +92,11 @@ function MobileAgendaCard({
       : item.iconId ?? defaultIconIdForKind(item.kind)
   const bubbleEntityType = item.kind === 'shift' ? 'personnel' : item.kind
   const bubbleLabel = item.kind === 'shift' ? assignees[0]?.fullName : undefined
+  const bubbleColors = resolveCalendarBubbleColors(item, {
+    personnelColors,
+    passed: isPassed,
+    conflict: hasConflict,
+  })
 
   return (
     <button
@@ -94,6 +108,7 @@ function MobileAgendaCard({
         hasConflict && 'mobile-agenda-card--conflict',
         isPassed && 'mobile-agenda-card--passed',
       )}
+      style={toCalendarBubbleStyle(bubbleColors)}
       onClick={() => onOpenItem(item)}
     >
       {bubbleIconId ? (
@@ -156,6 +171,10 @@ export function MobileCalendarAgenda({
   const weekDays = useMemo(
     () => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)),
     [weekStart],
+  )
+  const personnelBubbleColors = useMemo(
+    () => buildPersonnelBubbleColorMap(personnel),
+    [personnel],
   )
 
   const daysWithEvents = useMemo(() => {
@@ -233,6 +252,7 @@ export function MobileCalendarAgenda({
                         onOpenItem={onOpenItem}
                         onOpenSeriesMenu={onOpenSeriesMenu}
                         onSuppressClick={onSuppressItemClick}
+                        personnelColors={personnelBubbleColors}
                       />
                     </li>
                   ))}
@@ -293,6 +313,7 @@ export function MobileCalendarAgenda({
                   onOpenItem={onOpenItem}
                   onOpenSeriesMenu={onOpenSeriesMenu}
                   onSuppressClick={onSuppressItemClick}
+                  personnelColors={personnelBubbleColors}
                 />
               </li>
             ))}

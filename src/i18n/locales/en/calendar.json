@@ -7,6 +7,7 @@
     "utilityRibbon": "Calendar utility ribbon",
     "viewSwitch": "Calendar view",
     "print": "Print calendar",
+    "copySchedule": "Copy schedule",
     "addEventForDay": "Add event for {{day}}"
   },
   "agenda": {
@@ -27,7 +28,12 @@
     "untitled": "Untitled"
   },
   "series": {
-    "error": "Could not update event series."
+    "error": "Could not update event series.",
+    "duplicateNextDay": "Duplicate to next day",
+    "duplicateWeek": "Assign in all current week",
+    "duplicateMonth": "Assign in all month",
+    "deleteCurrent": "Delete",
+    "deleteSeriesExcept": "Delete all instances but current"
   },
   "eventModal": {
     "createTitle": "Create event",
@@ -72,5 +78,37 @@
   "print": {
     "title": "Print preview",
     "previewAria": "Calendar print preview"
+  },
+  "scheduleCopy": {
+    "title": "Copy schedule",
+    "sundayHint": "Copies never land on Sunday — create Sunday events manually.",
+    "dayNextDay": "Copy day schedule to the next day",
+    "dayWeek": "Copy day schedule to the current week",
+    "dayMonth": "Copy day schedule to the current month",
+    "clearDay": "Clear day schedule",
+    "weekNextWeek": "Copy week schedule to the next week",
+    "weekMonth": "Copy week schedule to the current month",
+    "clearWeek": "Clear week schedule",
+    "monthNextMonth": "Copy month schedule to the next month",
+    "clearMonth": "Clear month schedule",
+    "error": "Could not update the schedule.",
+    "clearConfirmDay": "Clear all events on this day?",
+    "clearConfirmWeek": "Clear all events in this week?",
+    "clearConfirmMonth": "Clear all events in this month?"
+  },
+  "copyOverwrite": {
+    "title": "Overlapping events",
+    "messageNotes_one": "{{count}} note copy overlaps an existing note.",
+    "messageNotes_other": "{{count}} note copies overlap existing notes.",
+    "messageShifts_one": "{{count}} shift copy overlaps an existing shift.",
+    "messageShifts_other": "{{count}} shift copies overlap existing shifts.",
+    "messageMixed": "Some copies overlap existing events in the same time.",
+    "clearTargetsHint_one": "{{count}} copy with no overlap will proceed.",
+    "clearTargetsHint_other": "{{count}} copies with no overlap will proceed.",
+    "choiceHint": "Replace removes overlapping notes or shifts and creates the copy. Ignore skips only the overlapping copies.",
+    "replace": "Replace overlapping",
+    "ignore": "Ignore overlapping",
+    "noPermission": "You cannot replace overlapping events — use Ignore or Cancel.",
+    "nothingAfterIgnore": "No copies left after skipping overlapping events."
   }
 }

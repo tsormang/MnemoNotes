@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import type { CalendarItem } from '../../types/domain'
 import { getSeriesSiblings } from '../../lib/calendar-series'
 import type { CalendarSeriesAction } from '../../lib/queries/mutations'
@@ -23,23 +24,31 @@ interface EventSeriesMenuProps {
 
 const menuItems: Array<{
   action: CalendarSeriesAction
-  label: string
+  labelKey: 'duplicateNextDay' | 'duplicateWeek' | 'duplicateMonth' | 'deleteCurrent' | 'deleteSeriesExcept'
   requiresCreate?: boolean
   requiresDelete?: boolean
   requiresSeries?: boolean
+  destructive?: boolean
 }> = [
-  { action: { type: 'duplicate', mode: 'next-day' }, label: 'Duplicate to next day', requiresCreate: true },
+  { action: { type: 'duplicate', mode: 'next-day' }, labelKey: 'duplicateNextDay', requiresCreate: true },
   {
     action: { type: 'duplicate', mode: 'week' },
-    label: 'Assign in all current week',
+    labelKey: 'duplicateWeek',
     requiresCreate: true,
   },
-  { action: { type: 'duplicate', mode: 'month' }, label: 'Assign in all month', requiresCreate: true },
+  { action: { type: 'duplicate', mode: 'month' }, labelKey: 'duplicateMonth', requiresCreate: true },
+  {
+    action: { type: 'delete' },
+    labelKey: 'deleteCurrent',
+    requiresDelete: true,
+    destructive: true,
+  },
   {
     action: { type: 'delete-series-except' },
-    label: 'Delete all instances but current',
+    labelKey: 'deleteSeriesExcept',
     requiresDelete: true,
     requiresSeries: true,
+    destructive: true,
   },
 ]
 
@@ -53,6 +62,7 @@ export function EventSeriesMenu({
   onClose,
   onAction,
 }: EventSeriesMenuProps) {
+  const { t } = useTranslation('calendar')
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -121,17 +131,17 @@ export function EventSeriesMenu({
 
         return (
           <button
-            key={entry.label}
+            key={entry.labelKey}
             type="button"
             role="menuitem"
-            className="event-series-menu__item"
+            className={`event-series-menu__item${entry.destructive ? ' event-series-menu__item--destructive' : ''}`}
             disabled={disabled}
             onClick={() => {
               if (disabled) return
               onAction(entry.action)
             }}
           >
-            {entry.label}
+            {t(`series.${entry.labelKey}`)}
           </button>
         )
       })}

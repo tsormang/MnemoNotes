@@ -3,8 +3,8 @@ import interactionPlugin from '@fullcalendar/interaction'
 import FullCalendar from '@fullcalendar/react'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import clsx from 'clsx'
-import { addDays, format, startOfWeek } from 'date-fns'
-import { ChevronLeft, ChevronRight, MoonStar, Plus, Printer } from 'lucide-react'
+import { addDays, format, startOfDay, startOfWeek } from 'date-fns'
+import { ChevronLeft, ChevronRight, Copy, MoonStar, Plus, Printer } from 'lucide-react'
 import { useMemo, useRef, useState, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -17,9 +17,14 @@ import {
   getWeekStartKey,
   toSlotTime,
 } from '../../lib/calendar-hours'
+import {
+  applyCalendarBubbleColors,
+  buildPersonnelBubbleColorMap,
+  getCalendarBubbleColors,
+} from '../../lib/calendar-bubble-colors'
 import { formatShiftStaffLabel, getCalendarItemDisplayLabel } from '../../lib/calendar-display'
 import { itemHasShiftConflict } from '../../lib/calendar-conflicts'
-import { defaultEventEnd, normalizeEventRange } from '../../lib/calendar-datetime'
+import { defaultEventEnd, isCalendarItemPassed, normalizeEventRange } from '../../lib/calendar-datetime'
 import { IconAvatar } from '../../components/icons/IconAvatar'
 import { defaultIconIdForKind } from '../../lib/icons/defaults'
 import { useMediaQuery } from '../../lib/use-media-query'
@@ -30,6 +35,7 @@ import {
   canEditCalendarItem,
 } from '../../lib/calendar-permissions'
 import {
+  useCalendarScheduleActions,
   useCalendarSeriesActions,
   useUpdateCalendarItemTimes,
   type CalendarSeriesAction,
@@ -47,7 +53,19 @@ import { useLocaleStore } from '../../store/locale'
 import type { CalendarItem, CalendarItemKind, Personnel } from '../../types/domain'
 import { useDisplayPreferences } from '../../store/display-preferences'
 import { filterCalendarItems, useCalendarShell } from './CalendarShellContext'
+import {
+  analyzeCopyConflicts,
+  canReplaceCopyConflicts,
+  type CopyConflictAnalysis,
+} from '../../lib/calendar-copy-overwrite'
+import { buildDuplicateTargets } from '../../lib/calendar-series'
+import { buildScheduleCopyTargets, type ScheduleAction } from '../../lib/calendar-schedule-copy'
 import { CalendarPrintPreview } from './CalendarPrintPreview'
+import { CopyOverwriteConfirmModal } from './CopyOverwriteConfirmModal'
+import {
+  CalendarScheduleCopyModal,
+  type ScheduleCopyScope,
+} from './CalendarScheduleCopyModal'
 import {
   attachEventSeriesMenuTriggers,
   EventSeriesMenu,
@@ -77,6 +95,23 @@ const calendarViews = [
 
 type CalendarViewId = (typeof calendarViews)[number]['id']
 
+type PendingCopyOverwrite =
+  | {
+      kind: 'schedule'
+      action: ScheduleAction
+      analysis: CopyConflictAnalysis
+    }
+  | {
+      kind: 'series'
+      action: CalendarSeriesAction
+      analysis: CopyConflictAnalysis
+    }
+
+interface CopyExecutionOptions {
+  overwriteItemIds?: string[]
+  skipConflictedTargetKeys?: string[]
+}
+
 const desktopPrintPreviewQuery = '(min-width: 721px)'
 
 function getInitialView(): CalendarViewId {
@@ -90,6 +125,10 @@ function supportsPrintPreview(): boolean {
   return typeof window !== 'undefined' && window.matchMedia(desktopPrintPreviewQuery).matches
 }
 
+function isPassedShiftOrNote(item: CalendarItem): boolean {
+  return (item.kind === 'shift' || item.kind === 'note') && isCalendarItemPassed(item)
+}
+
 function EventChip({
   allDay,
   start,
@@ -97,6 +136,8 @@ function EventChip({
   item,
   personnel,
   hasConflict,
+  compact,
+  isPassed,
 }: {
   allDay: boolean
   start: Date | null
@@ -104,7 +145,10 @@ function EventChip({
   item: CalendarItem
   personnel: Personnel[]
   hasConflict: boolean
+  compact?: boolean
+  isPassed?: boolean
 }) {
+  const avatarSize = compact ? 'sm' : 'md'
   const assignees = personnel.filter((person) => item.assignedPersonnelIds.includes(person.id))
   const headline =
     item.kind === 'shift'
@@ -116,20 +160,26 @@ function EventChip({
       : `${format(start, 'HH:mm')}${end ? ` – ${format(end, 'HH:mm')}` : ''}`
 
   return (
-    <div className={clsx('fc-event-chip', hasConflict && 'fc-event-chip--conflict')}>
+    <div
+      className={clsx(
+        'fc-event-chip',
+        hasConflict && 'fc-event-chip--conflict',
+        isPassed && 'fc-event-chip--passed',
+      )}
+    >
       {item.kind === 'shift' && assignees[0] ? (
         <IconAvatar
           iconId={assignees[0].iconId}
           entityType="personnel"
           label={assignees[0].fullName}
-          size="sm"
+          size={avatarSize}
           className="fc-event-avatar"
         />
       ) : item.kind !== 'shift' ? (
         <IconAvatar
           iconId={item.iconId ?? defaultIconIdForKind(item.kind)}
           entityType={item.kind}
-          size="sm"
+          size={avatarSize}
           className="fc-event-avatar"
           initialsFallback={false}
         />
@@ -187,8 +237,10 @@ function CalendarUtilityRibbon({
   onToday,
   onChangeView,
   onToggleNightShift,
+  onCopy,
   onPrint,
   showViewSwitch = true,
+  showCopy = true,
   showPrint = true,
   showNightShift = true,
 }: {
@@ -201,8 +253,10 @@ function CalendarUtilityRibbon({
   onToday: () => void
   onChangeView: (view: CalendarViewId) => void
   onToggleNightShift: () => void
+  onCopy: () => void
   onPrint: () => void
   showViewSwitch?: boolean
+  showCopy?: boolean
   showPrint?: boolean
   showNightShift?: boolean
 }) {
@@ -228,6 +282,18 @@ function CalendarUtilityRibbon({
       <h2 className="calendar-utility-ribbon__title">{title}</h2>
 
       <div className="calendar-utility-ribbon__tools">
+        {showCopy ? (
+          <button
+            type="button"
+            className="calendar-ribbon-btn"
+            aria-label={t('calendar:aria.copySchedule')}
+            title={t('calendar:aria.copySchedule')}
+            onClick={onCopy}
+          >
+            <Copy size={18} aria-hidden="true" />
+          </button>
+        ) : null}
+
         {showPrint ? (
           <button
             type="button"
@@ -288,11 +354,15 @@ export function PharmacyCalendar() {
   const weekOverridesQuery = useWeekOverrides(organizationId)
   const updateTimes = useUpdateCalendarItemTimes(organizationId)
   const seriesActions = useCalendarSeriesActions(organizationId, user?.id ?? null)
+  const scheduleActions = useCalendarScheduleActions(organizationId, user?.id ?? null)
   const queryClient = useQueryClient()
 
   const calendarRef = useRef<FullCalendar>(null)
   const calendarPrintRef = useRef<HTMLDivElement>(null)
   const [printPreviewOpen, setPrintPreviewOpen] = useState(false)
+  const [scheduleCopyOpen, setScheduleCopyOpen] = useState(false)
+  const [scheduleCopyError, setScheduleCopyError] = useState<string | null>(null)
+  const [pendingCopyOverwrite, setPendingCopyOverwrite] = useState<PendingCopyOverwrite | null>(null)
   const [printLayoutActive, setPrintLayoutActive] = useState(false)
   const [printLayoutReady, setPrintLayoutReady] = useState(false)
   const showPrintLayout = printPreviewOpen || printLayoutActive
@@ -317,6 +387,12 @@ export function PharmacyCalendar() {
   const [agendaDate, setAgendaDate] = useState(() => new Date())
   const [seriesMenu, setSeriesMenu] = useState<EventSeriesMenuState | null>(null)
   const [seriesMenuError, setSeriesMenuError] = useState<string | null>(null)
+  const [passedTick, setPassedTick] = useState(0)
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setPassedTick((tick) => tick + 1), 60_000)
+    return () => window.clearInterval(intervalId)
+  }, [])
 
   useEffect(() => {
     if (showMobileListView && !prevMobileAgendaRef.current) {
@@ -453,6 +529,141 @@ export function PharmacyCalendar() {
     return { start, end: addDays(start, 7) }
   }, [agendaDate])
 
+  const closeScheduleCopyModal = useCallback(() => {
+    setScheduleCopyOpen(false)
+    setScheduleCopyError(null)
+  }, [])
+
+  const scheduleCopyScope = useMemo((): ScheduleCopyScope => {
+    if (showMobileWeekAgenda || activeView === 'timeGridWeek') return 'week'
+    if (showMobileDayAgenda || activeView === 'timeGridDay') return 'day'
+    return 'month'
+  }, [showMobileWeekAgenda, showMobileDayAgenda, activeView])
+
+  const scheduleViewContext = useMemo(
+    () =>
+      showMobileListView
+        ? {
+            activeView: (showMobileWeekAgenda ? 'timeGridWeek' : 'timeGridDay') as
+              | 'timeGridWeek'
+              | 'timeGridDay',
+            visibleRange: showMobileWeekAgenda
+              ? mobileVisibleRange
+              : {
+                  start: startOfDay(agendaDate),
+                  end: addDays(startOfDay(agendaDate), 1),
+                },
+            calendarDate: agendaDate,
+          }
+        : {
+            activeView,
+            visibleRange,
+            calendarDate,
+          },
+    [
+      showMobileListView,
+      showMobileWeekAgenda,
+      mobileVisibleRange,
+      agendaDate,
+      activeView,
+      visibleRange,
+      calendarDate,
+    ],
+  )
+
+  const canDeleteCalendarItem = useCallback(
+    (item: CalendarItem) => isSupabaseConfigured && canDeleteKind(can, item.kind),
+    [can],
+  )
+
+  const canCreateCalendarItem = useCallback(
+    (item: CalendarItem) => isSupabaseConfigured && canCreateKind(can, item.kind),
+    [can],
+  )
+
+  const executeScheduleAction = useCallback(
+    async (action: ScheduleAction, options: CopyExecutionOptions = {}) => {
+      setScheduleCopyError(null)
+      await scheduleActions.mutateAsync({
+        action,
+        viewContext: scheduleViewContext,
+        timezone: orgQuery.data?.timezone,
+        allItems: calendarItems,
+        canCreateItem: canCreateCalendarItem,
+        canDeleteItem: canDeleteCalendarItem,
+        overwriteItemIds: options.overwriteItemIds,
+        skipConflictedTargetKeys: options.skipConflictedTargetKeys,
+      })
+      closeScheduleCopyModal()
+      setPendingCopyOverwrite(null)
+    },
+    [
+      scheduleActions,
+      scheduleViewContext,
+      orgQuery.data?.timezone,
+      calendarItems,
+      canCreateCalendarItem,
+      canDeleteCalendarItem,
+      closeScheduleCopyModal,
+    ],
+  )
+
+  const handleScheduleAction = useCallback(
+    async (action: ScheduleAction) => {
+      if (action.type === 'clear') {
+        const confirmKey =
+          action.scope === 'day'
+            ? 'scheduleCopy.clearConfirmDay'
+            : action.scope === 'week'
+              ? 'scheduleCopy.clearConfirmWeek'
+              : 'scheduleCopy.clearConfirmMonth'
+        if (!window.confirm(t(confirmKey))) return
+
+        try {
+          await executeScheduleAction(action)
+        } catch (error) {
+          setScheduleCopyError(
+            error instanceof Error ? error.message : t('scheduleCopy.error'),
+          )
+        }
+        return
+      }
+
+      const eligibleItems = calendarItems.filter(canCreateCalendarItem)
+      const targets = buildScheduleCopyTargets(eligibleItems, action.copy, scheduleViewContext)
+      if (targets.length === 0) {
+        setScheduleCopyError(t('scheduleCopy.error'))
+        return
+      }
+
+      const analysis = analyzeCopyConflicts(targets, calendarItems, canDeleteCalendarItem)
+      if (analysis.hasConflicts) {
+        if (!canReplaceCopyConflicts(analysis) && analysis.clearTargetCount === 0) {
+          setScheduleCopyError(t('copyOverwrite.noPermission'))
+          return
+        }
+        setPendingCopyOverwrite({ kind: 'schedule', action, analysis })
+        return
+      }
+
+      try {
+        await executeScheduleAction(action)
+      } catch (error) {
+        setScheduleCopyError(
+          error instanceof Error ? error.message : t('scheduleCopy.error'),
+        )
+      }
+    },
+    [
+      calendarItems,
+      canCreateCalendarItem,
+      canDeleteCalendarItem,
+      scheduleViewContext,
+      executeScheduleAction,
+      t,
+    ],
+  )
+
   const mobileWeekStart = startOfWeek(agendaDate, { weekStartsOn: 1 })
   const mobileWeekEnd = addDays(mobileWeekStart, 6)
 
@@ -512,47 +723,115 @@ export function PharmacyCalendar() {
   const showAddFab =
     canEditCalendar && !showPrintLayout && activeView === 'timeGridDay'
 
-  const handleSeriesAction = useCallback(
-    async (action: CalendarSeriesAction) => {
+  const executeSeriesAction = useCallback(
+    async (action: CalendarSeriesAction, options: CopyExecutionOptions = {}) => {
       if (!seriesMenu) return
 
       setSeriesMenuError(null)
-      try {
-        await seriesActions.mutateAsync({
-          action,
-          item: seriesMenu.item,
-          viewContext: showMobileListView
-            ? {
-                activeView,
-                visibleRange: mobileVisibleRange,
-                calendarDate: agendaDate,
-              }
-            : {
-                activeView,
-                visibleRange,
-                calendarDate,
-              },
-          timezone: orgQuery.data?.timezone,
-          allItems: calendarItems,
-        })
-        closeSeriesMenu()
-      } catch (error) {
-        setSeriesMenuError(error instanceof Error ? error.message : 'Could not update event series.')
-      }
+      await seriesActions.mutateAsync({
+        action,
+        item: seriesMenu.item,
+        viewContext: scheduleViewContext,
+        timezone: orgQuery.data?.timezone,
+        allItems: calendarItems,
+        overwriteItemIds: options.overwriteItemIds,
+        skipConflictedTargetKeys: options.skipConflictedTargetKeys,
+      })
+      closeSeriesMenu()
+      setPendingCopyOverwrite(null)
     },
     [
       seriesMenu,
       seriesActions,
-      showMobileListView,
-      mobileVisibleRange,
-      agendaDate,
-      activeView,
-      visibleRange,
-      calendarDate,
+      scheduleViewContext,
       orgQuery.data?.timezone,
       calendarItems,
       closeSeriesMenu,
     ],
+  )
+
+  const handleSeriesAction = useCallback(
+    async (action: CalendarSeriesAction) => {
+      if (!seriesMenu) return
+
+      if (action.type === 'duplicate') {
+        const targets = buildDuplicateTargets(seriesMenu.item, action.mode, scheduleViewContext)
+        if (targets.length === 0) {
+          setSeriesMenuError(t('series.error'))
+          return
+        }
+
+        const copyTargets = targets.map((target) => ({
+          ...target,
+          sourceItem: seriesMenu.item,
+        }))
+        const analysis = analyzeCopyConflicts(
+          copyTargets,
+          calendarItems,
+          canDeleteCalendarItem,
+          [seriesMenu.item.id],
+        )
+        if (analysis.hasConflicts) {
+          if (!canReplaceCopyConflicts(analysis) && analysis.clearTargetCount === 0) {
+            setSeriesMenuError(t('copyOverwrite.noPermission'))
+            return
+          }
+          setPendingCopyOverwrite({ kind: 'series', action, analysis })
+          return
+        }
+      }
+
+      try {
+        await executeSeriesAction(action)
+      } catch (error) {
+        setSeriesMenuError(error instanceof Error ? error.message : t('series.error'))
+      }
+    },
+    [
+      seriesMenu,
+      scheduleViewContext,
+      calendarItems,
+      canDeleteCalendarItem,
+      executeSeriesAction,
+      t,
+    ],
+  )
+
+  const runPendingCopyAction = useCallback(
+    async (mode: 'replace' | 'ignore') => {
+      if (!pendingCopyOverwrite) return
+
+      const { analysis } = pendingCopyOverwrite
+      const options: CopyExecutionOptions =
+        mode === 'replace'
+          ? { overwriteItemIds: analysis.replaceableItemIds }
+          : { skipConflictedTargetKeys: analysis.conflictedTargetKeys }
+
+      try {
+        if (pendingCopyOverwrite.kind === 'schedule') {
+          await executeScheduleAction(pendingCopyOverwrite.action, options)
+          return
+        }
+
+        await executeSeriesAction(pendingCopyOverwrite.action, options)
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message === 'No copies to create after skipping overlapping events.'
+              ? t('copyOverwrite.nothingAfterIgnore')
+              : error.message
+            : pendingCopyOverwrite.kind === 'schedule'
+              ? t('scheduleCopy.error')
+              : t('series.error')
+        if (pendingCopyOverwrite.kind === 'schedule') {
+          setScheduleCopyError(message)
+        } else {
+          setSeriesMenuError(message)
+        }
+        setPendingCopyOverwrite(null)
+      }
+    },
+    [pendingCopyOverwrite, executeScheduleAction, executeSeriesAction, t],
   )
 
   const canOpenSeriesMenu = useCallback(
@@ -562,11 +841,17 @@ export function PharmacyCalendar() {
     [can],
   )
 
+  const personnelBubbleColors = useMemo(
+    () => buildPersonnelBubbleColorMap(personnel),
+    [personnel],
+  )
+
   const events = useMemo(
     () =>
       filteredItems.map((item) => {
         const editable = isSupabaseConfigured && canEditCalendarItem(can, item.kind)
         const hasConflict = itemHasShiftConflict(calendarItems, item)
+        const isPassed = isPassedShiftOrNote(item)
 
         return {
           id: item.id,
@@ -579,11 +864,12 @@ export function PharmacyCalendar() {
           classNames: [
             eventClassNames[item.kind as CalendarItemKind],
             hasConflict ? 'event-conflict' : '',
+            isPassed ? 'event-passed' : '',
           ].filter(Boolean),
-          extendedProps: { item, hasConflict },
+          extendedProps: { item, hasConflict, isPassed },
         }
       }),
-    [filteredItems, calendarItems, can, personnel],
+    [filteredItems, calendarItems, can, personnel, passedTick],
   )
 
   const getApi = () => calendarRef.current?.getApi()
@@ -690,7 +976,9 @@ export function PharmacyCalendar() {
         onToday={showMobileListView ? () => setAgendaDate(new Date()) : () => getApi()?.today()}
         onChangeView={handleChangeView}
         onToggleNightShift={handleToggleNightShift}
+        onCopy={() => setScheduleCopyOpen(true)}
         onPrint={handlePrint}
+        showCopy={canEditCalendar && !showPrintLayout}
         showPrint={!isMobileCalendar}
         showNightShift={!isMobileCalendar}
       />
@@ -761,6 +1049,12 @@ export function PharmacyCalendar() {
               const item = info.event.extendedProps.item as CalendarItem | undefined
               if (!item) return
 
+              const isPassed = Boolean(info.event.extendedProps.isPassed)
+              applyCalendarBubbleColors(
+                info.el,
+                getCalendarBubbleColors(item, personnelBubbleColors, { passed: isPassed }),
+              )
+
               const cleanup = attachEventSeriesMenuTriggers(
                 info.el,
                 item,
@@ -790,6 +1084,8 @@ export function PharmacyCalendar() {
                   item={item}
                   personnel={personnel}
                   hasConflict={Boolean(arg.event.extendedProps.hasConflict)}
+                  compact={isMobileCalendar}
+                  isPassed={Boolean(arg.event.extendedProps.isPassed)}
                 />
               )
             }}
@@ -806,6 +1102,38 @@ export function PharmacyCalendar() {
         title={viewTitle}
         sourceRef={calendarPrintRef}
         layoutReady={printLayoutReady}
+      />
+
+      <CalendarScheduleCopyModal
+        open={scheduleCopyOpen}
+        scope={scheduleCopyScope}
+        isPending={scheduleActions.isPending}
+        errorMessage={scheduleCopyError}
+        onClose={closeScheduleCopyModal}
+        onAction={handleScheduleAction}
+      />
+
+      <CopyOverwriteConfirmModal
+        open={pendingCopyOverwrite !== null}
+        analysis={
+          pendingCopyOverwrite?.analysis ?? {
+            clearTargetCount: 0,
+            conflictTargetCount: 0,
+            conflictingItemIds: [],
+            replaceableItemIds: [],
+            noteConflicts: 0,
+            shiftConflicts: 0,
+            hasConflicts: false,
+            conflictedTargetKeys: [],
+          }
+        }
+        canReplace={
+          pendingCopyOverwrite ? canReplaceCopyConflicts(pendingCopyOverwrite.analysis) : false
+        }
+        isPending={scheduleActions.isPending || seriesActions.isPending}
+        onCancel={() => setPendingCopyOverwrite(null)}
+        onIgnore={() => runPendingCopyAction('ignore')}
+        onReplace={() => runPendingCopyAction('replace')}
       />
 
       <EventSeriesMenu

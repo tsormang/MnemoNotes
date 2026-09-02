@@ -896,7 +896,7 @@ export function PharmacyCalendar() {
           allDay,
           editable,
           startEditable: editable,
-          durationEditable: editable && allDay && item.kind === 'task',
+          durationEditable: editable,
           classNames: [
             eventClassNames[item.kind as CalendarItemKind],
             hasConflict ? 'event-conflict' : '',

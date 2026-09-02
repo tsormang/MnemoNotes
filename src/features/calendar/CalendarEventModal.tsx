@@ -263,10 +263,6 @@ function CalendarEventModalContent({
   ])
 
   useEffect(() => {
-    form.register('allDay')
-  }, [form])
-
-  useEffect(() => {
     if (defaultLocationId) {
       form.setValue('locationId', defaultLocationId)
     }

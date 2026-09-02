@@ -153,9 +153,10 @@ async function markNotificationJobsSurfaced(
 ) {
   if (!organizationId || !userId || !supabase || jobIds.length === 0) return
 
+  const client = supabase
   const surfacedAt = new Date().toISOString()
 
-  const { data: rows, error: readError } = await supabase
+  const { data: rows, error: readError } = await client
     .from('notification_jobs')
     .select('id, payload')
     .in('id', jobIds)
@@ -177,7 +178,7 @@ async function markNotificationJobsSurfaced(
         inAppSurfacedAt: surfacedAt,
       }
 
-      const { data: updated, error } = await supabase
+      const { data: updated, error } = await client
         .from('notification_jobs')
         .update({ payload, updated_at: surfacedAt })
         .eq('id', row.id)

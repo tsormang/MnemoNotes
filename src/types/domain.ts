@@ -111,6 +111,8 @@ export interface CalendarItem {
   kind: CalendarItemKind
   title: string
   description?: string
+  /** When true, the event spans whole calendar day(s) with no specific clock time. */
+  allDay?: boolean
   startsAt: string
   endsAt: string
   locationId: string

@@ -98,6 +98,7 @@ export function createCalendarItemSchema(t: TFunction<'validation'>) {
       title: z.string().max(120),
       description: z.string().max(2000).optional(),
       kind: z.enum(['shift', 'note', 'task']),
+      allDay: z.boolean(),
       startsAt: z.string().min(1, t('startRequired')),
       endsAt: z.string().min(1, t('endRequired')),
       locationId: z.uuid(t('locationRequired')),
@@ -113,6 +114,14 @@ export function createCalendarItemSchema(t: TFunction<'validation'>) {
       path: ['endsAt'],
     })
     .superRefine((value, ctx) => {
+      if (value.kind === 'shift' && value.allDay) {
+        ctx.addIssue({
+          code: 'custom',
+          message: t('shiftNotAllDay'),
+          path: ['allDay'],
+        })
+      }
+
       if (value.kind !== 'shift' && !value.title.trim()) {
         ctx.addIssue({
           code: 'custom',
@@ -199,6 +208,7 @@ export const calendarItemSchema = z
     title: z.string().max(120),
     description: z.string().max(2000).optional(),
     kind: z.enum(['shift', 'note', 'task']),
+    allDay: z.boolean(),
     startsAt: z.string().min(1, 'Start time is required'),
     endsAt: z.string().min(1, 'End time is required'),
     locationId: z.uuid('Choose a location'),
@@ -214,6 +224,14 @@ export const calendarItemSchema = z
     path: ['endsAt'],
   })
   .superRefine((value, ctx) => {
+    if (value.kind === 'shift' && value.allDay) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Shifts must have a start time',
+        path: ['allDay'],
+      })
+    }
+
     if (value.kind !== 'shift' && !value.title.trim()) {
       ctx.addIssue({
         code: 'custom',

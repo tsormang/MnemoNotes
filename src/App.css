@@ -966,6 +966,20 @@
   min-height: 96px;
 }
 
+/* Week/day all-day ribbon: one event lane + half for click-to-add. Month view keeps 96px above. */
+.fc-timeGridWeek-view .fc-daygrid-day-frame,
+.fc-timeGridDay-view .fc-daygrid-day-frame,
+.fc-timeGridWeek-view .fc-daygrid-day-events,
+.fc-timeGridDay-view .fc-daygrid-day-events {
+  min-height: var(--calendar-all-day-row-min);
+}
+
+.fc-timeGridWeek-view .fc-daygrid-event-harness,
+.fc-timeGridDay-view .fc-daygrid-event-harness {
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
 .fc .fc-daygrid-event {
   margin: 2px 4px !important;
   border: 0 !important;
@@ -1347,6 +1361,14 @@
   color: var(--color-brand);
   font-weight: 600;
   font-size: 12px;
+}
+
+/* Keep allDaySlot enabled so all-day events render; hide the lane when empty. */
+.calendar--all-day-row-empty .fc-timeGridWeek-view .fc-scrollgrid-section-body:first-of-type,
+.calendar--all-day-row-empty .fc-timeGridDay-view .fc-scrollgrid-section-body:first-of-type,
+.calendar--all-day-row-empty .fc-timeGridWeek-view .fc-scrollgrid-section.fc-scrollgrid-section-body + .fc-scrollgrid-section.fc-scrollgrid-section-body,
+.calendar--all-day-row-empty .fc-timeGridDay-view .fc-scrollgrid-section.fc-scrollgrid-section-body + .fc-scrollgrid-section.fc-scrollgrid-section-body {
+  display: none;
 }
 
 .working-day-settings {
@@ -3984,6 +4006,13 @@ th {
 
   .fc .fc-daygrid-day-frame {
     min-height: 72px;
+  }
+
+  .fc-timeGridWeek-view .fc-daygrid-day-frame,
+  .fc-timeGridDay-view .fc-daygrid-day-frame,
+  .fc-timeGridWeek-view .fc-daygrid-day-events,
+  .fc-timeGridDay-view .fc-daygrid-day-events {
+    min-height: 48px;
   }
 
   .fc-event-text strong {

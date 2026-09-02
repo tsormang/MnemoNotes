@@ -8,6 +8,7 @@
     "viewSwitch": "Calendar view",
     "print": "Print calendar",
     "copySchedule": "Copy schedule",
+    "addAllDayEvent": "Add all-day event",
     "addEventForDay": "Add event for {{day}}"
   },
   "agenda": {
@@ -25,7 +26,8 @@
     "off": "Night shifts off · {{range}}"
   },
   "event": {
-    "untitled": "Untitled"
+    "untitled": "Untitled",
+    "allDay": "All day"
   },
   "series": {
     "error": "Could not update event series.",
@@ -43,6 +45,8 @@
     "descriptionPlaceholder": "Optional details shown when the event is opened…",
     "starts": "Starts",
     "ends": "Ends",
+    "date": "Date",
+    "allDay": "All day",
     "startDate": "Start date",
     "startTime": "Start time",
     "endDate": "End date",
@@ -73,7 +77,9 @@
     "legend": "Reminders",
     "customToggle": "Custom reminders for this event",
     "groupAria": "Reminder times",
-    "useDefaults": "Uses workspace default reminder times."
+    "useDefaults": "Uses workspace default reminder times.",
+    "allDayOnTime": "All-day events use only the workspace “On time” reminder at the start of the day.",
+    "allDayDisabled": "All-day events have no reminders unless “On time” is enabled in workspace reminder settings."
   },
   "print": {
     "title": "Print preview",

@@ -102,7 +102,12 @@ export function resolveNotificationOffsets(input: {
   customOffsets?: number[] | null
   useCustomNotificationOffsets?: boolean
   orgDefaults?: NotificationDefaults | null
+  allDay?: boolean
 }): number[] {
+  if (input.allDay) {
+    return resolveAllDayNotificationOffsets(input)
+  }
+
   if (input.useCustomNotificationOffsets && input.customOffsets) {
     return normalizeNotificationOffsets(input.customOffsets)
   }
@@ -114,6 +119,17 @@ export function resolveNotificationOffsets(input: {
   }
 
   return [...defaults[input.kind]]
+}
+
+/** All-day events: a single at-start reminder if enabled in workspace defaults. */
+export function resolveAllDayNotificationOffsets(input: {
+  kind: CalendarItemKind
+  requiresAcknowledgement: boolean
+  orgDefaults?: NotificationDefaults | null
+}): number[] {
+  const defaults = input.orgDefaults ?? ORG_NOTIFICATION_DEFAULTS
+  const source = input.requiresAcknowledgement ? defaults.ackRequired : defaults[input.kind]
+  return source.includes(0) ? [0] : []
 }
 
 /** Default reminder offsets (minutes from start) by calendar item shape. */

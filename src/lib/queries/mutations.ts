@@ -248,10 +248,14 @@ function buildCalendarMetadata(
     customOffsets: values.notificationOffsets,
     useCustomNotificationOffsets: values.useCustomNotificationOffsets,
     orgDefaults,
+    allDay: values.allDay,
   })
 
   const metadata: Record<string, unknown> = {
     notificationOffsets,
+  }
+  if (values.allDay) {
+    metadata.allDay = true
   }
   if (values.iconId?.trim()) {
     metadata.iconId = values.iconId.trim()
@@ -365,6 +369,7 @@ export function useUpsertCalendarItem(organizationId: string | null, userId: str
         customOffsets: values.notificationOffsets,
         useCustomNotificationOffsets: values.useCustomNotificationOffsets,
         orgDefaults: values.orgNotificationDefaults,
+        allDay: values.allDay,
       })
 
       const optimisticItem: CalendarItem = {
@@ -372,6 +377,7 @@ export function useUpsertCalendarItem(organizationId: string | null, userId: str
         kind: values.kind,
         title: values.kind === 'shift' ? '' : values.title.trim(),
         description: calendarItemDescription(values) ?? undefined,
+        allDay: values.allDay || undefined,
         startsAt: values.startsAt,
         endsAt: values.endsAt,
         locationId: values.locationId,
@@ -448,6 +454,7 @@ function cloneInputFromItem(
     kind: item.kind,
     title: item.title,
     description: item.description,
+    allDay: Boolean(item.allDay),
     startsAt,
     endsAt,
     locationId: item.locationId,

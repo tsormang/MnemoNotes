@@ -20,7 +20,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { useWorkspace } from '../auth/WorkspaceProvider'
 import { getCalendarItemDisplayLabel } from '../../lib/calendar-display'
 import { findShiftConflicts } from '../../lib/calendar-conflicts'
-import { defaultEventEnd, normalizeEventRange, noteEventEnd, snapIsoToTimeStep, splitIsoDatetime } from '../../lib/calendar-datetime'
+import { defaultEventEnd, normalizeEventRange, noteEventEnd, snapIsoToTimeStep, splitIsoDatetime, allDayEventRangeFromIso, allDayRangeFromDates, allDayInclusiveEndDate, combineDateAndTime, isAllDayCalendarItem } from '../../lib/calendar-datetime'
 import { inferTimeStepMinutes, type TimeStepMinutes } from '../../lib/calendar-hours'
 import {
   canAssignShifts,
@@ -72,18 +72,44 @@ function buildDefaults(
   timeStepMinutes: TimeStepMinutes = 60,
 ): CalendarItemInput {
   if (item) {
-    const snapped = normalizeEventRange(item.startsAt, item.endsAt, timeStepMinutes)
-    const endsAt =
-      item.kind === 'note' ? noteEventEnd(snapped.startsAt) : snapped.endsAt
+    const allDay = isAllDayCalendarItem(item)
     const orgResolved = resolveNotificationOffsets({
       kind: item.kind,
       requiresAcknowledgement: item.requiresAcknowledgement,
       orgDefaults: orgNotificationDefaults,
+      allDay,
     })
+
+    if (allDay) {
+      const startRange = allDayEventRangeFromIso(item.startsAt)
+      return {
+        title: item.title,
+        description: item.description ?? '',
+        kind: item.kind,
+        allDay: true,
+        startsAt: startRange.startsAt,
+        endsAt:
+          item.kind === 'task'
+            ? combineDateAndTime(allDayInclusiveEndDate(item.endsAt), '00:00')
+            : startRange.endsAt,
+        locationId: item.locationId || defaultLocationId,
+        assignedPersonnelIds: item.assignedPersonnelIds,
+        priority: item.priority,
+        iconId: item.iconId ?? defaultIconIdForKind(item.kind),
+        requiresAcknowledgement: item.requiresAcknowledgement,
+        notificationOffsets: orgResolved,
+        useCustomNotificationOffsets: false,
+      }
+    }
+
+    const snapped = normalizeEventRange(item.startsAt, item.endsAt, timeStepMinutes)
+    const endsAt =
+      item.kind === 'note' ? noteEventEnd(snapped.startsAt) : snapped.endsAt
     return {
       title: item.title,
       description: item.description ?? '',
       kind: item.kind,
+      allDay: false,
       startsAt: snapped.startsAt,
       endsAt,
       locationId: item.locationId || defaultLocationId,
@@ -96,7 +122,40 @@ function buildDefaults(
     }
   }
 
-  const kind = draft?.kind ?? defaultKind
+  const allDay = draft?.allDay ?? false
+  const kind = draft?.kind ?? (allDay ? 'note' : defaultKind)
+
+  if (allDay) {
+    const startRange = allDayEventRangeFromIso(draft?.startsAt ?? new Date().toISOString())
+    const draftEndDate = draft?.endsAt
+      ? splitIsoDatetime(draft.endsAt).date
+      : allDayInclusiveEndDate(startRange.endsAt)
+
+    return {
+      title: '',
+      description: '',
+      kind,
+      allDay: true,
+      startsAt: startRange.startsAt,
+      endsAt:
+        kind === 'task'
+          ? combineDateAndTime(draftEndDate, '00:00')
+          : startRange.endsAt,
+      locationId: defaultLocationId,
+      assignedPersonnelIds: [],
+      priority: 'normal',
+      iconId: defaultIconIdForKind(kind),
+      requiresAcknowledgement: false,
+      notificationOffsets: resolveNotificationOffsets({
+        kind,
+        requiresAcknowledgement: false,
+        orgDefaults: orgNotificationDefaults,
+        allDay: true,
+      }),
+      useCustomNotificationOffsets: false,
+    }
+  }
+
   const startsAt = draft?.startsAt ?? new Date().toISOString()
   const endsAt =
     kind === 'note'
@@ -108,6 +167,7 @@ function buildDefaults(
     title: '',
     description: '',
     kind,
+    allDay: false,
     startsAt: snapped.startsAt,
     endsAt: snapped.endsAt,
     locationId: defaultLocationId,
@@ -162,6 +222,9 @@ function CalendarEventModalContent({
 
   const orgNotificationDefaults = orgQuery.data?.notificationDefaults ?? ORG_NOTIFICATION_DEFAULTS
   const canManageNotifications = can('organization.update') || can('notifications.manage')
+  const isEditing = Boolean(editingItem)
+  const allDayLocked = Boolean(createDraft?.allDayLocked)
+  const isAllDayCreate = !isEditing && allDayLocked
 
   const form = useForm<CalendarItemInput>({
     resolver: zodResolver(calendarItemSchema),
@@ -200,6 +263,10 @@ function CalendarEventModalContent({
   ])
 
   useEffect(() => {
+    form.register('allDay')
+  }, [form])
+
+  useEffect(() => {
     if (defaultLocationId) {
       form.setValue('locationId', defaultLocationId)
     }
@@ -207,6 +274,7 @@ function CalendarEventModalContent({
 
   const watchedKind = form.watch('kind')
   const watchedPriority = form.watch('priority')
+  const allDay = form.watch('allDay')
   const startsAt = form.watch('startsAt')
   const endsAt = form.watch('endsAt')
   const assignedPersonnelIds = form.watch('assignedPersonnelIds')
@@ -229,6 +297,21 @@ function CalendarEventModalContent({
   }, [form, watchedKind, editingItem])
 
   useEffect(() => {
+    if (allDay) {
+      form.setValue('useCustomNotificationOffsets', false, { shouldDirty: true })
+      form.setValue(
+        'notificationOffsets',
+        resolveNotificationOffsets({
+          kind: watchedKind,
+          requiresAcknowledgement,
+          orgDefaults: orgNotificationDefaults,
+          allDay: true,
+        }),
+        { shouldDirty: true },
+      )
+      return
+    }
+
     if (useCustomNotificationOffsets) return
     form.setValue(
       'notificationOffsets',
@@ -240,6 +323,7 @@ function CalendarEventModalContent({
       { shouldDirty: true },
     )
   }, [
+    allDay,
     form,
     orgNotificationDefaults,
     requiresAcknowledgement,
@@ -248,15 +332,72 @@ function CalendarEventModalContent({
   ])
 
   useEffect(() => {
-    if (watchedKind !== 'note' || !startsAt) return
+    if (watchedKind === 'shift' && allDay) {
+      form.setValue('allDay', false, { shouldDirty: true, shouldValidate: true })
+    }
+  }, [allDay, form, watchedKind])
+
+  useEffect(() => {
+    if (!isAllDayCreate) return
+    if (watchedKind !== 'note') {
+      form.setValue('kind', 'note', { shouldValidate: true, shouldDirty: false })
+    }
+    if (!allDay) {
+      form.setValue('allDay', true, { shouldValidate: true, shouldDirty: false })
+    }
+  }, [allDay, form, isAllDayCreate, watchedKind])
+
+  useEffect(() => {
+    if (watchedKind !== 'note' || allDay || !startsAt) return
     const nextEnd = noteEventEnd(startsAt)
     if (endsAt === nextEnd) return
     form.setValue('endsAt', nextEnd, { shouldValidate: true, shouldDirty: false })
-  }, [watchedKind, startsAt, endsAt, form])
+  }, [watchedKind, allDay, startsAt, endsAt, form])
+
+  useEffect(() => {
+    if (!allDay || watchedKind !== 'note' || !startsAt) return
+    const range = allDayEventRangeFromIso(startsAt)
+    if (endsAt === range.endsAt) return
+    form.setValue('endsAt', range.endsAt, { shouldValidate: true, shouldDirty: false })
+  }, [allDay, watchedKind, startsAt, endsAt, form])
+
+  const handleAllDayToggle = useCallback(() => {
+    const nextAllDay = !form.getValues('allDay')
+    form.setValue('allDay', nextAllDay, { shouldValidate: true, shouldDirty: true })
+
+    const currentStart = form.getValues('startsAt')
+    if (!currentStart) return
+
+    if (nextAllDay) {
+      const range = allDayEventRangeFromIso(currentStart)
+      form.setValue('startsAt', range.startsAt, { shouldValidate: true, shouldDirty: true })
+      form.setValue('useCustomNotificationOffsets', false, { shouldValidate: true, shouldDirty: true })
+      if (form.getValues('kind') === 'task') {
+        form.setValue(
+          'endsAt',
+          combineDateAndTime(allDayInclusiveEndDate(range.endsAt), '00:00'),
+          { shouldValidate: true, shouldDirty: true },
+        )
+      } else {
+        form.setValue('endsAt', range.endsAt, { shouldValidate: true, shouldDirty: true })
+      }
+      return
+    }
+
+    const { date } = splitIsoDatetime(currentStart)
+    const timedStart = combineDateAndTime(date, '07:00')
+    form.setValue('startsAt', timedStart, { shouldValidate: true, shouldDirty: true })
+    if (form.getValues('kind') === 'note') {
+      form.setValue('endsAt', noteEventEnd(timedStart), { shouldValidate: true, shouldDirty: true })
+    } else {
+      form.setValue('endsAt', defaultEventEnd(timedStart), { shouldValidate: true, shouldDirty: true })
+    }
+  }, [form])
 
   const handleStartsAtChange = useCallback(
     (iso: string) => {
       form.setValue('startsAt', iso, { shouldValidate: true, shouldDirty: true })
+      if (form.getValues('allDay')) return
       if (form.getValues('kind') === 'note') {
         form.setValue('endsAt', noteEventEnd(iso), { shouldValidate: true, shouldDirty: false })
       }
@@ -295,7 +436,6 @@ function CalendarEventModalContent({
     [form, timeStepMinutes],
   )
 
-  const isEditing = Boolean(editingItem)
   const canSave =
     isSupabaseConfigured &&
     Boolean(defaultLocationId) &&
@@ -303,14 +443,26 @@ function CalendarEventModalContent({
   const canDelete =
     isEditing && editingItem && isSupabaseConfigured && canDeleteKind(can, editingItem.kind)
   const showAssignments = watchedKind === 'shift' && canAssignShifts(can)
-  const showEndTime = watchedKind !== 'note'
+  const showEndTime = watchedKind === 'task' || (watchedKind === 'shift' && !allDay)
+  const showAllDayToggle = !allDayLocked && watchedKind !== 'shift'
+  const showTimeSteps = !allDay
 
-  const availableKinds = visibleCalendarKinds(kindOptions, showTasks).filter((kind) =>
-    isEditing ? true : canCreateKind(can, kind),
-  )
+  const availableKinds = visibleCalendarKinds(kindOptions, showTasks)
+    .filter((kind) => (isEditing ? true : canCreateKind(can, kind)))
+    .filter((kind) => !isAllDayCreate || kind === 'note')
+    .filter((kind) => isEditing || !allDay || kind !== 'shift')
+  const showNotificationSettings = canManageNotifications && !allDay
+  const allDayReminderEnabled = resolveNotificationOffsets({
+    kind: watchedKind,
+    requiresAcknowledgement,
+    orgDefaults: orgNotificationDefaults,
+    allDay: true,
+  }).includes(0)
+
+  const showKindSelector = isEditing || availableKinds.length > 1
 
   const conflicts = useMemo(() => {
-    if (watchedKind !== 'shift' || !startsAt || !endsAt) return []
+    if (allDay || watchedKind !== 'shift' || !startsAt || !endsAt) return []
     return findShiftConflicts(calendarQuery.data ?? [], {
       id: editingItem?.id ?? 'new',
       kind: watchedKind,
@@ -318,7 +470,7 @@ function CalendarEventModalContent({
       endsAt,
       assignedPersonnelIds: assignedPersonnelIds ?? [],
     })
-  }, [calendarQuery.data, editingItem?.id, watchedKind, startsAt, endsAt, assignedPersonnelIds])
+  }, [allDay, calendarQuery.data, editingItem?.id, watchedKind, startsAt, endsAt, assignedPersonnelIds])
 
   const conflictLabels = conflicts.map((conflict) => {
     const person = personnel.find((entry) => entry.id === conflict.personnelId)
@@ -334,10 +486,37 @@ function CalendarEventModalContent({
 
   const onSubmit = form.handleSubmit(async (values) => {
     setSubmitError(null)
-    const payload =
-      values.kind === 'note'
-        ? { ...values, endsAt: noteEventEnd(values.startsAt) }
-        : values
+    let payload = {
+      ...values,
+      allDay: isAllDayCreate ? true : Boolean(values.allDay),
+      kind: (isAllDayCreate ? 'note' : values.kind) as CalendarItemKind,
+    } satisfies CalendarItemInput
+
+    if (payload.allDay) {
+      payload = {
+        ...payload,
+        useCustomNotificationOffsets: false,
+        notificationOffsets: resolveNotificationOffsets({
+          kind: payload.kind,
+          requiresAcknowledgement: payload.requiresAcknowledgement,
+          orgDefaults: orgNotificationDefaults,
+          allDay: true,
+        }),
+      }
+    }
+
+    if (payload.allDay) {
+      const startDate = splitIsoDatetime(payload.startsAt).date
+      if (payload.kind === 'task') {
+        const endDate = splitIsoDatetime(payload.endsAt).date
+        payload = { ...payload, ...allDayRangeFromDates(startDate, endDate) }
+      } else {
+        payload = { ...payload, ...allDayEventRangeFromIso(payload.startsAt) }
+      }
+    } else if (payload.kind === 'note') {
+      payload = { ...payload, endsAt: noteEventEnd(payload.startsAt) }
+    }
+
     try {
       await upsertItem.mutateAsync({
         ...payload,
@@ -384,26 +563,30 @@ function CalendarEventModalContent({
   return (
     <form className="create-event-form" onSubmit={onSubmit}>
       <div className="create-event-form__row">
-        <div className="create-event-form__segment-field">
-          <FieldLabel>{t('common:field.type')}</FieldLabel>
-          <ToggleSegmentGroup aria-label={t('common:field.type')}>
-            {availableKinds.map((kind) => {
-              const Icon = kindSegmentIcons[kind]
-              return (
-                <ToggleSegmentOption
-                  key={kind}
-                  pressed={watchedKind === kind}
-                  disabled={isEditing || availableKinds.length === 0}
-                  icon={<Icon size={15} strokeWidth={2.25} aria-hidden="true" />}
-                  onClick={() => form.setValue('kind', kind, { shouldValidate: true, shouldDirty: true })}
-                >
-                  {t(`common:eventKind.${kind}`)}
-                </ToggleSegmentOption>
-              )
-            })}
-          </ToggleSegmentGroup>
+        {showKindSelector ? (
+          <div className="create-event-form__segment-field">
+            <FieldLabel>{t('common:field.type')}</FieldLabel>
+            <ToggleSegmentGroup aria-label={t('common:field.type')}>
+              {availableKinds.map((kind) => {
+                const Icon = kindSegmentIcons[kind]
+                return (
+                  <ToggleSegmentOption
+                    key={kind}
+                    pressed={watchedKind === kind}
+                    disabled={isEditing || availableKinds.length === 0}
+                    icon={<Icon size={15} strokeWidth={2.25} aria-hidden="true" />}
+                    onClick={() => form.setValue('kind', kind, { shouldValidate: true, shouldDirty: true })}
+                  >
+                    {t(`common:eventKind.${kind}`)}
+                  </ToggleSegmentOption>
+                )
+              })}
+            </ToggleSegmentGroup>
+            <input type="hidden" {...form.register('kind')} />
+          </div>
+        ) : (
           <input type="hidden" {...form.register('kind')} />
-        </div>
+        )}
 
         <div className="create-event-form__segment-field">
           <FieldLabel>{t('common:field.priority')}</FieldLabel>
@@ -455,28 +638,43 @@ function CalendarEventModalContent({
 
       <input type="hidden" {...form.register('locationId')} />
 
+      {showAllDayToggle ? (
+        <FormToggle
+          block
+          pressed={Boolean(allDay)}
+          disabled={!canSave}
+          onClick={handleAllDayToggle}
+        >
+          {t('calendar:eventModal.allDay')}
+        </FormToggle>
+      ) : null}
+
       <div className={clsx('create-event-form__row', !showEndTime && 'create-event-form__row--single')}>
         <label>
-          <FieldLabel required>{t('calendar:eventModal.starts')}</FieldLabel>
+          <FieldLabel required>
+            {allDay ? t('calendar:eventModal.date') : t('calendar:eventModal.starts')}
+          </FieldLabel>
           <DatetimeInput
             value={startsAt}
             dateLabel={t('calendar:eventModal.startDate')}
             timeLabel={t('calendar:eventModal.startTime')}
             disabled={!canSave}
             timeStepMinutes={timeStepMinutes}
+            dateOnly={allDay}
             onChange={handleStartsAtChange}
           />
         </label>
 
         {showEndTime ? (
           <label>
-            <FieldLabel required>{t('calendar:eventModal.ends')}</FieldLabel>
+            <FieldLabel required>{allDay ? t('calendar:eventModal.endDate') : t('calendar:eventModal.ends')}</FieldLabel>
             <DatetimeInput
               value={endsAt}
               dateLabel={t('calendar:eventModal.endDate')}
               timeLabel={t('calendar:eventModal.endTime')}
               disabled={!canSave}
               timeStepMinutes={timeStepMinutes}
+              dateOnly={allDay}
               onChange={handleEndsAtChange}
             />
             {form.formState.errors.endsAt ? (
@@ -487,29 +685,31 @@ function CalendarEventModalContent({
       </div>
       <input type="hidden" {...form.register('endsAt')} />
 
-      <div className="create-event-form__time-steps-field">
-        <FieldLabel>{t('calendar:eventModal.timeStepLabel')}</FieldLabel>
-        <div
-          className="create-event-form__time-steps"
-          role="group"
-          aria-label={t('calendar:eventModal.timeStepLabel')}
-        >
-          <ToggleOption
-            pressed={timeStepMinutes === 30}
-            disabled={!canSave}
-            onClick={() => handleTimeStepChange(30)}
+      {showTimeSteps ? (
+        <div className="create-event-form__time-steps-field">
+          <FieldLabel>{t('calendar:eventModal.timeStepLabel')}</FieldLabel>
+          <div
+            className="create-event-form__time-steps"
+            role="group"
+            aria-label={t('calendar:eventModal.timeStepLabel')}
           >
-            {t('calendar:eventModal.timeStep30')}
-          </ToggleOption>
-          <ToggleOption
-            pressed={timeStepMinutes === 15}
-            disabled={!canSave}
-            onClick={() => handleTimeStepChange(15)}
-          >
-            {t('calendar:eventModal.timeStep15')}
-          </ToggleOption>
+            <ToggleOption
+              pressed={timeStepMinutes === 30}
+              disabled={!canSave}
+              onClick={() => handleTimeStepChange(30)}
+            >
+              {t('calendar:eventModal.timeStep30')}
+            </ToggleOption>
+            <ToggleOption
+              pressed={timeStepMinutes === 15}
+              disabled={!canSave}
+              onClick={() => handleTimeStepChange(15)}
+            >
+              {t('calendar:eventModal.timeStep15')}
+            </ToggleOption>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {watchedKind !== 'shift' ? (
         <>
@@ -596,7 +796,7 @@ function CalendarEventModalContent({
         </fieldset>
       ) : null}
 
-      {canManageNotifications ? (
+      {showNotificationSettings ? (
         <NotificationOffsetPicker
           offsets={notificationOffsets ?? []}
           useCustom={useCustomNotificationOffsets ?? false}
@@ -608,6 +808,14 @@ function CalendarEventModalContent({
             form.setValue('useCustomNotificationOffsets', value, { shouldDirty: true })
           }
         />
+      ) : null}
+
+      {allDay ? (
+        <p className="modal-hint">
+          {allDayReminderEnabled
+            ? t('calendar:reminders.allDayOnTime')
+            : t('calendar:reminders.allDayDisabled')}
+        </p>
       ) : null}
 
       {conflictLabels.length > 0 ? (

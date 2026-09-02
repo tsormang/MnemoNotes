@@ -14,6 +14,9 @@ export interface CalendarEventDraft {
   startsAt: string
   endsAt: string
   kind?: CalendarItemKind
+  allDay?: boolean
+  /** When true, the event stays all-day (opened from the all-day row). */
+  allDayLocked?: boolean
 }
 
 interface CalendarShellContextValue {

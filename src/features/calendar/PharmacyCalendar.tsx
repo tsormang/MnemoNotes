@@ -4,7 +4,7 @@ import FullCalendar from '@fullcalendar/react'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import clsx from 'clsx'
 import { addDays, format, startOfDay, startOfWeek } from 'date-fns'
-import { ChevronLeft, ChevronRight, Copy, MoonStar, Plus, Printer } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Copy, MoonStar, Plus, Printer } from 'lucide-react'
 import { useMemo, useRef, useState, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -24,7 +24,7 @@ import {
 } from '../../lib/calendar-bubble-colors'
 import { formatShiftStaffLabel, getCalendarItemDisplayLabel } from '../../lib/calendar-display'
 import { itemHasShiftConflict } from '../../lib/calendar-conflicts'
-import { defaultEventEnd, isCalendarItemPassed, normalizeEventRange } from '../../lib/calendar-datetime'
+import { defaultEventEnd, allDayEventRange, isAllDayCalendarItem, isCalendarItemPassed, normalizeEventRange } from '../../lib/calendar-datetime'
 import { IconAvatar } from '../../components/icons/IconAvatar'
 import { defaultIconIdForKind } from '../../lib/icons/defaults'
 import { useMediaQuery } from '../../lib/use-media-query'
@@ -239,9 +239,11 @@ function CalendarUtilityRibbon({
   onToggleNightShift,
   onCopy,
   onPrint,
+  onCreateAllDay,
   showViewSwitch = true,
   showCopy = true,
   showPrint = true,
+  showCreateAllDay = true,
   showNightShift = true,
 }: {
   title: string
@@ -255,9 +257,11 @@ function CalendarUtilityRibbon({
   onToggleNightShift: () => void
   onCopy: () => void
   onPrint: () => void
+  onCreateAllDay: () => void
   showViewSwitch?: boolean
   showCopy?: boolean
   showPrint?: boolean
+  showCreateAllDay?: boolean
   showNightShift?: boolean
 }) {
   const { t } = useTranslation(['calendar', 'common'])
@@ -291,6 +295,18 @@ function CalendarUtilityRibbon({
             onClick={onCopy}
           >
             <Copy size={18} aria-hidden="true" />
+          </button>
+        ) : null}
+
+        {showCreateAllDay ? (
+          <button
+            type="button"
+            className="calendar-ribbon-btn"
+            aria-label={t('calendar:aria.addAllDayEvent')}
+            title={t('calendar:aria.addAllDayEvent')}
+            onClick={onCreateAllDay}
+          >
+            <CalendarDays size={18} aria-hidden="true" />
           </button>
         ) : null}
 
@@ -459,6 +475,7 @@ export function PharmacyCalendar() {
   )
 
   const canEditCalendar = isSupabaseConfigured && canCreateAnyCalendarItem(can)
+  const canCreateAllDay = isSupabaseConfigured && canCreateKind(can, 'note')
 
   useEffect(() => {
     if (!showPrintLayout) {
@@ -716,6 +733,18 @@ export function PharmacyCalendar() {
     [openCreateEvent, workingDayStart],
   )
 
+  const handleCreateAllDay = useCallback(() => {
+    const day = showMobileListView ? agendaDate : calendarDate
+    const range = allDayEventRange(day)
+    openCreateEvent({
+      kind: 'note',
+      allDay: true,
+      allDayLocked: true,
+      startsAt: range.startsAt,
+      endsAt: range.endsAt,
+    })
+  }, [showMobileListView, agendaDate, calendarDate, openCreateEvent])
+
   const createEventTargetDate = showMobileListView ? agendaDate : calendarDate
   const createEventLabel = t('aria.addEventForDay', {
     day: format(createEventTargetDate, 'EEEE d MMM'),
@@ -846,9 +875,15 @@ export function PharmacyCalendar() {
     [personnel],
   )
 
+  const hasAllDayEvents = useMemo(
+    () => filteredItems.some((item) => isAllDayCalendarItem(item)),
+    [filteredItems],
+  )
+
   const events = useMemo(
     () =>
       filteredItems.map((item) => {
+        const allDay = isAllDayCalendarItem(item)
         const editable = isSupabaseConfigured && canEditCalendarItem(can, item.kind)
         const hasConflict = itemHasShiftConflict(calendarItems, item)
         const isPassed = isPassedShiftOrNote(item)
@@ -858,9 +893,10 @@ export function PharmacyCalendar() {
           title: getCalendarItemDisplayLabel(item, personnel),
           start: item.startsAt,
           end: item.endsAt,
+          allDay,
           editable,
           startEditable: editable,
-          durationEditable: editable,
+          durationEditable: editable && allDay && item.kind === 'task',
           classNames: [
             eventClassNames[item.kind as CalendarItemKind],
             hasConflict ? 'event-conflict' : '',
@@ -895,16 +931,32 @@ export function PharmacyCalendar() {
   const handleDateSelect = (selection: {
     start: Date
     end: Date | null
+    allDay: boolean
   }) => {
     if (!canEditCalendar) return
     getApi()?.unselect()
+
+    if (selection.allDay) {
+      const range = allDayEventRange(selection.start)
+      openCreateEvent({
+        kind: 'note',
+        allDay: true,
+        allDayLocked: true,
+        startsAt: range.startsAt,
+        endsAt: range.endsAt,
+      })
+      return
+    }
 
     const startsAt = selection.start.toISOString()
     const endsAt = selection.end
       ? selection.end.toISOString()
       : defaultEventEnd(startsAt)
 
-    openCreateEvent(normalizeEventRange(startsAt, endsAt))
+    openCreateEvent({
+      ...normalizeEventRange(startsAt, endsAt),
+      allDay: false,
+    })
   }
 
   const handleEventClick = (arg: { event: { extendedProps: Record<string, unknown> } }) => {
@@ -918,7 +970,17 @@ export function PharmacyCalendar() {
     revert: () => void
   }) => {
     const item = arg.event.extendedProps.item as CalendarItem
-    if (!item || !arg.event.start || !arg.event.end) {
+    if (!item || !arg.event.start) {
+      arg.revert()
+      return
+    }
+
+    const startsAt = arg.event.start.toISOString()
+    const endsAt = item.allDay
+      ? (arg.event.end?.toISOString() ?? allDayEventRange(arg.event.start).endsAt)
+      : arg.event.end?.toISOString()
+
+    if (!endsAt) {
       arg.revert()
       return
     }
@@ -926,8 +988,8 @@ export function PharmacyCalendar() {
     try {
       await updateTimes.mutateAsync({
         id: item.id,
-        startsAt: arg.event.start.toISOString(),
-        endsAt: arg.event.end.toISOString(),
+        startsAt,
+        endsAt,
       })
     } catch {
       arg.revert()
@@ -978,7 +1040,9 @@ export function PharmacyCalendar() {
         onToggleNightShift={handleToggleNightShift}
         onCopy={() => setScheduleCopyOpen(true)}
         onPrint={handlePrint}
+        onCreateAllDay={handleCreateAllDay}
         showCopy={canEditCalendar && !showPrintLayout}
+        showCreateAllDay={canCreateAllDay && !showPrintLayout}
         showPrint={!isMobileCalendar}
         showNightShift={!isMobileCalendar}
       />
@@ -1002,7 +1066,10 @@ export function PharmacyCalendar() {
           onCreateForDay={handleCreateForDay}
         />
       ) : (
-        <div ref={calendarPrintRef} className="calendar-print-body">
+        <div
+          ref={calendarPrintRef}
+          className={clsx('calendar-print-body', !hasAllDayEvents && 'calendar--all-day-row-empty')}
+        >
           <FullCalendar
             key={`${slotMinTime}-${slotMaxTime}`}
             ref={calendarRef}
@@ -1016,6 +1083,7 @@ export function PharmacyCalendar() {
             slotMinTime={slotMinTime}
             slotMaxTime={slotMaxTime}
             scrollTime={scrollTime}
+            allDaySlot
             nowIndicator
             editable={canEditCalendar}
             selectable={canEditCalendar}
@@ -1078,7 +1146,7 @@ export function PharmacyCalendar() {
 
               return (
                 <EventChip
-                  allDay={arg.event.allDay}
+                  allDay={arg.event.allDay || isAllDayCalendarItem(item)}
                   start={arg.event.start}
                   end={arg.event.end}
                   item={item}

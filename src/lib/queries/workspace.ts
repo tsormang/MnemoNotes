@@ -1,6 +1,7 @@
 import { useQuery, type QueryClient } from '@tanstack/react-query'
 import { personnel as demoPersonnel, pharmacyLocations as demoLocations, calendarItems as demoCalendarItems } from '../../data/demo'
 import { parseSeriesId } from '../calendar-series'
+import { normalizeAllDayCalendarItem } from '../calendar-datetime'
 import { parseNotificationDefaults } from '../notification-schedule'
 import { isSupabaseConfigured, supabase } from '../supabase'
 import type {
@@ -290,7 +291,7 @@ export function useCalendarItems(organizationId: string | null) {
     queryKey: ['calendar-items', organizationId],
     queryFn: async (): Promise<CalendarItem[]> => {
       if (!organizationId || !supabase) {
-        return demoCalendarItems
+        return demoCalendarItems.map(normalizeAllDayCalendarItem)
       }
 
       const { data, error } = await supabase
@@ -317,7 +318,7 @@ export function useCalendarItems(organizationId: string | null) {
 
       return (data ?? []).map((row) => {
         const metadata = (row.metadata ?? {}) as Record<string, unknown>
-        return {
+        return normalizeAllDayCalendarItem({
           id: row.id,
           kind: row.kind as CalendarItemKind,
           title: row.title,
@@ -331,13 +332,14 @@ export function useCalendarItems(organizationId: string | null) {
           priority: (row.priority as CalendarItem['priority']) ?? 'normal',
           noteCategory:
             typeof metadata.noteCategory === 'string' ? metadata.noteCategory : undefined,
+          allDay: metadata.allDay === true,
           iconId: typeof metadata.iconId === 'string' ? metadata.iconId : undefined,
           seriesId: parseSeriesId(metadata),
           notificationOffsets: Array.isArray(metadata.notificationOffsets)
             ? metadata.notificationOffsets.map(Number)
             : [],
           requiresAcknowledgement: row.requires_acknowledgement,
-        }
+        })
       })
     },
     enabled: Boolean(organizationId && isSupabaseConfigured),

@@ -18,5 +18,6 @@
   "startRequired": "Start time is required",
   "endRequired": "End time is required",
   "titleRequired": "Title is required",
+  "shiftNotAllDay": "Shifts must have a start time",
   "locationRequired": "Choose a location"
 }

@@ -19,7 +19,7 @@ import {
   toCalendarBubbleStyle,
   type CalendarBubbleColors,
 } from '../../lib/calendar-bubble-colors'
-import { isCalendarItemPassed } from '../../lib/calendar-datetime'
+import { isCalendarItemPassed, isAllDayCalendarItem } from '../../lib/calendar-datetime'
 import { IconAvatar } from '../../components/icons/IconAvatar'
 import { defaultIconIdForKind } from '../../lib/icons/defaults'
 import type { CalendarItem, CalendarItemKind, Personnel } from '../../types/domain'
@@ -39,7 +39,8 @@ function itemOverlapsDay(item: CalendarItem, day: Date): boolean {
   return start <= dayEnd && end >= dayStart
 }
 
-function formatEventTime(item: CalendarItem): string {
+function formatEventTime(item: CalendarItem, allDayLabel: string): string {
+  if (isAllDayCalendarItem(item)) return allDayLabel
   const start = new Date(item.startsAt)
   const end = new Date(item.endsAt)
   return `${format(start, 'HH:mm')} – ${format(end, 'HH:mm')}`
@@ -125,7 +126,7 @@ function MobileAgendaCard({
       )}
       <span className="mobile-agenda-card__body">
         <strong>{headline}</strong>
-        <span className="mobile-agenda-card__time">{formatEventTime(item)}</span>
+        <span className="mobile-agenda-card__time">{formatEventTime(item, t('event.allDay'))}</span>
         <span className="mobile-agenda-card__meta">{subtitle}</span>
       </span>
       {isPassed ? (

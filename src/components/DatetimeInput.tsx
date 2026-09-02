@@ -10,6 +10,8 @@ interface DatetimeInputProps {
   dateLabel?: string
   timeLabel?: string
   timeStepMinutes?: TimeStepMinutes
+  /** When true, only the date field is shown (midnight local time). */
+  dateOnly?: boolean
 }
 
 /** Date + 24-hour time fields. Avoids locale-dependent native datetime pickers. */
@@ -20,6 +22,7 @@ export function DatetimeInput({
   dateLabel = 'Date',
   timeLabel = 'Time',
   timeStepMinutes = 60,
+  dateOnly = false,
 }: DatetimeInputProps) {
   const baseId = useId()
   const { date, time } = splitIsoDatetime(value)
@@ -28,6 +31,23 @@ export function DatetimeInput({
   const update = (nextDate: string, nextTime: string) => {
     if (!nextDate || !nextTime) return
     onChange(combineDateAndTime(nextDate, nextTime))
+  }
+
+  if (dateOnly) {
+    return (
+      <div className="datetime-input-24">
+        <label className="datetime-input-24__date">
+          <span className="visually-hidden">{dateLabel}</span>
+          <input
+            type="date"
+            lang="en-GB"
+            disabled={disabled}
+            value={date}
+            onChange={(event) => update(event.target.value, '00:00')}
+          />
+        </label>
+      </div>
+    )
   }
 
   return (

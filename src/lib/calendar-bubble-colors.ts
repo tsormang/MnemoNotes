@@ -1,27 +1,17 @@
 import type { CalendarItem, CalendarItemKind } from '../types/domain'
+import {
+  colorKeyFromId,
+  resolveEntityColors,
+  type EntityColorKey,
+  type EntityColors,
+} from './entity-colors'
 
-export type CalendarBubbleColors = {
-  bg: string
-  border: string
-  text: string
-}
+export type CalendarBubbleColors = EntityColors
 
 const KIND_DEFAULTS: Record<Exclude<CalendarItemKind, 'shift'>, CalendarBubbleColors> = {
   note: { bg: '#fff4db', border: '#d4a017', text: '#7a5a10' },
   task: { bg: '#ffe8e5', border: '#d45a4a', text: '#8c3028' },
 }
-
-/** Distinct soft palettes so adjacent shift bubbles are easy to tell apart. */
-const SHIFT_PALETTE: CalendarBubbleColors[] = [
-  { bg: '#e8f1ff', border: '#3b82c4', text: '#1e4f8c' },
-  { bg: '#e3f2e8', border: '#3d8b6a', text: '#1e5a42' },
-  { bg: '#f0e8f8', border: '#7b52ab', text: '#4a2878' },
-  { bg: '#fff0e6', border: '#d4783a', text: '#8c4518' },
-  { bg: '#e8f4f8', border: '#2a8fa8', text: '#1a5a6b' },
-  { bg: '#fce8f0', border: '#c45a8a', text: '#8c2848' },
-  { bg: '#f2f0e8', border: '#8a7a3a', text: '#5a4a18' },
-  { bg: '#e8eef8', border: '#4a6ab8', text: '#2a4278' },
-]
 
 const UNASSIGNED_SHIFT: CalendarBubbleColors = {
   bg: '#eef2f4',
@@ -35,21 +25,14 @@ export const PASSED_BUBBLE_COLORS: CalendarBubbleColors = {
   text: '#6b7d77',
 }
 
-function hashString(value: string): number {
-  let hash = 0
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 31 + value.charCodeAt(index)) >>> 0
-  }
-  return hash
-}
-
-/** One stable color per roster member so shifts on the same day are visually distinct. */
+/** One stable color per roster member from their stored colorKey. */
 export function buildPersonnelBubbleColorMap(
-  personnel: Array<{ id: string }>,
+  personnel: Array<{ id: string; colorKey?: string | null }>,
 ): Map<string, CalendarBubbleColors> {
   const map = new Map<string, CalendarBubbleColors>()
-  personnel.forEach((person, index) => {
-    map.set(person.id, SHIFT_PALETTE[index % SHIFT_PALETTE.length])
+  personnel.forEach((person) => {
+    const key = (person.colorKey as EntityColorKey | null | undefined) ?? colorKeyFromId(person.id)
+    map.set(person.id, resolveEntityColors(key))
   })
   return map
 }
@@ -87,7 +70,7 @@ export function getCalendarBubbleColors(
     return rosterColor
   }
 
-  return SHIFT_PALETTE[hashString(personId) % SHIFT_PALETTE.length]
+  return resolveEntityColors(colorKeyFromId(personId))
 }
 
 export function applyCalendarBubbleColors(

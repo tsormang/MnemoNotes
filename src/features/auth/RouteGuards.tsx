@@ -135,6 +135,16 @@ export function RequireAuditAccess({ children }: { children: ReactNode }) {
   return children
 }
 
+export function RequireStatsAccess({ children }: { children: ReactNode }) {
+  const canReadStats = useCan('stats.read')
+
+  if (!canReadStats) {
+    return <Navigate to="/app/calendar" replace />
+  }
+
+  return children
+}
+
 export function RedirectIfAuthenticated({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth()
   const [redirectPath, setRedirectPath] = useState<string | null>(null)

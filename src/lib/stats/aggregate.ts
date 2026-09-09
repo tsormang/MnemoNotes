@@ -10,12 +10,20 @@ export interface StatsPersonnelInput {
   id: string
   fullName: string
   companyRoleName: string
+  companyRoleId?: string
+  iconId?: string | null
+  avatarGender?: 'male' | 'female'
+  colorKey?: string | null
 }
 
 export interface PersonnelStatsRow {
   personnelId: string
   fullName: string
   companyRoleName: string
+  companyRoleId: string
+  iconId: string | null
+  avatarGender: 'male' | 'female'
+  colorKey: string | null
   shiftHours: number
   shiftCount: number
   noteCount: number
@@ -30,6 +38,9 @@ export interface DailyShiftHours {
 
 export interface RoleHoursRow {
   roleName: string
+  roleId: string
+  iconId: string | null
+  colorKey: string | null
   hours: number
   personnelCount: number
 }
@@ -63,6 +74,10 @@ function createEmptyRow(person: StatsPersonnelInput): PersonnelStatsRow {
     personnelId: person.id,
     fullName: person.fullName,
     companyRoleName: person.companyRoleName,
+    companyRoleId: person.companyRoleId ?? '',
+    iconId: person.iconId ?? null,
+    avatarGender: person.avatarGender ?? 'female',
+    colorKey: person.colorKey ?? null,
     shiftHours: 0,
     shiftCount: 0,
     noteCount: 0,
@@ -88,13 +103,28 @@ export function buildWorkspaceStatsReport(input: {
   rangeLabel: string
   items: CalendarItem[]
   personnel: StatsPersonnelInput[]
+  roles?: Array<{ id: string; name: string; iconId: string; colorKey?: string | null }>
 }): WorkspaceStatsReport {
-  const { range, rangeLabel, items, personnel } = input
+  const { range, rangeLabel, items, personnel, roles = [] } = input
   const inRange = items.filter((item) => itemOverlapsRange(item, range))
+  const roleIconById = new Map(roles.map((role) => [role.id, role.iconId]))
+  const roleIconByName = new Map(roles.map((role) => [role.name, role.iconId]))
+  const roleColorById = new Map(roles.map((role) => [role.id, role.colorKey ?? null]))
+  const roleColorByName = new Map(roles.map((role) => [role.name, role.colorKey ?? null]))
 
   const rowByPersonId = new Map(personnel.map((person) => [person.id, createEmptyRow(person)]))
   const dailyMap = new Map<string, DailyShiftHours>()
-  const roleHoursMap = new Map<string, { hours: number; personnelIds: Set<string> }>()
+  const roleHoursMap = new Map<
+    string,
+    {
+      roleName: string
+      roleId: string
+      iconId: string | null
+      colorKey: string | null
+      hours: number
+      personnelIds: Set<string>
+    }
+  >()
 
   let totalShiftHours = 0
   let totalShifts = 0
@@ -130,8 +160,23 @@ export function buildWorkspaceStatsReport(input: {
 
         incrementKindCount(row, 'shift', durationHours)
 
-        const roleKey = row.companyRoleName
-        const roleEntry = roleHoursMap.get(roleKey) ?? { hours: 0, personnelIds: new Set<string>() }
+        const roleKey = row.companyRoleId || row.companyRoleName
+        const roleEntry =
+          roleHoursMap.get(roleKey) ??
+          {
+            roleName: row.companyRoleName,
+            roleId: row.companyRoleId,
+            iconId:
+              (row.companyRoleId ? roleIconById.get(row.companyRoleId) : undefined) ??
+              roleIconByName.get(row.companyRoleName) ??
+              null,
+            colorKey:
+              (row.companyRoleId ? roleColorById.get(row.companyRoleId) : undefined) ??
+              roleColorByName.get(row.companyRoleName) ??
+              null,
+            hours: 0,
+            personnelIds: new Set<string>(),
+          }
         roleEntry.hours += durationHours
         roleEntry.personnelIds.add(personId)
         roleHoursMap.set(roleKey, roleEntry)
@@ -159,9 +204,12 @@ export function buildWorkspaceStatsReport(input: {
     .filter((row) => row.shiftCount > 0 || row.noteCount > 0 || row.taskCount > 0)
     .sort((left, right) => right.shiftHours - left.shiftHours || left.fullName.localeCompare(right.fullName))
 
-  const roleHours = [...roleHoursMap.entries()]
-    .map(([roleName, entry]) => ({
-      roleName,
+  const roleHours = [...roleHoursMap.values()]
+    .map((entry) => ({
+      roleName: entry.roleName,
+      roleId: entry.roleId,
+      iconId: entry.iconId,
+      colorKey: entry.colorKey,
       hours: entry.hours,
       personnelCount: entry.personnelIds.size,
     }))

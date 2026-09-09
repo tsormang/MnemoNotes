@@ -19,6 +19,35 @@ import { supabase } from '../supabase'
 import { DEFAULT_ROLE_ICON_ID } from '../icons/role-icons.generated'
 import type { CalendarItemInput, CompanyRoleInput } from '../validation'
 import type { NotificationDefaults } from '../../types/domain'
+import { DEFAULT_ENTITY_COLOR_KEY, isEntityColorKey, pickRandomColorKey } from '../entity-colors'
+
+async function fetchUsedPersonnelColorKeys(organizationId: string): Promise<string[]> {
+  if (!supabase) return []
+  const { data, error } = await supabase
+    .from('personnel')
+    .select('color_key')
+    .eq('organization_id', organizationId)
+  if (error) throw error
+  return (data ?? []).map((row) => row.color_key)
+}
+
+async function fetchUsedRoleColorKeys(organizationId: string): Promise<string[]> {
+  if (!supabase) return []
+  const { data, error } = await supabase
+    .from('company_roles')
+    .select('color_key')
+    .eq('organization_id', organizationId)
+  if (error) throw error
+  return (data ?? []).map((row) => row.color_key)
+}
+
+function resolveColorKeyForInsert(
+  colorKey: string | null | undefined,
+  usedKeys: string[],
+): string {
+  if (isEntityColorKey(colorKey)) return colorKey
+  return pickRandomColorKey(usedKeys)
+}
 
 export function useCreatePersonnel(organizationId: string | null) {
   const queryClient = useQueryClient()
@@ -30,10 +59,14 @@ export function useCreatePersonnel(organizationId: string | null) {
       locationId: string
       iconId?: string
       avatarGender?: 'male' | 'female'
+      colorKey?: string | null
     }) => {
       if (!organizationId || !supabase) {
         throw new Error('Organization is not available.')
       }
+
+      const usedKeys = await fetchUsedPersonnelColorKeys(organizationId)
+      const colorKey = resolveColorKeyForInsert(values.colorKey, usedKeys)
 
       const { error } = await supabase.from('personnel').insert({
         organization_id: organizationId,
@@ -44,6 +77,7 @@ export function useCreatePersonnel(organizationId: string | null) {
         company_role_id: values.companyRoleId,
         icon_id: values.iconId ?? (values.avatarGender === 'male' ? 'avatar-male-001' : 'avatar-female-002'),
         avatar_gender: values.avatarGender ?? 'female',
+        color_key: colorKey,
       })
 
       if (error) throw error
@@ -63,6 +97,9 @@ export function useCreateCompanyRole(organizationId: string | null) {
         throw new Error('Organization is not available.')
       }
 
+      const usedKeys = await fetchUsedRoleColorKeys(organizationId)
+      const colorKey = resolveColorKeyForInsert(values.colorKey, usedKeys)
+
       const { data, error } = await supabase
         .from('company_roles')
         .insert({
@@ -70,6 +107,7 @@ export function useCreateCompanyRole(organizationId: string | null) {
           name: values.name.trim(),
           description: values.description?.trim() ?? '',
           icon_id: values.iconId ?? DEFAULT_ROLE_ICON_ID,
+          color_key: colorKey,
         })
         .select('id')
         .single()
@@ -92,11 +130,13 @@ export function useUpdateCompanyRole(organizationId: string | null) {
       name,
       description,
       iconId,
+      colorKey,
     }: {
       roleId: string
       name?: string
       description?: string
       iconId?: string
+      colorKey?: string
     }) => {
       if (!organizationId || !supabase) {
         throw new Error('Organization is not available.')
@@ -106,6 +146,9 @@ export function useUpdateCompanyRole(organizationId: string | null) {
       if (name !== undefined) updates.name = name.trim()
       if (description !== undefined) updates.description = description.trim()
       if (iconId !== undefined) updates.icon_id = iconId
+      if (colorKey !== undefined) {
+        updates.color_key = isEntityColorKey(colorKey) ? colorKey : DEFAULT_ENTITY_COLOR_KEY
+      }
 
       const { error } = await supabase
         .from('company_roles')
@@ -197,6 +240,7 @@ export function useUpdatePersonnel(organizationId: string | null) {
       title,
       iconId,
       avatarGender,
+      colorKey,
     }: {
       personnelId: string
       fullName?: string
@@ -204,6 +248,7 @@ export function useUpdatePersonnel(organizationId: string | null) {
       title?: string
       iconId?: string
       avatarGender?: 'male' | 'female'
+      colorKey?: string
     }) => {
       if (!organizationId || !supabase) {
         throw new Error('Organization is not available.')
@@ -215,6 +260,9 @@ export function useUpdatePersonnel(organizationId: string | null) {
       if (title !== undefined) updates.title = title
       if (iconId !== undefined) updates.icon_id = iconId
       if (avatarGender !== undefined) updates.avatar_gender = avatarGender
+      if (colorKey !== undefined) {
+        updates.color_key = isEntityColorKey(colorKey) ? colorKey : DEFAULT_ENTITY_COLOR_KEY
+      }
 
       const { error } = await supabase
         .from('personnel')

@@ -22,12 +22,13 @@ import {
   usePersonnelList,
 } from '../../lib/queries/workspace'
 import { CompanyLocationField } from '../../components/CompanyLocationField'
+import { ColorKeySelect, ColorKeySwatch } from '../../components/ColorKeySelect'
 import { FieldLabel } from '../../components/FieldLabel'
 import { IconAvatar } from '../../components/icons/IconAvatar'
 import { IconPicker, syncPersonnelIconForGender } from '../../components/icons/IconPicker'
 import { useIconCatalog } from '../../lib/queries/icons'
 import { defaultPersonnelIconId } from '../../lib/icons/defaults'
-import type { Personnel, PersonnelAccountLink } from '../../types/domain'
+import type { EntityColorKey, Personnel, PersonnelAccountLink } from '../../types/domain'
 import {
   createCreatePersonnelSchema,
   createLinkPersonnelInviteSchema,
@@ -157,12 +158,48 @@ function PersonnelEditButton({
   )
 }
 
+function PersonnelColorField({
+  person,
+  canManagePersonnel,
+  onColorChange,
+  disabled,
+}: {
+  person: Personnel
+  canManagePersonnel: boolean
+  onColorChange: (personnelId: string, colorKey: EntityColorKey) => void
+  disabled: boolean
+}) {
+  const { t } = useTranslation('people')
+
+  if (canManagePersonnel) {
+    return (
+      <ColorKeySelect
+        compact
+        value={person.colorKey}
+        onChange={(colorKey) => {
+          if (colorKey) onColorChange(person.id, colorKey)
+        }}
+        disabled={disabled}
+        aria-label={t('personnel.colorForAria', { name: person.fullName })}
+      />
+    )
+  }
+
+  return (
+    <span className="personnel-color-readonly">
+      <ColorKeySwatch colorKey={person.colorKey} />
+      {t(`colors.${person.colorKey}`)}
+    </span>
+  )
+}
+
 function PersonnelCard({
   person,
   roles,
   canManagePersonnel,
   canInvite,
   onRoleChange,
+  onColorChange,
   onInvite,
   onEdit,
   roleChangePending,
@@ -172,6 +209,7 @@ function PersonnelCard({
   canManagePersonnel: boolean
   canInvite: boolean
   onRoleChange: (personnelId: string, companyRoleId: string) => void
+  onColorChange: (personnelId: string, colorKey: EntityColorKey) => void
   onInvite: (person: Personnel) => void
   onEdit: (person: Personnel) => void
   roleChangePending: boolean
@@ -189,7 +227,10 @@ function PersonnelCard({
           className="people-card-avatar"
         />
         <div className="personnel-card__identity">
-          <strong>{person.fullName}</strong>
+          <strong>
+            <ColorKeySwatch colorKey={person.colorKey} className="personnel-card__color" />
+            {person.fullName}
+          </strong>
         </div>
         <div className="personnel-card__badges">
           <AccountLinkBadge accountLink={person.accountLink} />
@@ -206,6 +247,17 @@ function PersonnelCard({
               roles={roles}
               canManagePersonnel={canManagePersonnel}
               onRoleChange={onRoleChange}
+              disabled={roleChangePending}
+            />
+          </dd>
+        </div>
+        <div className="personnel-card__field">
+          <dt>{t('colors.label')}</dt>
+          <dd>
+            <PersonnelColorField
+              person={person}
+              canManagePersonnel={canManagePersonnel}
+              onColorChange={onColorChange}
               disabled={roleChangePending}
             />
           </dd>
@@ -260,11 +312,13 @@ export function PersonnelManagement() {
       fullName: '',
       iconId: defaultPersonnelIconId('female'),
       avatarGender: 'female',
+      colorKey: '',
     },
   })
 
   const watchedAvatarGender = addForm.watch('avatarGender')
   const watchedIconId = addForm.watch('iconId')
+  const watchedColorKey = addForm.watch('colorKey')
 
   const inviteForm = useForm<LinkPersonnelInviteInput>({
     resolver: zodResolver(linkPersonnelInviteSchema),
@@ -332,6 +386,17 @@ export function PersonnelManagement() {
     }
   }
 
+  const onColorChange = async (personnelId: string, colorKey: EntityColorKey) => {
+    if (!canManagePersonnel) return
+
+    setUpdateError(null)
+    try {
+      await updatePersonnel.mutateAsync({ personnelId, colorKey })
+    } catch (error) {
+      setUpdateError(error instanceof Error ? error.message : t('personnel.errorUpdateProfile'))
+    }
+  }
+
   const openEdit = (person: Personnel) => {
     setEditError(null)
     setEditingPerson(person)
@@ -352,6 +417,7 @@ export function PersonnelManagement() {
         fullName: values.fullName,
         iconId: values.iconId,
         avatarGender: values.avatarGender,
+        colorKey: values.colorKey,
       })
       closeEdit()
     } catch (error) {
@@ -449,6 +515,12 @@ export function PersonnelManagement() {
             }}
             disabled={createPersonnel.isPending}
           />
+          <ColorKeySelect
+            allowEmpty
+            value={watchedColorKey ?? ''}
+            onChange={(colorKey) => addForm.setValue('colorKey', colorKey, { shouldDirty: true })}
+            disabled={createPersonnel.isPending}
+          />
           {addError ? <p className="field-error">{addError}</p> : null}
           <button className="icon-button" type="submit" disabled={createPersonnel.isPending}>
             {t('personnel.addToRoster')}
@@ -515,6 +587,7 @@ export function PersonnelManagement() {
         initialFullName={editingPerson?.fullName ?? ''}
         initialIconId={editingPerson?.iconId ?? defaultPersonnelIconId('female')}
         initialAvatarGender={editingPerson?.avatarGender ?? 'female'}
+        initialColorKey={editingPerson?.colorKey ?? 'blue'}
         onSubmit={onSaveProfile}
         isPending={updatePersonnel.isPending}
         error={editError}
@@ -535,6 +608,7 @@ export function PersonnelManagement() {
                 canManagePersonnel={canManagePersonnel}
                 canInvite={canInvite}
                 onRoleChange={onRoleChange}
+                onColorChange={onColorChange}
                 onInvite={openInvite}
                 onEdit={openEdit}
                 roleChangePending={updatePersonnel.isPending}
@@ -550,6 +624,7 @@ export function PersonnelManagement() {
                   <th>{t('personnel.table.name')}</th>
                   <th>{t('personnel.table.email')}</th>
                   <th>{t('personnel.table.role')}</th>
+                  <th>{t('colors.label')}</th>
                   <th>{t('personnel.table.status')}</th>
                   {canInvite ? <th aria-label={t('common:field.actions')} /> : null}
                   {canManagePersonnel ? <th aria-label={t('personnel.table.edit')} /> : null}
@@ -578,6 +653,14 @@ export function PersonnelManagement() {
                         roles={roles}
                         canManagePersonnel={canManagePersonnel}
                         onRoleChange={onRoleChange}
+                        disabled={updatePersonnel.isPending}
+                      />
+                    </td>
+                    <td>
+                      <PersonnelColorField
+                        person={person}
+                        canManagePersonnel={canManagePersonnel}
+                        onColorChange={onColorChange}
                         disabled={updatePersonnel.isPending}
                       />
                     </td>

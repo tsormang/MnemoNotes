@@ -178,7 +178,9 @@ export function useCompanyRoles(organizationId: string | null) {
 
       const { data, error } = await supabase
         .from('company_roles')
-        .select('id, organization_id, name, description, icon_id, company_role_permissions(permission)')
+        .select(
+          'id, organization_id, name, description, icon_id, color_key, company_role_permissions(permission)',
+        )
         .eq('organization_id', organizationId)
         .order('name')
 
@@ -190,6 +192,7 @@ export function useCompanyRoles(organizationId: string | null) {
         name: row.name,
         description: row.description,
         iconId: row.icon_id,
+        colorKey: row.color_key as CompanyRole['colorKey'],
         permissions: (row.company_role_permissions ?? []).map(
           (entry) => entry.permission as AppPermission,
         ),
@@ -209,7 +212,7 @@ export function usePersonnelList(organizationId: string | null) {
         supabase
           .from('personnel')
           .select(
-            'id, full_name, title, status, skills, location_id, profile_id, company_role_id, icon_id, avatar_gender, company_roles(name)',
+            'id, full_name, title, status, skills, location_id, profile_id, company_role_id, icon_id, avatar_gender, color_key, company_roles(name)',
           )
           .eq('organization_id', organizationId)
           .order('full_name'),
@@ -252,6 +255,7 @@ export function usePersonnelList(organizationId: string | null) {
           accountLink,
           iconId: row.icon_id,
           avatarGender: row.avatar_gender,
+          colorKey: row.color_key as Personnel['colorKey'],
         }
       })
     },

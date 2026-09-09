@@ -19,6 +19,10 @@ export interface CalendarEventDraft {
   allDayLocked?: boolean
 }
 
+export interface StatsDrillDownOrigin {
+  fullName: string
+}
+
 interface CalendarShellContextValue {
   searchQuery: string
   setSearchQuery: (value: string) => void
@@ -26,6 +30,8 @@ interface CalendarShellContextValue {
   setKindFilter: (value: CalendarKindFilter) => void
   personnelFilterId: string | null
   setPersonnelFilterId: (value: string | null) => void
+  statsDrillDown: StatsDrillDownOrigin | null
+  setStatsDrillDown: (value: StatsDrillDownOrigin | null) => void
   eventModalOpen: boolean
   editingItem: CalendarItem | null
   createDraft: CalendarEventDraft | null
@@ -40,6 +46,7 @@ export function CalendarShellProvider({ children }: PropsWithChildren) {
   const [searchQuery, setSearchQuery] = useState('')
   const [kindFilter, setKindFilter] = useState<CalendarKindFilter>('all')
   const [personnelFilterId, setPersonnelFilterId] = useState<string | null>(null)
+  const [statsDrillDown, setStatsDrillDown] = useState<StatsDrillDownOrigin | null>(null)
   const [eventModalOpen, setEventModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<CalendarItem | null>(null)
   const [createDraft, setCreateDraft] = useState<CalendarEventDraft | null>(null)
@@ -70,6 +77,8 @@ export function CalendarShellProvider({ children }: PropsWithChildren) {
       setKindFilter,
       personnelFilterId,
       setPersonnelFilterId,
+      statsDrillDown,
+      setStatsDrillDown,
       eventModalOpen,
       editingItem,
       createDraft,
@@ -81,6 +90,7 @@ export function CalendarShellProvider({ children }: PropsWithChildren) {
       searchQuery,
       kindFilter,
       personnelFilterId,
+      statsDrillDown,
       eventModalOpen,
       editingItem,
       createDraft,

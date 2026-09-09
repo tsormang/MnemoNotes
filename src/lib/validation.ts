@@ -70,12 +70,24 @@ export function createReviewRegistrationSchema(t: TFunction<'validation'>) {
   })
 }
 
+const entityColorKeySchema = z.enum([
+  'blue',
+  'green',
+  'purple',
+  'orange',
+  'teal',
+  'pink',
+  'olive',
+  'indigo',
+])
+
 export function createCreatePersonnelSchema(t: TFunction<'validation'>) {
   return z.object({
     companyRoleId: z.uuid(t('chooseRole')),
     fullName: z.string().min(2, t('fullNameRequired')),
     iconId: z.string().min(1).optional(),
     avatarGender: z.enum(['male', 'female']),
+    colorKey: z.union([entityColorKeySchema, z.literal('')]).optional(),
   })
 }
 
@@ -91,6 +103,7 @@ export function createEditPersonnelProfileSchema(t: TFunction<'validation'>) {
     fullName: z.string().min(2, t('fullNameRequired')).max(120),
     iconId: z.string().min(1),
     avatarGender: z.enum(['male', 'female']),
+    colorKey: entityColorKeySchema,
   })
 }
 
@@ -99,6 +112,7 @@ export function createCompanyRoleSchema(t: TFunction<'validation'>) {
     name: z.string().min(2, t('roleNameRequired')).max(60),
     description: z.string().max(200).optional(),
     iconId: z.string().min(1).optional(),
+    colorKey: z.union([entityColorKeySchema, z.literal('')]).optional(),
   })
 }
 
@@ -106,6 +120,7 @@ export function createEditCompanyRoleProfileSchema(t: TFunction<'validation'>) {
   return z.object({
     name: z.string().min(2, t('roleNameRequired')).max(60),
     iconId: z.string().min(1),
+    colorKey: entityColorKeySchema,
   })
 }
 
@@ -195,6 +210,7 @@ export const createPersonnelSchema = z.object({
   fullName: z.string().min(2, 'Full name is required'),
   iconId: z.string().min(1).optional(),
   avatarGender: z.enum(['male', 'female']),
+  colorKey: z.union([entityColorKeySchema, z.literal('')]).optional(),
 })
 
 export const linkPersonnelInviteSchema = z.object({
@@ -212,17 +228,20 @@ export const companyRoleSchema = z.object({
   name: z.string().min(2, 'Role name is required').max(60),
   description: z.string().max(200).optional(),
   iconId: z.string().min(1).optional(),
+  colorKey: z.union([entityColorKeySchema, z.literal('')]).optional(),
 })
 
 export const editPersonnelProfileSchema = z.object({
   fullName: z.string().min(2, 'Full name is required').max(120),
   iconId: z.string().min(1),
   avatarGender: z.enum(['male', 'female']),
+  colorKey: entityColorKeySchema,
 })
 
 export const editCompanyRoleProfileSchema = z.object({
   name: z.string().min(2, 'Role name is required').max(60),
   iconId: z.string().min(1),
+  colorKey: entityColorKeySchema,
 })
 
 export const updatePersonnelSchema = z.object({
@@ -230,6 +249,7 @@ export const updatePersonnelSchema = z.object({
   title: z.string().optional(),
   iconId: z.string().min(1).optional(),
   avatarGender: z.enum(['male', 'female']).optional(),
+  colorKey: entityColorKeySchema.optional(),
 })
 
 export const calendarItemSchema = z

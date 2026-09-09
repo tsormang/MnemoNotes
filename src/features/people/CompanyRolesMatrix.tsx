@@ -23,6 +23,7 @@ import {
 } from '../../lib/validation'
 import { IconAvatar } from '../../components/icons/IconAvatar'
 import { IconPicker } from '../../components/icons/IconPicker'
+import { ColorKeySelect, ColorKeySwatch } from '../../components/ColorKeySelect'
 import { FieldLabel } from '../../components/FieldLabel'
 import { DEFAULT_ROLE_ICON_ID } from '../../lib/icons/role-icons.generated'
 import { CompanyRoleIdentityEditModal } from './EntityIdentityEditModal'
@@ -93,7 +94,10 @@ function CompanyRoleCard({
           initialsFallback={false}
         />
         <div className="company-role-card__identity">
-          <strong>{role.name}</strong>
+          <strong>
+            <ColorKeySwatch colorKey={role.colorKey} className="company-role-card__color" />
+            {role.name}
+          </strong>
           {role.description ? (
             <span className="company-role-card__description">{role.description}</span>
           ) : null}
@@ -226,7 +230,7 @@ export function CompanyRolesMatrix() {
 
   const form = useForm<CompanyRoleInput>({
     resolver: zodResolver(companyRoleSchema),
-    defaultValues: { name: '', description: '', iconId: DEFAULT_ROLE_ICON_ID },
+    defaultValues: { name: '', description: '', iconId: DEFAULT_ROLE_ICON_ID, colorKey: '' },
   })
 
   const roles = rolesQuery.data ?? []
@@ -273,6 +277,7 @@ export function CompanyRolesMatrix() {
         roleId: editingRole.id,
         name: values.name,
         iconId: values.iconId,
+        colorKey: values.colorKey,
       })
       closeEdit()
     } catch (error) {
@@ -349,6 +354,12 @@ export function CompanyRolesMatrix() {
             onChange={(iconId) => form.setValue('iconId', iconId, { shouldDirty: true })}
             disabled={createRole.isPending}
           />
+          <ColorKeySelect
+            allowEmpty
+            value={form.watch('colorKey') ?? ''}
+            onChange={(colorKey) => form.setValue('colorKey', colorKey, { shouldDirty: true })}
+            disabled={createRole.isPending}
+          />
           {matrixError ? <p className="field-error">{matrixError}</p> : null}
           <button className="icon-button" type="submit" disabled={createRole.isPending}>
             {t('roles.create')}
@@ -368,6 +379,7 @@ export function CompanyRolesMatrix() {
         }
         initialName={editingRole?.name ?? ''}
         initialIconId={editingRole?.iconId ?? DEFAULT_ROLE_ICON_ID}
+        initialColorKey={editingRole?.colorKey ?? 'blue'}
         onSubmit={onSaveProfile}
         isPending={updateRole.isPending}
         error={editError}

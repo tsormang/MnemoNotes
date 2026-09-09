@@ -34,9 +34,10 @@
     "inviteTitle": "Send invite to link app account",
     "inviteAria": "Invite {{name}}",
     "roleForAria": "Role for {{name}}",
+    "colorForAria": "Color for {{name}}",
     "copyInviteAria": "Copy invite link",
     "editAria": "Edit {{name}}",
-    "editTitle": "Edit name and avatar",
+    "editTitle": "Edit name, avatar, and color",
     "editModalTitle": "Edit {{name}}",
     "editModalFallback": "Edit personnel",
     "errorAdd": "Could not add personnel.",
@@ -59,6 +60,19 @@
       "roster": "Roster only"
     }
   },
+  "colors": {
+    "label": "Color",
+    "choose": "Choose color",
+    "auto": "Auto (random unused)",
+    "blue": "Blue",
+    "green": "Green",
+    "purple": "Purple",
+    "orange": "Orange",
+    "teal": "Teal",
+    "pink": "Pink",
+    "olive": "Olive",
+    "indigo": "Indigo"
+  },
   "account": {
     "linked": "App account linked",
     "invited": "Invite pending",
@@ -76,7 +90,7 @@
     "cardsAria": "Company roles",
     "nameLabel": "Role name",
     "iconLabel": "Role icon",
-    "editTitle": "Edit name and icon",
+    "editTitle": "Edit name, icon, and color",
     "editModalTitle": "Edit role: {{name}}",
     "editModalFallback": "Edit role",
     "deleteConfirm": "Delete role \"{{name}}\"? Personnel assigned to it must be reassigned first.",

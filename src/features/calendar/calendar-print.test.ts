@@ -32,6 +32,7 @@ const personnel: Personnel[] = [
     accountLink: 'linked',
     iconId: 'avatar-1',
     avatarGender: 'male',
+    colorKey: 'blue',
   },
 ]
 

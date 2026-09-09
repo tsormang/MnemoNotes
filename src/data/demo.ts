@@ -33,6 +33,7 @@ export const personnel: Personnel[] = [
     accountLink: 'linked',
     iconId: 'avatar-female-002',
     avatarGender: 'female',
+    colorKey: 'blue',
   },
   {
     id: 'nikos',
@@ -46,6 +47,7 @@ export const personnel: Personnel[] = [
     accountLink: 'linked',
     iconId: 'avatar-male-001',
     avatarGender: 'male',
+    colorKey: 'green',
   },
   {
     id: 'eleni',
@@ -60,6 +62,7 @@ export const personnel: Personnel[] = [
     accountLink: 'invited',
     iconId: 'avatar-female-004',
     avatarGender: 'female',
+    colorKey: 'purple',
   },
 ]
 

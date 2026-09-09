@@ -1,7 +1,7 @@
-import { Search } from 'lucide-react'
+import { BarChart3, Search, X } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Navigate, NavLink, Outlet, Route, Routes, useNavigate } from 'react-router-dom'
+import { Navigate, NavLink, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import './App.css'
 import { AppBarActions } from './components/AppBarActions'
 import { BrandMark } from './components/BrandMark'
@@ -25,6 +25,7 @@ import {
   RequirePendingRegistration,
   RequirePeopleAccess,
   RequirePlatformAdmin,
+  RequireStatsAccess,
 } from './features/auth/RouteGuards'
 import { useWorkspace, useCan } from './features/auth/WorkspaceProvider'
 import { usePersonnelList } from './lib/queries/workspace'
@@ -36,10 +37,10 @@ import { NotificationProvider, useNotifications } from './features/notifications
 import { PeopleScreen } from './features/people/PeopleScreen'
 import { AuditLogScreen } from './features/audit/AuditLogScreen'
 import { UserSecurityScreen } from './features/settings/UserSecurityScreen'
-import { StatsPanel } from './features/stats/StatsPanel'
+import { StatsScreen } from './features/stats/StatsScreen'
 import { useDisplayPreferences } from './store/display-preferences'
 
-type ShellModal = 'search' | 'security' | 'notifications' | 'stats' | null
+type ShellModal = 'search' | 'security' | 'notifications' | null
 
 function App() {
   return (
@@ -103,6 +104,14 @@ function App() {
                 </RequireAuditAccess>
               }
             />
+            <Route
+              path="stats"
+              element={
+                <RequireStatsAccess>
+                  <StatsScreen />
+                </RequireStatsAccess>
+              }
+            />
             <Route path="settings/users" element={<Navigate to="/app/calendar" replace />} />
           </Route>
         </Route>
@@ -119,6 +128,7 @@ function App() {
 function AppShell() {
   const { t } = useTranslation(['common', 'notifications'])
   const navigate = useNavigate()
+  const location = useLocation()
   const [openModal, setOpenModal] = useState<ShellModal>(null)
   const closeModal = useCallback(() => setOpenModal(null), [])
   const { membership, isOwner } = useWorkspace()
@@ -127,7 +137,7 @@ function AppShell() {
   const canReadAudit = useCan('audit.read')
   const canReadStats = useCan('stats.read')
   const showPeopleLink = isOwner || canManagePersonnel || canManageRoles
-  const showSecondaryNav = showPeopleLink || canReadAudit
+  const showSecondaryNav = showPeopleLink || canReadAudit || canReadStats
   const {
     searchQuery,
     setSearchQuery,
@@ -135,6 +145,8 @@ function AppShell() {
     setKindFilter,
     personnelFilterId,
     setPersonnelFilterId,
+    statsDrillDown,
+    setStatsDrillDown,
   } = useCalendarShell()
   const { organizationId } = useWorkspace()
   const personnelQuery = usePersonnelList(organizationId)
@@ -152,15 +164,16 @@ function AppShell() {
     setOpenModal(modal)
   }, [])
 
-  const handleStatsDrillDown = useCallback(
-    ({ personnelId }: { personnelId: string; fullName: string }) => {
-      setPersonnelFilterId(personnelId)
-      setKindFilter('shift')
-      closeModal()
-      navigate('/app/calendar')
-    },
-    [closeModal, navigate, setKindFilter, setPersonnelFilterId],
-  )
+  const clearStatsDrillDown = useCallback(() => {
+    setStatsDrillDown(null)
+    setPersonnelFilterId(null)
+    setKindFilter('all')
+  }, [setKindFilter, setPersonnelFilterId, setStatsDrillDown])
+
+  const handleReturnToStats = useCallback(() => {
+    clearStatsDrillDown()
+    navigate('/app/stats')
+  }, [clearStatsDrillDown, navigate])
 
   return (
     <div className="app-shell">
@@ -188,6 +201,27 @@ function AppShell() {
       </header>
 
       <main className="main-surface">
+        {statsDrillDown && location.pathname.startsWith('/app/calendar') ? (
+          <div className="stats-return-banner" role="status">
+            <div className="stats-return-banner__copy">
+              <BarChart3 size={16} aria-hidden="true" />
+              <span>{t('common:stats.drillDownLabel', { name: statsDrillDown.fullName })}</span>
+            </div>
+            <div className="stats-return-banner__actions">
+              <button type="button" className="icon-button" onClick={handleReturnToStats}>
+                {t('common:stats.backToDiagrams')}
+              </button>
+              <button
+                type="button"
+                className="icon-ghost"
+                aria-label={t('common:actions.clear')}
+                onClick={clearStatsDrillDown}
+              >
+                <X size={16} aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        ) : null}
         <Outlet />
       </main>
 
@@ -209,9 +243,10 @@ function AppShell() {
             {t('common:filter.type')}
             <select
               value={kindFilter}
-              onChange={(event) =>
+              onChange={(event) => {
                 setKindFilter(event.target.value as typeof kindFilter)
-              }
+                if (statsDrillDown) setStatsDrillDown(null)
+              }}
             >
               <option value="all">{t('common:filter.typeAll')}</option>
               <option value="shift">{t('common:filter.typeShift')}</option>
@@ -224,9 +259,11 @@ function AppShell() {
             {t('common:filter.staff')}
             <select
               value={personnelFilterId ?? ''}
-              onChange={(event) =>
-                setPersonnelFilterId(event.target.value ? event.target.value : null)
-              }
+              onChange={(event) => {
+                const nextId = event.target.value ? event.target.value : null
+                setPersonnelFilterId(nextId)
+                if (statsDrillDown) setStatsDrillDown(null)
+              }}
             >
               <option value="">{t('common:filter.staffAnyone')}</option>
               {(personnelQuery.data ?? []).map((person) => (
@@ -252,10 +289,6 @@ function AppShell() {
         variant="panel"
       >
         <NotificationsPanel />
-      </Modal>
-
-      <Modal open={openModal === 'stats'} onClose={closeModal} title={t('common:nav.workforceStats')} wide>
-        <StatsPanel onDrillDown={handleStatsDrillDown} />
       </Modal>
 
       <CalendarEventModal />

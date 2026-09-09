@@ -3,6 +3,7 @@ import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { Modal } from '../../components/Modal'
+import { ColorKeySelect } from '../../components/ColorKeySelect'
 import { FieldLabel } from '../../components/FieldLabel'
 import {
   AvatarSelectField,
@@ -10,6 +11,7 @@ import {
 } from '../../components/icons/IconPicker'
 import { useIconCatalog } from '../../lib/queries/icons'
 import type { AvatarGender } from '../../lib/icons/types'
+import type { EntityColorKey } from '../../types/domain'
 import {
   createEditCompanyRoleProfileSchema,
   createEditPersonnelProfileSchema,
@@ -24,6 +26,7 @@ type PersonnelEditModalProps = {
   initialFullName: string
   initialIconId: string
   initialAvatarGender: AvatarGender
+  initialColorKey: EntityColorKey
   onSubmit: (values: EditPersonnelProfileInput) => Promise<void>
   isPending?: boolean
   error?: string | null
@@ -35,6 +38,7 @@ type CompanyRoleEditModalProps = {
   title: string
   initialName: string
   initialIconId: string
+  initialColorKey: EntityColorKey
   onSubmit: (values: EditCompanyRoleProfileInput) => Promise<void>
   isPending?: boolean
   error?: string | null
@@ -68,6 +72,7 @@ export function PersonnelIdentityEditModal({
   initialFullName,
   initialIconId,
   initialAvatarGender,
+  initialColorKey,
   onSubmit,
   isPending = false,
   error = null,
@@ -82,11 +87,13 @@ export function PersonnelIdentityEditModal({
       fullName: initialFullName,
       iconId: initialIconId,
       avatarGender: initialAvatarGender,
+      colorKey: initialColorKey,
     },
   })
 
   const watchedAvatarGender = form.watch('avatarGender')
   const watchedIconId = form.watch('iconId')
+  const watchedColorKey = form.watch('colorKey')
 
   useEffect(() => {
     if (!open) return
@@ -94,8 +101,9 @@ export function PersonnelIdentityEditModal({
       fullName: initialFullName,
       iconId: initialIconId,
       avatarGender: initialAvatarGender,
+      colorKey: initialColorKey,
     })
-  }, [form, initialAvatarGender, initialFullName, initialIconId, open])
+  }, [form, initialAvatarGender, initialColorKey, initialFullName, initialIconId, open])
 
   const handleSubmit = form.handleSubmit(async (values) => {
     await onSubmit(values)
@@ -124,6 +132,14 @@ export function PersonnelIdentityEditModal({
           disabled={isPending}
           required
         />
+        <ColorKeySelect
+          required
+          value={watchedColorKey}
+          onChange={(colorKey) => {
+            if (colorKey) form.setValue('colorKey', colorKey, { shouldDirty: true })
+          }}
+          disabled={isPending}
+        />
         {error ? <p className="field-error">{error}</p> : null}
         <EditModalActions onClose={onClose} isPending={isPending} />
       </form>
@@ -137,6 +153,7 @@ export function CompanyRoleIdentityEditModal({
   title,
   initialName,
   initialIconId,
+  initialColorKey,
   onSubmit,
   isPending = false,
   error = null,
@@ -149,6 +166,7 @@ export function CompanyRoleIdentityEditModal({
     defaultValues: {
       name: initialName,
       iconId: initialIconId,
+      colorKey: initialColorKey,
     },
   })
 
@@ -157,8 +175,9 @@ export function CompanyRoleIdentityEditModal({
     form.reset({
       name: initialName,
       iconId: initialIconId,
+      colorKey: initialColorKey,
     })
-  }, [form, initialIconId, initialName, open])
+  }, [form, initialColorKey, initialIconId, initialName, open])
 
   const handleSubmit = form.handleSubmit(async (values) => {
     await onSubmit(values)
@@ -178,6 +197,14 @@ export function CompanyRoleIdentityEditModal({
           disabled={isPending}
           iconLabel={t('people:roles.iconLabel')}
           required
+        />
+        <ColorKeySelect
+          required
+          value={form.watch('colorKey')}
+          onChange={(colorKey) => {
+            if (colorKey) form.setValue('colorKey', colorKey, { shouldDirty: true })
+          }}
+          disabled={isPending}
         />
         {error ? <p className="field-error">{error}</p> : null}
         <EditModalActions onClose={onClose} isPending={isPending} />

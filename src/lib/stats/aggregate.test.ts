@@ -5,11 +5,6 @@ import { buildWorkspaceStatsReport } from './aggregate'
 
 const today = startOfToday()
 
-const personnel = [
-  { id: 'a', fullName: 'Alice', companyRoleName: 'Manager' },
-  { id: 'b', fullName: 'Bob', companyRoleName: 'Pharmacist' },
-]
-
 function shift(id: string, startHour: number, endHour: number, assignees: string[]): CalendarItem {
   return {
     id,
@@ -31,7 +26,14 @@ describe('buildWorkspaceStatsReport', () => {
     const report = buildWorkspaceStatsReport({
       range,
       rangeLabel: 'Today',
-      personnel,
+      personnel: [
+        { id: 'a', fullName: 'Alice', companyRoleName: 'Manager', companyRoleId: 'r1', colorKey: 'blue' },
+        { id: 'b', fullName: 'Bob', companyRoleName: 'Pharmacist', companyRoleId: 'r2', colorKey: 'green' },
+      ],
+      roles: [
+        { id: 'r1', name: 'Manager', iconId: 'role-manager', colorKey: 'purple' },
+        { id: 'r2', name: 'Pharmacist', iconId: 'role-pharmacist', colorKey: 'orange' },
+      ],
       items: [
         shift('s1', 8, 14, ['a', 'b']),
         shift('s2', 9, 12, []),
@@ -59,9 +61,15 @@ describe('buildWorkspaceStatsReport', () => {
     expect(alice?.shiftHours).toBe(6)
     expect(alice?.shiftCount).toBe(1)
     expect(alice?.noteCount).toBe(1)
+    expect(alice?.colorKey).toBe('blue')
 
     const bob = report.personnelRows.find((row) => row.personnelId === 'b')
     expect(bob?.shiftHours).toBe(6)
+    expect(bob?.colorKey).toBe('green')
     expect(report.dailyShiftHours[0]?.hours).toBe(9)
+
+    const managerHours = report.roleHours.find((row) => row.roleId === 'r1')
+    expect(managerHours?.colorKey).toBe('purple')
+    expect(managerHours?.hours).toBe(6)
   })
 })

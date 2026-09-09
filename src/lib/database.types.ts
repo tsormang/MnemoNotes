@@ -287,6 +287,7 @@ export type Database = {
       }
       company_roles: {
         Row: {
+          color_key: string
           created_at: string
           description: string
           icon_id: string
@@ -297,6 +298,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          color_key?: string
           created_at?: string
           description?: string
           icon_id?: string
@@ -307,6 +309,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          color_key?: string
           created_at?: string
           description?: string
           icon_id?: string
@@ -771,6 +774,7 @@ export type Database = {
       personnel: {
         Row: {
           avatar_gender: Database["public"]["Enums"]["avatar_gender"]
+          color_key: string
           company_role_id: string | null
           created_at: string
           full_name: string
@@ -786,6 +790,7 @@ export type Database = {
         }
         Insert: {
           avatar_gender?: Database["public"]["Enums"]["avatar_gender"]
+          color_key?: string
           company_role_id?: string | null
           created_at?: string
           full_name: string
@@ -801,6 +806,7 @@ export type Database = {
         }
         Update: {
           avatar_gender?: Database["public"]["Enums"]["avatar_gender"]
+          color_key?: string
           company_role_id?: string | null
           created_at?: string
           full_name?: string

@@ -42,12 +42,24 @@ export type PersonnelAccountLink = 'linked' | 'invited' | 'unlinked'
 /** Avatar collection for personnel (owners included on the roster). */
 export type AvatarGender = 'male' | 'female'
 
+/** Soft palette key shared by personnel, roles, calendar bubbles, and stats. */
+export type EntityColorKey =
+  | 'blue'
+  | 'green'
+  | 'purple'
+  | 'orange'
+  | 'teal'
+  | 'pink'
+  | 'olive'
+  | 'indigo'
+
 export interface CompanyRole {
   id: string
   organizationId: string
   name: string
   description: string
   iconId: string
+  colorKey: EntityColorKey
   permissions: AppPermission[]
 }
 
@@ -96,6 +108,7 @@ export interface Personnel {
   accountLink: PersonnelAccountLink
   iconId: string
   avatarGender: AvatarGender
+  colorKey: EntityColorKey
 }
 
 export interface PersonnelInvite {

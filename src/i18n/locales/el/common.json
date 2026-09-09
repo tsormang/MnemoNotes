@@ -45,6 +45,13 @@
     "searchPlaceholder": "Αναζήτηση βαρδιών, σημειώσεων, εργασιών…",
     "applyHint": "Τα φίλτρα εφαρμόζονται στο ημερολόγιο αμέσως."
   },
+  "stats": {
+    "drillDownLabel": "Εμφάνιση βαρδιών για {{name}}",
+    "backToDiagrams": "Επιστροφή στα στατιστικά",
+    "page": {
+      "eyebrow": "Αναλύσεις"
+    }
+  },
   "field": {
     "email": "Email",
     "password": "Κωδικός",

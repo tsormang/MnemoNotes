@@ -17,7 +17,7 @@ import { useAuth } from '../features/auth/AuthProvider'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { Modal } from './Modal'
 
-type ShellModal = 'search' | 'security' | 'notifications' | 'stats'
+type ShellModal = 'search' | 'security' | 'notifications'
 
 interface AppBarActionsProps {
   showSecondaryNav: boolean
@@ -93,7 +93,7 @@ export function AppBarActions({
         id: 'stats',
         labelKey: 'nav.workforceStats',
         icon: BarChart3,
-        modal: 'stats',
+        to: '/app/stats',
         visible: canReadStats,
       },
       {
@@ -166,14 +166,13 @@ export function AppBarActions({
             </NavLink>
           ) : null}
           {canReadStats ? (
-            <button
-              className="icon-ghost"
-              type="button"
+            <NavLink
+              className={({ isActive }) => `icon-ghost${isActive ? ' icon-ghost--active' : ''}`}
+              to="/app/stats"
               aria-label={t('nav.workforceStats')}
-              onClick={() => onOpenModal('stats')}
             >
               <BarChart3 size={19} aria-hidden="true" />
-            </button>
+            </NavLink>
           ) : null}
           <button
             className="icon-ghost"

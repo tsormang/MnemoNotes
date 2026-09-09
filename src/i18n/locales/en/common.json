@@ -45,6 +45,13 @@
     "searchPlaceholder": "Search shifts, notes, tasks…",
     "applyHint": "Filters apply to the calendar immediately."
   },
+  "stats": {
+    "drillDownLabel": "Showing shifts for {{name}}",
+    "backToDiagrams": "Back to statistics",
+    "page": {
+      "eyebrow": "Insights"
+    }
+  },
   "field": {
     "email": "Email",
     "password": "Password",

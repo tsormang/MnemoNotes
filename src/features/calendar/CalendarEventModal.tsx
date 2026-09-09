@@ -61,8 +61,6 @@ const kindSegmentIcons: Record<CalendarItemKind, typeof CalendarClock> = {
   task: ListTodo,
 }
 
-const priorityOptions = ['low', 'normal', 'high', 'critical'] as const
-
 function buildDefaults(
   item: CalendarItem | null,
   draft: CalendarEventDraft | null,
@@ -94,7 +92,6 @@ function buildDefaults(
             : startRange.endsAt,
         locationId: item.locationId || defaultLocationId,
         assignedPersonnelIds: item.assignedPersonnelIds,
-        priority: item.priority,
         iconId: item.iconId ?? defaultIconIdForKind(item.kind),
         requiresAcknowledgement: item.requiresAcknowledgement,
         notificationOffsets: orgResolved,
@@ -114,7 +111,6 @@ function buildDefaults(
       endsAt,
       locationId: item.locationId || defaultLocationId,
       assignedPersonnelIds: item.assignedPersonnelIds,
-      priority: item.priority,
       iconId: item.iconId ?? defaultIconIdForKind(item.kind),
       requiresAcknowledgement: item.requiresAcknowledgement,
       notificationOffsets: item.notificationOffsets,
@@ -143,7 +139,6 @@ function buildDefaults(
           : startRange.endsAt,
       locationId: defaultLocationId,
       assignedPersonnelIds: [],
-      priority: 'normal',
       iconId: defaultIconIdForKind(kind),
       requiresAcknowledgement: false,
       notificationOffsets: resolveNotificationOffsets({
@@ -172,7 +167,6 @@ function buildDefaults(
     endsAt: snapped.endsAt,
     locationId: defaultLocationId,
     assignedPersonnelIds: [],
-    priority: 'normal',
     iconId: defaultIconIdForKind(kind),
     requiresAcknowledgement: false,
     notificationOffsets: resolveNotificationOffsets({
@@ -269,7 +263,6 @@ function CalendarEventModalContent({
   }, [defaultLocationId, form])
 
   const watchedKind = form.watch('kind')
-  const watchedPriority = form.watch('priority')
   const allDay = form.watch('allDay')
   const startsAt = form.watch('startsAt')
   const endsAt = form.watch('endsAt')
@@ -583,25 +576,6 @@ function CalendarEventModalContent({
         ) : (
           <input type="hidden" {...form.register('kind')} />
         )}
-
-        <div className="create-event-form__segment-field">
-          <FieldLabel>{t('common:field.priority')}</FieldLabel>
-          <ToggleSegmentGroup aria-label={t('common:field.priority')}>
-            {priorityOptions.map((priority) => (
-              <ToggleSegmentOption
-                key={priority}
-                pressed={watchedPriority === priority}
-                disabled={!canSave}
-                onClick={() =>
-                  form.setValue('priority', priority, { shouldValidate: true, shouldDirty: true })
-                }
-              >
-                {t(`common:priority.${priority}`)}
-              </ToggleSegmentOption>
-            ))}
-          </ToggleSegmentGroup>
-          <input type="hidden" {...form.register('priority')} />
-        </div>
       </div>
 
       {watchedKind !== 'shift' ? (

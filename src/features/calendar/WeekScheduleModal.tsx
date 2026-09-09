@@ -198,7 +198,6 @@ export function WeekScheduleModal({
           endsAt: range.endsAt,
           locationId: defaultLocationId,
           assignedPersonnelIds: [values.assignedPersonnelId],
-          priority: 'normal',
           requiresAcknowledgement: false,
           notificationOffsets,
           useCustomNotificationOffsets: false,

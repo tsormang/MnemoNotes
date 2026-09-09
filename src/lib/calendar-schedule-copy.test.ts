@@ -15,7 +15,6 @@ function makeItem(startsAt: string, id = 'item-1'): CalendarItem {
     endsAt: startsAt.replace('T06:', 'T14:'),
     locationId: 'loc',
     assignedPersonnelIds: [],
-    priority: 'normal',
     notificationOffsets: [],
     requiresAcknowledgement: false,
   }

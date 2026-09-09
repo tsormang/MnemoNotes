@@ -135,7 +135,6 @@ create table public.calendar_items (
   starts_at timestamptz not null,
   ends_at timestamptz not null,
   timezone text not null default 'Europe/Athens',
-  priority text not null default 'normal',
   requires_acknowledgement boolean not null default false,
   metadata jsonb not null default '{}'::jsonb,
   created_by uuid references auth.users,

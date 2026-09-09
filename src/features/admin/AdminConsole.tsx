@@ -41,7 +41,7 @@ interface AdminActionRow {
   id: string
   primary: string
   secondary: string
-  status: 'active' | 'inactive' | 'invited' | 'published' | 'draft' | 'critical' | 'disabled' | 'missing'
+  status: 'active' | 'inactive' | 'invited' | 'published' | 'draft' | 'disabled' | 'missing'
   owner: string
   updatedAt: string
 }
@@ -526,7 +526,7 @@ function useAdminRows(input: {
     organization_id: string | null
   }>
   personnel: Array<{ id: string; fullName: string; title: string; companyRoleName: string; status: string; skills: string[] }>
-  calendarItems: Array<{ id: string; kind: string; title: string; assignedPersonnelIds: string[]; priority: string; noteCategory?: string }>
+  calendarItems: Array<{ id: string; kind: string; title: string; assignedPersonnelIds: string[]; noteCategory?: string }>
 }): AdminActionRow[] {
   const { activeTab, companies, orgs, members, audit, personnel: livePersonnel, calendarItems: liveCalendar } = input
 
@@ -597,7 +597,7 @@ function useAdminRows(input: {
           id: item.id,
           primary: item.title,
           secondary: item.noteCategory ?? item.kind,
-          status: item.priority === 'critical' ? 'critical' : 'published',
+          status: 'published',
           owner: 'Tenant',
           updatedAt: 'Live',
         }))

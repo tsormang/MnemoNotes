@@ -166,7 +166,6 @@ export type Database = {
           location_id: string | null
           metadata: Json
           organization_id: string
-          priority: string
           requires_acknowledgement: boolean
           starts_at: string
           status: Database["public"]["Enums"]["calendar_item_status"]
@@ -184,7 +183,6 @@ export type Database = {
           location_id?: string | null
           metadata?: Json
           organization_id: string
-          priority?: string
           requires_acknowledgement?: boolean
           starts_at: string
           status?: Database["public"]["Enums"]["calendar_item_status"]
@@ -202,7 +200,6 @@ export type Database = {
           location_id?: string | null
           metadata?: Json
           organization_id?: string
-          priority?: string
           requires_acknowledgement?: boolean
           starts_at?: string
           status?: Database["public"]["Enums"]["calendar_item_status"]

@@ -14,7 +14,6 @@ function shift(id: string, startHour: number, endHour: number, assignees: string
     endsAt: formatISO(setHours(today, endHour)),
     locationId: 'loc',
     assignedPersonnelIds: assignees,
-    priority: 'normal',
     notificationOffsets: [],
     requiresAcknowledgement: false,
   }
@@ -45,7 +44,6 @@ describe('buildWorkspaceStatsReport', () => {
           endsAt: formatISO(setHours(today, 11)),
           locationId: 'loc',
           assignedPersonnelIds: ['a'],
-          priority: 'normal',
           notificationOffsets: [],
           requiresAcknowledgement: false,
         },

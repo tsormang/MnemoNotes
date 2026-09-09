@@ -10,7 +10,6 @@ const baseItem = (overrides: Partial<CalendarItem>): CalendarItem => ({
   endsAt: '2026-08-28T14:00:00.000Z',
   locationId: 'loc-1',
   assignedPersonnelIds: ['p1'],
-  priority: 'normal',
   notificationOffsets: [],
   requiresAcknowledgement: false,
   ...overrides,

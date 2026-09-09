@@ -63,7 +63,6 @@
     "from": "From",
     "to": "To",
     "type": "Type",
-    "priority": "Priority",
     "category": "Category",
     "status": "Status",
     "actions": "Actions",
@@ -71,12 +70,6 @@
     "account": "Account",
     "role": "Role",
     "optional": "Optional"
-  },
-  "priority": {
-    "low": "Low",
-    "normal": "Normal",
-    "high": "High",
-    "critical": "Critical"
   },
   "eventKind": {
     "shift": "Shift",

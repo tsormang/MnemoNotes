@@ -42,7 +42,6 @@ function item(overrides: Partial<CalendarItem> & Pick<CalendarItem, 'kind' | 'st
     title: overrides.title ?? 'Stock note',
     assignedPersonnelIds: overrides.assignedPersonnelIds ?? [],
     locationId: 'loc1',
-    priority: 'normal',
     notificationOffsets: [],
     requiresAcknowledgement: false,
     ...overrides,

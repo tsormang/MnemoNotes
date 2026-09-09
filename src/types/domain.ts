@@ -130,7 +130,6 @@ export interface CalendarItem {
   endsAt: string
   locationId: string
   assignedPersonnelIds: string[]
-  priority: 'low' | 'normal' | 'high' | 'critical'
   noteCategory?: string
   iconId?: string
   seriesId?: string

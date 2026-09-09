@@ -50,7 +50,6 @@ describe('notification lifecycle helpers', () => {
         endsAt: '2026-08-28T07:00:00.000Z',
         locationId: 'loc-1',
         assignedPersonnelIds: [],
-        priority: 'normal' as const,
         notificationOffsets: [],
         requiresAcknowledgement: false,
       },

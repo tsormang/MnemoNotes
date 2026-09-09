@@ -309,7 +309,6 @@ export function useCalendarItems(organizationId: string | null) {
           starts_at,
           ends_at,
           location_id,
-          priority,
           requires_acknowledgement,
           metadata,
           shift_assignments(personnel_id)
@@ -333,7 +332,6 @@ export function useCalendarItems(organizationId: string | null) {
           assignedPersonnelIds: (row.shift_assignments ?? []).map(
             (assignment) => assignment.personnel_id,
           ),
-          priority: (row.priority as CalendarItem['priority']) ?? 'normal',
           noteCategory:
             typeof metadata.noteCategory === 'string' ? metadata.noteCategory : undefined,
           allDay: metadata.allDay === true,

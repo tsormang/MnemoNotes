@@ -4091,11 +4091,6 @@ button.auth-form__link {
   color: var(--event-note-text);
 }
 
-.admin-status.critical {
-  background: var(--event-task-bg);
-  color: var(--event-task-text);
-}
-
 .admin-row-actions {
   display: flex;
   align-items: center;

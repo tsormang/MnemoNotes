@@ -22,7 +22,6 @@ function makeItem(
     endsAt,
     locationId: 'loc',
     assignedPersonnelIds: [],
-    priority: 'normal',
     notificationOffsets: [],
     requiresAcknowledgement: false,
   }

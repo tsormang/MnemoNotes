@@ -7,12 +7,22 @@ import { AppBarActions } from './components/AppBarActions'
 import { BrandMark } from './components/BrandMark'
 import { DevVersionLabel } from './components/DevVersionLabel'
 import { Modal } from './components/Modal'
+import { AdminApprovalsPage } from './features/admin/AdminApprovalsPage'
 import { AdminConsole } from './features/admin/AdminConsole'
-import { AcceptInviteScreen, ForgotPasswordScreen, LoginScreen, ResetPasswordScreen } from './features/auth/AuthScreens'
+import {
+  AcceptInviteScreen,
+  ForgotPasswordScreen,
+  LoginScreen,
+  RegisterOwnerScreen,
+  RegistrationPendingScreen,
+  ResetPasswordScreen,
+} from './features/auth/AuthScreens'
 import {
   RedirectIfAuthenticated,
+  RequireAppWorkspace,
   RequireAuditAccess,
   RequireAuth,
+  RequirePendingRegistration,
   RequirePeopleAccess,
   RequirePlatformAdmin,
 } from './features/auth/RouteGuards'
@@ -52,41 +62,54 @@ function App() {
       />
       <Route path="/reset-password" element={<ResetPasswordScreen />} />
       <Route path="/accept-invite" element={<AcceptInviteScreen />} />
-      <Route path="/register-owner" element={<Navigate to="/login" replace />} />
+      <Route
+        path="/register-owner"
+        element={
+          <RedirectIfAuthenticated>
+            <RegisterOwnerScreen />
+          </RedirectIfAuthenticated>
+        }
+      />
       <Route element={<RequireAuth />}>
-        <Route
-          path="/app"
-          element={
-            <CalendarShellProvider>
-              <NotificationProvider>
-                <AppShell />
-              </NotificationProvider>
-            </CalendarShellProvider>
-          }
-        >
-          <Route index element={<Navigate to="/app/calendar" replace />} />
-          <Route path="calendar" element={<PharmacyCalendar />} />
+        <Route element={<RequirePendingRegistration />}>
+          <Route path="/registration-pending" element={<RegistrationPendingScreen />} />
+        </Route>
+        <Route element={<RequireAppWorkspace />}>
           <Route
-            path="people"
+            path="/app"
             element={
-              <RequirePeopleAccess>
-                <PeopleScreen />
-              </RequirePeopleAccess>
+              <CalendarShellProvider>
+                <NotificationProvider>
+                  <AppShell />
+                </NotificationProvider>
+              </CalendarShellProvider>
             }
-          />
-          <Route
-            path="audit"
-            element={
-              <RequireAuditAccess>
-                <AuditLogScreen />
-              </RequireAuditAccess>
-            }
-          />
-          <Route path="settings/users" element={<Navigate to="/app/calendar" replace />} />
+          >
+            <Route index element={<Navigate to="/app/calendar" replace />} />
+            <Route path="calendar" element={<PharmacyCalendar />} />
+            <Route
+              path="people"
+              element={
+                <RequirePeopleAccess>
+                  <PeopleScreen />
+                </RequirePeopleAccess>
+              }
+            />
+            <Route
+              path="audit"
+              element={
+                <RequireAuditAccess>
+                  <AuditLogScreen />
+                </RequireAuditAccess>
+              }
+            />
+            <Route path="settings/users" element={<Navigate to="/app/calendar" replace />} />
+          </Route>
         </Route>
       </Route>
       <Route element={<RequirePlatformAdmin />}>
         <Route path="/admin" element={<AdminConsole />} />
+        <Route path="/admin/approvals" element={<AdminApprovalsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/app/calendar" replace />} />
     </Routes>

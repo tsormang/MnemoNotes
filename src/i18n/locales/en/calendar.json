@@ -6,10 +6,11 @@
     "main": "Pharmacy operations calendar",
     "utilityRibbon": "Calendar utility ribbon",
     "viewSwitch": "Calendar view",
-    "print": "Print calendar",
+    "print": "Save schedule PDF",
     "copySchedule": "Copy schedule",
     "addAllDayEvent": "Add all-day event",
-    "addEventForDay": "Add event for {{day}}"
+    "addEventForDay": "Add event for {{day}}",
+    "addWeekSchedule": "Add week schedule"
   },
   "agenda": {
     "emptyDay": "No events scheduled",
@@ -51,10 +52,11 @@
     "startTime": "Start time",
     "endDate": "End date",
     "endTime": "End time",
-    "timeStepLabel": "Time choices",
-    "timeStepAria": "Time selection granularity",
+    "timeStepLabel": "Hours selection settings",
+    "timeStepAria": "Hours selection settings",
     "timeStep30": "30",
     "timeStep15": "15",
+    "overnight": "Overnight",
     "requiresAck": "Requires acknowledgement",
     "noteIcon": "Note icon",
     "iconCollection": {
@@ -73,6 +75,16 @@
     "errorSave": "Could not save event.",
     "errorDelete": "Could not delete event."
   },
+  "weekSchedule": {
+    "title": "Add week schedule",
+    "start": "Start",
+    "end": "End",
+    "emptyTime": "—",
+    "startForDay": "Start time for {{day}}",
+    "endForDay": "End time for {{day}}",
+    "noStaff": "No people available to assign.",
+    "save": "Save week schedule"
+  },
   "reminders": {
     "legend": "Reminders",
     "customToggle": "Custom reminders for this event",
@@ -82,8 +94,10 @@
     "allDayDisabled": "All-day events have no reminders unless “On time” is enabled in workspace reminder settings."
   },
   "print": {
-    "title": "Print preview",
-    "previewAria": "Calendar print preview"
+    "title": "Save schedule PDF",
+    "saving": "Saving PDF…",
+    "error": "Could not save the schedule PDF.",
+    "unassignedShift": "Unassigned shift"
   },
   "scheduleCopy": {
     "title": "Copy schedule",

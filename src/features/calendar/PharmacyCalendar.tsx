@@ -29,6 +29,7 @@ import { IconAvatar } from '../../components/icons/IconAvatar'
 import { defaultIconIdForKind } from '../../lib/icons/defaults'
 import { useMediaQuery } from '../../lib/use-media-query'
 import {
+  canAssignShifts,
   canCreateAnyCalendarItem,
   canCreateKind,
   canDeleteKind,
@@ -46,9 +47,11 @@ import {
   usePersonnelList,
   useWeekOverrides,
 } from '../../lib/queries/workspace'
+import { savePdfToDevice } from '../../lib/device-file'
+import { appLogger } from '../../lib/logger'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 import i18n from '../../i18n'
-import { localeToFullCalendar } from '../../i18n/types'
+import { localeToBcp47, localeToFullCalendar } from '../../i18n/types'
 import { useLocaleStore } from '../../store/locale'
 import type { CalendarItem, CalendarItemKind, Personnel } from '../../types/domain'
 import { useDisplayPreferences } from '../../store/display-preferences'
@@ -60,7 +63,8 @@ import {
 } from '../../lib/calendar-copy-overwrite'
 import { buildDuplicateTargets } from '../../lib/calendar-series'
 import { buildScheduleCopyTargets, type ScheduleAction } from '../../lib/calendar-schedule-copy'
-import { CalendarPrintPreview } from './CalendarPrintPreview'
+import { buildSchedulePrintModel } from './calendar-print'
+import { renderSchedulePdf } from './calendar-print-pdf'
 import { CopyOverwriteConfirmModal } from './CopyOverwriteConfirmModal'
 import {
   CalendarScheduleCopyModal,
@@ -72,6 +76,7 @@ import {
   type EventSeriesMenuState,
 } from './EventSeriesMenu'
 import { MobileCalendarAgenda } from './MobileCalendarAgenda'
+import { WeekScheduleModal } from './WeekScheduleModal'
 
 const MOBILE_CALENDAR_QUERY = '(max-width: 720px)'
 
@@ -112,17 +117,11 @@ interface CopyExecutionOptions {
   skipConflictedTargetKeys?: string[]
 }
 
-const desktopPrintPreviewQuery = '(min-width: 721px)'
-
 function getInitialView(): CalendarViewId {
   if (typeof window !== 'undefined' && window.matchMedia(MOBILE_CALENDAR_QUERY).matches) {
     return 'timeGridDay'
   }
   return 'timeGridWeek'
-}
-
-function supportsPrintPreview(): boolean {
-  return typeof window !== 'undefined' && window.matchMedia(desktopPrintPreviewQuery).matches
 }
 
 function isPassedShiftOrNote(item: CalendarItem): boolean {
@@ -239,6 +238,7 @@ function CalendarUtilityRibbon({
   onToggleNightShift,
   onCopy,
   onPrint,
+  printBusy = false,
   onCreateAllDay,
   showViewSwitch = true,
   showCopy = true,
@@ -257,6 +257,7 @@ function CalendarUtilityRibbon({
   onToggleNightShift: () => void
   onCopy: () => void
   onPrint: () => void
+  printBusy?: boolean
   onCreateAllDay: () => void
   showViewSwitch?: boolean
   showCopy?: boolean
@@ -286,53 +287,59 @@ function CalendarUtilityRibbon({
       <h2 className="calendar-utility-ribbon__title">{title}</h2>
 
       <div className="calendar-utility-ribbon__tools">
-        {showCopy ? (
-          <button
-            type="button"
-            className="calendar-ribbon-btn"
-            aria-label={t('calendar:aria.copySchedule')}
-            title={t('calendar:aria.copySchedule')}
-            onClick={onCopy}
-          >
-            <Copy size={18} aria-hidden="true" />
-          </button>
-        ) : null}
+        {showCreateAllDay || showCopy || showPrint || showNightShift ? (
+          <div className="calendar-utility-ribbon__icons">
+            {showCreateAllDay ? (
+              <button
+                type="button"
+                className="calendar-ribbon-btn calendar-ribbon-btn--icon"
+                aria-label={t('calendar:aria.addAllDayEvent')}
+                title={t('calendar:aria.addAllDayEvent')}
+                onClick={onCreateAllDay}
+              >
+                <CalendarDays size={18} aria-hidden="true" />
+              </button>
+            ) : null}
 
-        {showCreateAllDay ? (
-          <button
-            type="button"
-            className="calendar-ribbon-btn"
-            aria-label={t('calendar:aria.addAllDayEvent')}
-            title={t('calendar:aria.addAllDayEvent')}
-            onClick={onCreateAllDay}
-          >
-            <CalendarDays size={18} aria-hidden="true" />
-          </button>
-        ) : null}
+            {showCopy ? (
+              <button
+                type="button"
+                className="calendar-ribbon-btn calendar-ribbon-btn--icon"
+                aria-label={t('calendar:aria.copySchedule')}
+                title={t('calendar:aria.copySchedule')}
+                onClick={onCopy}
+              >
+                <Copy size={18} aria-hidden="true" />
+              </button>
+            ) : null}
 
-        {showPrint ? (
-          <button
-            type="button"
-            className="calendar-ribbon-btn"
-            aria-label={t('calendar:aria.print')}
-            title={t('calendar:aria.print')}
-            onClick={onPrint}
-          >
-            <Printer size={18} aria-hidden="true" />
-          </button>
-        ) : null}
+            {showPrint ? (
+              <button
+                type="button"
+                className="calendar-ribbon-btn calendar-ribbon-btn--icon"
+                aria-label={printBusy ? t('calendar:print.saving') : t('calendar:aria.print')}
+                title={printBusy ? t('calendar:print.saving') : t('calendar:aria.print')}
+                aria-busy={printBusy}
+                disabled={printBusy}
+                onClick={onPrint}
+              >
+                <Printer size={18} aria-hidden="true" />
+              </button>
+            ) : null}
 
-        {showNightShift ? (
-          <button
-            type="button"
-            className={clsx('calendar-ribbon-toggle', nightShiftEnabled && 'is-active')}
-            aria-pressed={nightShiftEnabled}
-            aria-label={nightShiftLabel}
-            title={nightShiftLabel}
-            onClick={onToggleNightShift}
-          >
-            <MoonStar size={18} aria-hidden="true" />
-          </button>
+            {showNightShift ? (
+              <button
+                type="button"
+                className={clsx('calendar-ribbon-toggle', nightShiftEnabled && 'is-active')}
+                aria-pressed={nightShiftEnabled}
+                aria-label={nightShiftLabel}
+                title={nightShiftLabel}
+                onClick={onToggleNightShift}
+              >
+                <MoonStar size={18} aria-hidden="true" />
+              </button>
+            ) : null}
+          </div>
         ) : null}
 
         {showViewSwitch ? (
@@ -360,7 +367,7 @@ export function PharmacyCalendar() {
   const locale = useLocaleStore((state) => state.locale)
   const calendarLocale = localeToFullCalendar(locale)
   const { user } = useAuth()
-  const { organizationId, can } = useWorkspace()
+  const { organizationId, can, membership } = useWorkspace()
   const { searchQuery, kindFilter, personnelFilterId, openCreateEvent, openEditEvent } =
     useCalendarShell()
   const showTasks = useDisplayPreferences((state) => state.showTasks)
@@ -374,14 +381,12 @@ export function PharmacyCalendar() {
   const queryClient = useQueryClient()
 
   const calendarRef = useRef<FullCalendar>(null)
-  const calendarPrintRef = useRef<HTMLDivElement>(null)
-  const [printPreviewOpen, setPrintPreviewOpen] = useState(false)
   const [scheduleCopyOpen, setScheduleCopyOpen] = useState(false)
+  const [weekScheduleOpen, setWeekScheduleOpen] = useState(false)
   const [scheduleCopyError, setScheduleCopyError] = useState<string | null>(null)
   const [pendingCopyOverwrite, setPendingCopyOverwrite] = useState<PendingCopyOverwrite | null>(null)
-  const [printLayoutActive, setPrintLayoutActive] = useState(false)
-  const [printLayoutReady, setPrintLayoutReady] = useState(false)
-  const showPrintLayout = printPreviewOpen || printLayoutActive
+  const [printBusy, setPrintBusy] = useState(false)
+  const [printError, setPrintError] = useState<string | null>(null)
   const suppressEventClickUntilRef = useRef(0)
   const prevMobileAgendaRef = useRef(false)
   const seriesMenuCleanupRef = useRef(new Map<string, () => void>())
@@ -395,10 +400,8 @@ export function PharmacyCalendar() {
   const [viewTitle, setViewTitle] = useState('Calendar')
   const [weekStartKey, setWeekStartKey] = useState(() => getWeekStartKey(new Date()))
   const isMobileCalendar = useMediaQuery(MOBILE_CALENDAR_QUERY)
-  const showMobileDayAgenda =
-    isMobileCalendar && activeView === 'timeGridDay' && !showPrintLayout
-  const showMobileWeekAgenda =
-    isMobileCalendar && activeView === 'timeGridWeek' && !showPrintLayout
+  const showMobileDayAgenda = isMobileCalendar && activeView === 'timeGridDay'
+  const showMobileWeekAgenda = isMobileCalendar && activeView === 'timeGridWeek'
   const showMobileListView = showMobileDayAgenda || showMobileWeekAgenda
   const [agendaDate, setAgendaDate] = useState(() => new Date())
   const [seriesMenu, setSeriesMenu] = useState<EventSeriesMenuState | null>(null)
@@ -476,56 +479,6 @@ export function PharmacyCalendar() {
 
   const canEditCalendar = isSupabaseConfigured && canCreateAnyCalendarItem(can)
   const canCreateAllDay = isSupabaseConfigured && canCreateKind(can, 'note')
-
-  useEffect(() => {
-    if (!showPrintLayout) {
-      setPrintLayoutReady(false)
-      calendarRef.current?.getApi().updateSize()
-      return
-    }
-
-    let cancelled = false
-    const frame = requestAnimationFrame(() => {
-      calendarRef.current?.getApi().updateSize()
-      requestAnimationFrame(() => {
-        if (!cancelled) setPrintLayoutReady(true)
-      })
-    })
-
-    return () => {
-      cancelled = true
-      cancelAnimationFrame(frame)
-    }
-  }, [showPrintLayout, viewTitle, activeView, slotMinTime, slotMaxTime, filteredItems.length])
-
-  useEffect(() => {
-    const handleAfterPrint = () => {
-      setPrintLayoutActive(false)
-      setPrintPreviewOpen(false)
-    }
-
-    window.addEventListener('afterprint', handleAfterPrint)
-    return () => window.removeEventListener('afterprint', handleAfterPrint)
-  }, [])
-
-  useEffect(() => {
-    if (!printLayoutActive || printPreviewOpen || !printLayoutReady) return
-
-    window.print()
-  }, [printLayoutActive, printPreviewOpen, printLayoutReady])
-
-  const handlePrint = useCallback(() => {
-    if (supportsPrintPreview()) {
-      setPrintPreviewOpen(true)
-      return
-    }
-
-    setPrintLayoutActive(true)
-  }, [])
-
-  const closePrintPreview = useCallback(() => {
-    setPrintPreviewOpen(false)
-  }, [])
 
   const suppressEventClick = useCallback(() => {
     suppressEventClickUntilRef.current = Date.now() + 400
@@ -653,16 +606,6 @@ export function PharmacyCalendar() {
         return
       }
 
-      const analysis = analyzeCopyConflicts(targets, calendarItems, canDeleteCalendarItem)
-      if (analysis.hasConflicts) {
-        if (!canReplaceCopyConflicts(analysis) && analysis.clearTargetCount === 0) {
-          setScheduleCopyError(t('copyOverwrite.noPermission'))
-          return
-        }
-        setPendingCopyOverwrite({ kind: 'schedule', action, analysis })
-        return
-      }
-
       try {
         await executeScheduleAction(action)
       } catch (error) {
@@ -674,7 +617,6 @@ export function PharmacyCalendar() {
     [
       calendarItems,
       canCreateCalendarItem,
-      canDeleteCalendarItem,
       scheduleViewContext,
       executeScheduleAction,
       t,
@@ -689,6 +631,63 @@ export function PharmacyCalendar() {
     : showMobileWeekAgenda
       ? `${format(mobileWeekStart, 'd MMM')} – ${format(mobileWeekEnd, 'd MMM yyyy')}`
       : viewTitle
+
+  const handlePrint = useCallback(async () => {
+    if (printBusy) return
+    setPrintError(null)
+    setPrintBusy(true)
+    try {
+      const model = buildSchedulePrintModel({
+        scope: scheduleCopyScope,
+        anchorDate: showMobileListView ? agendaDate : calendarDate,
+        items: filteredItems,
+        personnel,
+        organizationName:
+          orgQuery.data?.name ?? membership?.organizationName ?? t('common:brand.name'),
+        brandName: t('common:brand.name'),
+        rangeLabel: ribbonTitle,
+        labels: {
+          viewDay: t('view.day'),
+          viewWeek: t('view.week'),
+          viewMonth: t('view.month'),
+          allDay: t('event.allDay'),
+          emptyDay: t('agenda.emptyDay'),
+          untitled: t('event.untitled'),
+          unassignedShift: t('print.unassignedShift'),
+          kindShift: t('common:eventKind.shift'),
+          kindNote: t('common:eventKind.note'),
+          kindTask: t('common:eventKind.task'),
+        },
+        formatDayHeading: (day) =>
+          new Intl.DateTimeFormat(localeToBcp47(locale), {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          }).format(day),
+      })
+      const pdf = await renderSchedulePdf(model)
+      await savePdfToDevice(model.filename, pdf)
+    } catch (error) {
+      appLogger.error('Could not save schedule PDF', error, { scope: 'calendar-print' })
+      setPrintError(t('print.error'))
+    } finally {
+      setPrintBusy(false)
+    }
+  }, [
+    printBusy,
+    scheduleCopyScope,
+    showMobileListView,
+    agendaDate,
+    calendarDate,
+    filteredItems,
+    personnel,
+    orgQuery.data,
+    membership,
+    ribbonTitle,
+    locale,
+    t,
+  ])
 
   useEffect(() => {
     if (showMobileListView) {
@@ -746,11 +745,18 @@ export function PharmacyCalendar() {
   }, [showMobileListView, agendaDate, calendarDate, openCreateEvent])
 
   const createEventTargetDate = showMobileListView ? agendaDate : calendarDate
-  const createEventLabel = t('aria.addEventForDay', {
-    day: format(createEventTargetDate, 'EEEE d MMM'),
-  })
+  const showWeekScheduleFab =
+    isSupabaseConfigured &&
+    showMobileWeekAgenda &&
+    canCreateKind(can, 'shift') &&
+    canAssignShifts(can)
+  const createEventLabel = showWeekScheduleFab
+    ? t('aria.addWeekSchedule')
+    : t('aria.addEventForDay', {
+        day: format(createEventTargetDate, 'EEEE d MMM'),
+      })
   const showAddFab =
-    canEditCalendar && !showPrintLayout && activeView === 'timeGridDay'
+    (canEditCalendar && activeView === 'timeGridDay') || showWeekScheduleFab
 
   const executeSeriesAction = useCallback(
     async (action: CalendarSeriesAction, options: CopyExecutionOptions = {}) => {
@@ -1021,8 +1027,7 @@ export function PharmacyCalendar() {
     <div
       className={clsx(
         'calendar-fill calendar-print-root',
-        showPrintLayout && 'calendar-print-layout',
-        isMobileCalendar && !showPrintLayout && 'calendar-fill--mobile',
+        isMobileCalendar && 'calendar-fill--mobile',
         showMobileListView && 'calendar-fill--mobile-agenda',
         showAddFab && 'calendar-fill--has-add-fab',
       )}
@@ -1040,12 +1045,18 @@ export function PharmacyCalendar() {
         onToggleNightShift={handleToggleNightShift}
         onCopy={() => setScheduleCopyOpen(true)}
         onPrint={handlePrint}
+        printBusy={printBusy}
         onCreateAllDay={handleCreateAllDay}
-        showCopy={canEditCalendar && !showPrintLayout}
-        showCreateAllDay={canCreateAllDay && !showPrintLayout}
-        showPrint={!isMobileCalendar}
+        showCopy={canEditCalendar}
+        showCreateAllDay={canCreateAllDay}
         showNightShift={!isMobileCalendar}
       />
+
+      {printError ? (
+        <p className="calendar-print-error" role="alert">
+          {printError}
+        </p>
+      ) : null}
 
       {showMobileListView ? (
         <MobileCalendarAgenda
@@ -1062,14 +1073,11 @@ export function PharmacyCalendar() {
           onOpenSeriesMenu={openSeriesMenu}
           onSuppressItemClick={suppressEventClick}
           canOpenSeriesMenu={canOpenSeriesMenu}
-          canCreate={canEditCalendar}
-          onCreateForDay={handleCreateForDay}
+          canCreate={canEditCalendar && !showMobileWeekAgenda}
+          onCreateForDay={showMobileWeekAgenda ? undefined : handleCreateForDay}
         />
       ) : (
-        <div
-          ref={calendarPrintRef}
-          className={clsx('calendar-print-body', !hasAllDayEvents && 'calendar--all-day-row-empty')}
-        >
+        <div className={clsx('calendar-print-body', !hasAllDayEvents && 'calendar--all-day-row-empty')}>
           <FullCalendar
             key={`${slotMinTime}-${slotMaxTime}`}
             ref={calendarRef}
@@ -1089,15 +1097,12 @@ export function PharmacyCalendar() {
             selectable={canEditCalendar}
             selectMirror
             unselectAuto
-            height={showPrintLayout ? 'auto' : '100%'}
+            height="100%"
             events={events}
             dayMaxEvents={3}
             datesSet={handleDatesSet}
             dayHeaderContent={(arg) => {
-              const showAdd =
-                canEditCalendar &&
-                !showPrintLayout &&
-                arg.view.type === 'timeGridWeek'
+              const showAdd = canEditCalendar && arg.view.type === 'timeGridWeek'
 
               return (
                 <WeekDayHeader
@@ -1164,14 +1169,6 @@ export function PharmacyCalendar() {
         </div>
       )}
 
-      <CalendarPrintPreview
-        open={printPreviewOpen}
-        onClose={closePrintPreview}
-        title={viewTitle}
-        sourceRef={calendarPrintRef}
-        layoutReady={printLayoutReady}
-      />
-
       <CalendarScheduleCopyModal
         open={scheduleCopyOpen}
         scope={scheduleCopyScope}
@@ -1215,13 +1212,25 @@ export function PharmacyCalendar() {
         onAction={handleSeriesAction}
       />
 
+      <WeekScheduleModal
+        open={weekScheduleOpen}
+        weekStart={mobileWeekStart}
+        onClose={() => setWeekScheduleOpen(false)}
+      />
+
       {showAddFab ? (
         <button
           type="button"
           className="calendar-add-fab"
           aria-label={createEventLabel}
           title={createEventLabel}
-          onClick={() => handleCreateForDay(createEventTargetDate)}
+          onClick={() => {
+            if (showWeekScheduleFab) {
+              setWeekScheduleOpen(true)
+              return
+            }
+            handleCreateForDay(createEventTargetDate)
+          }}
         >
           <Plus size={24} aria-hidden="true" strokeWidth={2.5} />
         </button>

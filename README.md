@@ -68,12 +68,12 @@ pnpm admin:create
 
 The script creates or updates the Supabase Auth user, writes the profile row, and inserts the user into `platform_admins`.
 
-Sign in as Developer Admin, open `/admin`, and use **Pharmacies → Create company** to provision a tenant and owner account. There is no public owner self-registration route.
+Sign in as Developer Admin, open `/admin`, and use **Companies → Create company** to provision a tenant and owner account. First-time owners can also submit `/register-owner`; requests wait on `/admin/approvals` until a platform admin approves them.
 
 Trusted Edge Functions:
 
 ```bash
-supabase functions serve admin-provision-company invite-personnel accept-invite admin-records schedule-notifications dispatch-push-notifications register-device process-notifications
+supabase functions serve admin-provision-company admin-review-registration request-owner-registration invite-personnel accept-invite admin-records schedule-notifications dispatch-push-notifications register-device process-notifications
 ```
 
 Optional production monitoring: set `VITE_SENTRY_DSN` in `.env.local` to enable Sentry error capture (wired through `src/lib/logger.ts`).

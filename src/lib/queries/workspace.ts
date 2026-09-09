@@ -466,6 +466,76 @@ export function useAuditLogAdminList(enabled: boolean) {
   })
 }
 
+export type AdminRegistrationRequest = {
+  id: string
+  email: string
+  fullName: string
+  companyName: string
+  timezone: string
+  status: 'pending' | 'approved' | 'rejected'
+  reviewNote: string | null
+  organizationId: string | null
+  createdAt: string
+  updatedAt: string
+  reviewedAt: string | null
+}
+
+export function useRegistrationRequestsAdminList(status?: 'pending' | 'approved' | 'rejected') {
+  return useQuery({
+    queryKey: ['admin-registration-requests', status ?? 'all'],
+    queryFn: async (): Promise<AdminRegistrationRequest[]> => {
+      if (!supabase) return []
+
+      let query = supabase
+        .from('organization_registration_requests')
+        .select(
+          'id, email, full_name, company_name, timezone, status, review_note, organization_id, created_at, updated_at, reviewed_at',
+        )
+        .order('created_at', { ascending: false })
+
+      if (status) {
+        query = query.eq('status', status)
+      }
+
+      const { data, error } = await query
+      if (error) throw error
+
+      return (data ?? []).map((row) => ({
+        id: row.id,
+        email: row.email,
+        fullName: row.full_name,
+        companyName: row.company_name,
+        timezone: row.timezone,
+        status: row.status,
+        reviewNote: row.review_note,
+        organizationId: row.organization_id,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        reviewedAt: row.reviewed_at,
+      }))
+    },
+    enabled: isSupabaseConfigured,
+  })
+}
+
+export function usePendingRegistrationCount() {
+  return useQuery({
+    queryKey: ['admin-registration-requests-pending-count'],
+    queryFn: async (): Promise<number> => {
+      if (!supabase) return 0
+
+      const { count, error } = await supabase
+        .from('organization_registration_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'pending')
+
+      if (error) throw error
+      return count ?? 0
+    },
+    enabled: isSupabaseConfigured,
+  })
+}
+
 export function useOrganizationMembersAdminList(enabled: boolean) {
   return useQuery({
     queryKey: ['admin-organization-members'],

@@ -157,8 +157,10 @@ else {
       @{ Name = "admin-records"; Public = $false },
       @{ Name = "admin-provision-company"; Public = $false },
       @{ Name = "admin-invite-owner"; Public = $false },
+      @{ Name = "admin-review-registration"; Public = $false },
       @{ Name = "invite-personnel"; Public = $false },
       @{ Name = "accept-invite"; Public = $true },
+      @{ Name = "request-owner-registration"; Public = $true },
       @{ Name = "schedule-notifications"; Public = $false }
     )
 

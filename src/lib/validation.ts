@@ -1,5 +1,10 @@
 import type { TFunction } from 'i18next'
 import { z } from 'zod'
+import {
+  isCompleteWeekDay,
+  isPartialWeekDay,
+  resolveWeekShiftRange,
+} from './calendar-week-schedule'
 import { clockToMinutes, isClockTime } from './calendar-hours'
 
 function clockTimeSchema(t: TFunction<'validation'>) {
@@ -38,6 +43,30 @@ export function createAcceptInviteSchema(t: TFunction<'validation'>) {
     token: z.string().min(1, t('tokenRequired')),
     password: z.string().min(10, t('passwordMinLength')),
     fullName: z.string().min(2).optional(),
+  })
+}
+
+export function createOwnerRegistrationSchema(t: TFunction<'validation'>) {
+  return z
+    .object({
+      email: z.email(t('emailInvalid')),
+      fullName: z.string().min(2, t('fullNameRequired')),
+      companyName: z.string().min(2, t('companyNameRequired')),
+      password: z.string().min(10, t('passwordMinLength')),
+      confirmPassword: z.string().min(1, t('passwordRequired')),
+    })
+    .refine((value) => value.password === value.confirmPassword, {
+      message: t('passwordMismatch'),
+      path: ['confirmPassword'],
+    })
+}
+
+export function createReviewRegistrationSchema(t: TFunction<'validation'>) {
+  return z.object({
+    companyName: z.string().min(2, t('companyNameRequired')),
+    fullName: z.string().min(2, t('fullNameRequired')),
+    timezone: z.string().min(1, t('timezoneRequired')),
+    reviewNote: z.string().max(500).optional(),
   })
 }
 
@@ -251,9 +280,62 @@ export const workingDaySchema = z
     path: ['end'],
   })
 
+export const weekScheduleDaySchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  startTime: z.string(),
+  endTime: z.string(),
+})
+
+export const weekScheduleSchema = z
+  .object({
+    assignedPersonnelId: z.uuid('Choose a person'),
+    overnight: z.boolean(),
+    days: z.array(weekScheduleDaySchema).length(7),
+  })
+  .superRefine((value, ctx) => {
+    let filled = 0
+
+    value.days.forEach((day, index) => {
+      if (isPartialWeekDay(day)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Start and end time are both required',
+          path: ['days', index, day.startTime ? 'endTime' : 'startTime'],
+        })
+        return
+      }
+
+      if (!isCompleteWeekDay(day)) return
+
+      const range = resolveWeekShiftRange(day.date, day.startTime, day.endTime, value.overnight)
+      if (!range) {
+        ctx.addIssue({
+          code: 'custom',
+          message: value.overnight
+            ? 'End time must be after start time'
+            : 'End time must be after start time, or turn on Overnight',
+          path: ['days', index, 'endTime'],
+        })
+        return
+      }
+
+      filled += 1
+    })
+
+    if (filled === 0) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Add start and end times for at least one day',
+        path: ['days'],
+      })
+    }
+  })
+
 export type LoginInput = z.infer<typeof loginSchema>
 export type ForgotPasswordInput = z.infer<ReturnType<typeof createForgotPasswordSchema>>
 export type ResetPasswordInput = z.infer<ReturnType<typeof createResetPasswordSchema>>
+export type OwnerRegistrationInput = z.infer<ReturnType<typeof createOwnerRegistrationSchema>>
+export type ReviewRegistrationInput = z.infer<ReturnType<typeof createReviewRegistrationSchema>>
 export type ProvisionCompanyInput = z.infer<typeof provisionCompanySchema>
 export type InviteOwnerInput = z.infer<typeof inviteOwnerSchema>
 export type InvitePersonnelInput = z.infer<typeof invitePersonnelSchema>
@@ -266,3 +348,4 @@ export type EditCompanyRoleProfileInput = z.infer<typeof editCompanyRoleProfileS
 export type UpdatePersonnelInput = z.infer<typeof updatePersonnelSchema>
 export type CalendarItemInput = z.infer<typeof calendarItemSchema>
 export type WorkingDayInput = z.infer<typeof workingDaySchema>
+export type WeekScheduleInput = z.infer<typeof weekScheduleSchema>

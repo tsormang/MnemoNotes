@@ -1,6 +1,7 @@
 import { writeAuditLog, writePlatformAction } from '../_shared/audit.ts'
 import { getEnvClients, requirePlatformAdmin } from '../_shared/clients.ts'
 import { corsHeaders, json } from '../_shared/http.ts'
+import { attachActiveOwner, createCompanyWorkspace } from '../_shared/provision-company.ts'
 import { createInviteToken, hashToken } from '../_shared/tokens.ts'
 
 interface ProvisionCompanyRequest {
@@ -50,41 +51,12 @@ Deno.serve(async (request) => {
     const ownerEmail = body.ownerEmail.trim().toLowerCase()
     const ownerName = body.ownerName.trim()
 
-    const { data: organization, error: orgError } = await serviceClient
-      .from('organizations')
-      .insert({
-        name: organizationName,
-        timezone,
-        created_by: actor.id,
-      })
-      .select('id, name')
-      .single()
-
-    if (orgError || !organization) {
-      throw orgError ?? new Error('Failed to create organization.')
-    }
-
-    const { error: profileError } = await serviceClient.from('pharmacy_profiles').insert({
-      organization_id: organization.id,
+    const { organization, location } = await createCompanyWorkspace(serviceClient, {
+      organizationName,
+      timezone,
+      locationName,
+      createdBy: actor.id,
     })
-
-    if (profileError) {
-      throw profileError
-    }
-
-    const { data: location, error: locationError } = await serviceClient
-      .from('locations')
-      .insert({
-        organization_id: organization.id,
-        name: locationName,
-        timezone,
-      })
-      .select('id')
-      .single()
-
-    if (locationError || !location) {
-      throw locationError ?? new Error('Failed to create default location.')
-    }
 
     if (useDirectPassword && ownerPassword) {
       const { data: authUser, error: authError } = await serviceClient.auth.admin.createUser({
@@ -95,6 +67,7 @@ Deno.serve(async (request) => {
       })
 
       if (authError || !authUser.user) {
+        await serviceClient.from('organizations').delete().eq('id', organization.id)
         throw authError ?? new Error('Failed to create owner auth user.')
       }
 
@@ -103,15 +76,14 @@ Deno.serve(async (request) => {
         .update({ full_name: ownerName, timezone })
         .eq('id', authUser.user.id)
 
-      const { error: memberError } = await serviceClient.from('organization_members').insert({
-        organization_id: organization.id,
-        user_id: authUser.user.id,
-        role: 'owner',
-        status: 'active',
-        invited_by: actor.id,
-      })
-
-      if (memberError) {
+      try {
+        await attachActiveOwner(serviceClient, {
+          organizationId: organization.id,
+          userId: authUser.user.id,
+          invitedBy: actor.id,
+        })
+      } catch (memberError) {
+        await serviceClient.from('organizations').delete().eq('id', organization.id)
         throw memberError
       }
 
@@ -163,6 +135,7 @@ Deno.serve(async (request) => {
     })
 
     if (inviteError) {
+      await serviceClient.from('organizations').delete().eq('id', organization.id)
       throw inviteError
     }
 

@@ -16,6 +16,7 @@ interface WorkspaceContextValue {
   loading: boolean
   membership: WorkspaceMembership | null
   organizationId: string | null
+  pendingRegistration: { id: string; companyName: string } | null
   can: (permission: AppPermission) => boolean
   isPlatformAdmin: boolean
   isOwner: boolean
@@ -24,8 +25,11 @@ interface WorkspaceContextValue {
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null)
 
-async function loadWorkspace(userId: string): Promise<WorkspaceMembership | null> {
-  if (!supabase) return null
+async function loadWorkspace(userId: string): Promise<{
+  membership: WorkspaceMembership | null
+  pendingRegistration: { id: string; companyName: string } | null
+}> {
+  if (!supabase) return { membership: null, pendingRegistration: null }
 
   const { data: platformAdmin } = await supabase
     .from('platform_admins')
@@ -35,13 +39,16 @@ async function loadWorkspace(userId: string): Promise<WorkspaceMembership | null
 
   if (platformAdmin) {
     return {
-      organizationId: '',
-      organizationName: 'Platform',
-      workspaceLabel: 'Platform',
-      systemRole: 'developer_admin',
-      personnelId: null,
-      companyRoleId: null,
-      permissions: rolePermissions.developer_admin,
+      membership: {
+        organizationId: '',
+        organizationName: 'Platform',
+        workspaceLabel: 'Platform',
+        systemRole: 'developer_admin',
+        personnelId: null,
+        companyRoleId: null,
+        permissions: rolePermissions.developer_admin,
+      },
+      pendingRegistration: null,
     }
   }
 
@@ -54,7 +61,19 @@ async function loadWorkspace(userId: string): Promise<WorkspaceMembership | null
     .maybeSingle()
 
   if (memberError || !member) {
-    return null
+    const { data: pending } = await supabase
+      .from('organization_registration_requests')
+      .select('id, company_name')
+      .eq('auth_user_id', userId)
+      .eq('status', 'pending')
+      .maybeSingle()
+
+    return {
+      membership: null,
+      pendingRegistration: pending
+        ? { id: pending.id, companyName: pending.company_name }
+        : null,
+    }
   }
 
   const organizationName =
@@ -64,13 +83,16 @@ async function loadWorkspace(userId: string): Promise<WorkspaceMembership | null
 
   if (member.role === 'owner') {
     return {
-      organizationId: member.organization_id,
-      organizationName,
-      workspaceLabel: organizationName,
-      systemRole: 'owner',
-      personnelId: null,
-      companyRoleId: null,
-      permissions: rolePermissions.owner,
+      membership: {
+        organizationId: member.organization_id,
+        organizationName,
+        workspaceLabel: organizationName,
+        systemRole: 'owner',
+        personnelId: null,
+        companyRoleId: null,
+        permissions: rolePermissions.owner,
+      },
+      pendingRegistration: null,
     }
   }
 
@@ -83,13 +105,16 @@ async function loadWorkspace(userId: string): Promise<WorkspaceMembership | null
 
   if (personnelError || !personnel) {
     return {
-      organizationId: member.organization_id,
-      organizationName,
-      workspaceLabel: organizationName,
-      systemRole: member.role as AppRole,
-      personnelId: null,
-      companyRoleId: null,
-      permissions: [],
+      membership: {
+        organizationId: member.organization_id,
+        organizationName,
+        workspaceLabel: organizationName,
+        systemRole: member.role as AppRole,
+        personnelId: null,
+        companyRoleId: null,
+        permissions: [],
+      },
+      pendingRegistration: null,
     }
   }
 
@@ -108,13 +133,16 @@ async function loadWorkspace(userId: string): Promise<WorkspaceMembership | null
       : 'Staff'
 
   return {
-    organizationId: member.organization_id,
-    organizationName,
-    workspaceLabel: `${organizationName} · ${companyRoleName}`,
-    systemRole: member.role as AppRole,
-    personnelId: personnel.id,
-    companyRoleId: personnel.company_role_id,
-    permissions,
+    membership: {
+      organizationId: member.organization_id,
+      organizationName,
+      workspaceLabel: `${organizationName} · ${companyRoleName}`,
+      systemRole: member.role as AppRole,
+      personnelId: personnel.id,
+      companyRoleId: personnel.company_role_id,
+      permissions,
+    },
+    pendingRegistration: null,
   }
 }
 
@@ -125,13 +153,14 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
   const query = useQuery({
     queryKey: ['workspace', user?.id],
     queryFn: async () => {
-      if (!user) return null
+      if (!user) return { membership: null, pendingRegistration: null }
       return loadWorkspace(user.id)
     },
     enabled: Boolean(user && isSupabaseConfigured),
   })
 
-  const membership = query.data ?? null
+  const membership = query.data?.membership ?? null
+  const pendingRegistration = query.data?.pendingRegistration ?? null
   const loading = authLoading || (Boolean(user) && query.isLoading)
 
   useEffect(() => {
@@ -148,6 +177,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
       loading,
       membership,
       organizationId: membership?.organizationId || null,
+      pendingRegistration,
       can: (permission) => Boolean(membership?.permissions.includes(permission)),
       isPlatformAdmin: membership?.systemRole === 'developer_admin',
       isOwner: membership?.systemRole === 'owner',
@@ -155,7 +185,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         void query.refetch()
       },
     }),
-    [loading, membership, query],
+    [loading, membership, pendingRegistration, query],
   )
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>

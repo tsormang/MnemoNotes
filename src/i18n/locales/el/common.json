@@ -49,6 +49,7 @@
     "email": "Email",
     "password": "Κωδικός",
     "fullName": "Ονοματεπώνυμο",
+    "companyName": "Όνομα εταιρείας",
     "title": "Τίτλος",
     "name": "Όνομα",
     "description": "Περιγραφή",

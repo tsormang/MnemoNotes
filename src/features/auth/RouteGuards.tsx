@@ -57,6 +57,62 @@ export function RequirePlatformAdmin() {
   return <Outlet />
 }
 
+export function RequirePendingRegistration() {
+  const { user, loading } = useAuth()
+  const { pendingRegistration, membership, loading: workspaceLoading } = useWorkspace()
+  const location = useLocation()
+
+  if (!isSupabaseConfigured) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (loading || workspaceLoading) {
+    return (
+      <main className="auth-page">
+        <p>Loading…</p>
+      </main>
+    )
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />
+  }
+
+  if (!pendingRegistration) {
+    return <Navigate to={membership ? '/app/calendar' : '/login'} replace />
+  }
+
+  return <Outlet />
+}
+
+export function RequireAppWorkspace() {
+  const { user, loading } = useAuth()
+  const { pendingRegistration, loading: workspaceLoading } = useWorkspace()
+  const location = useLocation()
+
+  if (!isSupabaseConfigured) {
+    return <Outlet />
+  }
+
+  if (loading || workspaceLoading) {
+    return (
+      <main className="auth-page">
+        <p>Loading session…</p>
+      </main>
+    )
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />
+  }
+
+  if (pendingRegistration) {
+    return <Navigate to="/registration-pending" replace />
+  }
+
+  return <Outlet />
+}
+
 export function RequirePeopleAccess({ children }: { children: ReactNode }) {
   const { isOwner } = useWorkspace()
   const canManagePersonnel = useCan('personnel.manage')

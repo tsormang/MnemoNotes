@@ -13,13 +13,16 @@ import {
   createAcceptInviteSchema,
   createForgotPasswordSchema,
   createLoginSchema,
+  createOwnerRegistrationSchema,
   createResetPasswordSchema,
   type AcceptInviteInput,
   type ForgotPasswordInput,
   type LoginInput,
+  type OwnerRegistrationInput,
   type ResetPasswordInput,
 } from '../../lib/validation'
 import { useAuth } from './AuthProvider'
+import { useWorkspace } from './WorkspaceProvider'
 
 export function LoginScreen() {
   const { t } = useTranslation(['auth', 'common'])
@@ -84,6 +87,148 @@ export function LoginScreen() {
           {form.formState.isSubmitting ? t('auth:login.submitting') : t('auth:login.submit')}
         </button>
       </form>
+      <p className="auth-form__footer">
+        <Link className="auth-form__link" to="/register-owner">
+          {t('auth:login.registerLink')}
+        </Link>
+      </p>
+      <SupabaseNotice />
+    </AuthFrame>
+  )
+}
+
+export function RegisterOwnerScreen() {
+  const { t } = useTranslation(['auth', 'common'])
+  const { t: tv } = useTranslation('validation')
+  const [error, setError] = useState<string | null>(null)
+  const [submitted, setSubmitted] = useState(false)
+  const registerSchema = useMemo(() => createOwnerRegistrationSchema(tv), [tv])
+  const form = useForm<OwnerRegistrationInput>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      email: '',
+      fullName: '',
+      companyName: '',
+      password: '',
+      confirmPassword: '',
+    },
+  })
+
+  const onSubmit = form.handleSubmit(async (values) => {
+    setError(null)
+
+    try {
+      await invokeEdgeFunction<{ ok: boolean }>(
+        'request-owner-registration',
+        {
+          email: values.email,
+          password: values.password,
+          fullName: values.fullName,
+          companyName: values.companyName,
+        },
+        { requireAuth: false },
+      )
+      setSubmitted(true)
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : t('auth:registerOwner.error'))
+    }
+  })
+
+  return (
+    <AuthFrame
+      title={t('auth:registerOwner.title')}
+      subtitle={t('auth:registerOwner.subtitle')}
+      icon={<UserPlus size={22} aria-hidden="true" />}
+    >
+      {submitted ? (
+        <p className="auth-message auth-message--success">{t('auth:registerOwner.success')}</p>
+      ) : (
+        <form className="auth-form" onSubmit={onSubmit}>
+          <label>
+            <FieldLabel required>{t('common:field.email')}</FieldLabel>
+            <input
+              type="email"
+              autoComplete="email"
+              placeholder={t('auth:login.emailPlaceholder')}
+              {...form.register('email')}
+            />
+            <FieldError message={form.formState.errors.email?.message} />
+          </label>
+          <label>
+            <FieldLabel required>{t('common:field.fullName')}</FieldLabel>
+            <input
+              type="text"
+              autoComplete="name"
+              placeholder={t('auth:registerOwner.fullNamePlaceholder')}
+              {...form.register('fullName')}
+            />
+            <FieldError message={form.formState.errors.fullName?.message} />
+          </label>
+          <label>
+            <FieldLabel required>{t('auth:registerOwner.companyName')}</FieldLabel>
+            <input
+              type="text"
+              placeholder={t('auth:registerOwner.companyNamePlaceholder')}
+              {...form.register('companyName')}
+            />
+            <FieldError message={form.formState.errors.companyName?.message} />
+          </label>
+          <label>
+            <FieldLabel required>{t('common:field.password')}</FieldLabel>
+            <PasswordInput
+              autoComplete="new-password"
+              placeholder={t('auth:registerOwner.passwordPlaceholder')}
+              {...form.register('password')}
+            />
+            <FieldError message={form.formState.errors.password?.message} />
+          </label>
+          <label>
+            <FieldLabel required>{t('auth:registerOwner.confirmPassword')}</FieldLabel>
+            <PasswordInput
+              autoComplete="new-password"
+              placeholder={t('auth:registerOwner.confirmPasswordPlaceholder')}
+              {...form.register('confirmPassword')}
+            />
+            <FieldError message={form.formState.errors.confirmPassword?.message} />
+          </label>
+          {error ? <p className="field-error">{error}</p> : null}
+          <button type="submit" disabled={form.formState.isSubmitting}>
+            {form.formState.isSubmitting ? t('auth:registerOwner.submitting') : t('auth:registerOwner.submit')}
+          </button>
+        </form>
+      )}
+      <p className="auth-form__footer">
+        <Link className="auth-form__link" to="/login">
+          {t('auth:registerOwner.backToLogin')}
+        </Link>
+      </p>
+      <SupabaseNotice />
+    </AuthFrame>
+  )
+}
+
+export function RegistrationPendingScreen() {
+  const { t } = useTranslation(['auth', 'common'])
+  const { pendingRegistration } = useWorkspace()
+  const { signOut } = useAuth()
+
+  return (
+    <AuthFrame
+      title={t('auth:registrationPending.title')}
+      subtitle={t('auth:registrationPending.subtitle')}
+      icon={<Mail size={22} aria-hidden="true" />}
+    >
+      {pendingRegistration?.companyName ? (
+        <p className="auth-message">
+          {t('auth:registrationPending.companyLabel')}: <strong>{pendingRegistration.companyName}</strong>
+        </p>
+      ) : null}
+      <p className="auth-message">{t('auth:registrationPending.body')}</p>
+      <p className="auth-form__footer">
+        <button className="auth-form__link" type="button" onClick={() => void signOut()}>
+          {t('common:actions.signOut')}
+        </button>
+      </p>
       <SupabaseNotice />
     </AuthFrame>
   )

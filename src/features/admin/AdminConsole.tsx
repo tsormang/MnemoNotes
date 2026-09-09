@@ -9,7 +9,6 @@ import {
   Mail,
   Pencil,
   Plus,
-  ShieldAlert,
   Trash2,
   UserCog,
   Users,
@@ -18,8 +17,8 @@ import {
 import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useQueryClient } from '@tanstack/react-query'
-import { BrandMark } from '../../components/BrandMark'
-import { DevVersionLabel } from '../../components/DevVersionLabel'
+import { FieldLabel } from '../../components/FieldLabel'
+import { Modal } from '../../components/Modal'
 import { calendarItems, personnel, pharmacyLocations } from '../../data/demo'
 import { formatDateTime24 } from '../../lib/calendar-datetime'
 import { invokeEdgeFunction } from '../../lib/edge-functions'
@@ -33,10 +32,8 @@ import {
 } from '../../lib/queries/workspace'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import { provisionCompanySchema, type ProvisionCompanyInput } from '../../lib/validation'
-import { Modal } from '../../components/Modal'
-import { FieldLabel } from '../../components/FieldLabel'
-import { SignOutButton } from '../auth/AuthScreens'
 import { WorkingDaySettings } from '../settings/WorkingDaySettings'
+import { AdminShell } from './AdminShell'
 
 type AdminTab = 'companies' | 'users' | 'personnel' | 'shifts' | 'notes' | 'calendar' | 'audit'
 
@@ -179,40 +176,10 @@ export function AdminConsole() {
   }
 
   return (
-    <main className="admin-console">
-      <header className="admin-topbar">
-        <div className="brand">
-          <BrandMark />
-          <div>
-            <div className="brand-title-row">
-              <strong className="brand-name">MnemoNotes Admin</strong>
-              <DevVersionLabel />
-            </div>
-            <span className="brand-subtitle">Platform company management</span>
-          </div>
-        </div>
-        <div className="admin-topbar-actions">
-          <SignOutButton />
-        </div>
-      </header>
-
-      <section className="admin-hero">
-        <div>
-          <p className="eyebrow">Platform Admin</p>
-          <h1>Companies &amp; organisations</h1>
-          <p>
-            Create pharmacy workspaces, invite owners to register, and review tenant activity.
-          </p>
-        </div>
-        <div className="admin-identity">
-          <ShieldAlert size={22} aria-hidden="true" />
-          <div>
-            <strong>Developer Admin</strong>
-            <span>Trusted Edge Functions required for company provisioning</span>
-          </div>
-        </div>
-      </section>
-
+    <AdminShell
+      title="Companies & organisations"
+      description="Create pharmacy workspaces, invite owners to register, and review tenant activity."
+    >
       <section className="admin-workbench">
         <div className="admin-tabs" role="tablist" aria-label="Admin lists">
           {adminTabs.map((tab) => {
@@ -500,7 +467,7 @@ export function AdminConsole() {
           </div>
         )}
       </section>
-    </main>
+    </AdminShell>
   )
 }
 

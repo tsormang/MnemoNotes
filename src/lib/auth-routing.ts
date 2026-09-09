@@ -27,5 +27,16 @@ export async function resolvePostLoginPath(): Promise<string> {
     .eq('user_id', user.id)
     .maybeSingle()
 
-  return platformAdmin ? '/admin' : '/app/calendar'
+  if (platformAdmin) {
+    return '/admin'
+  }
+
+  const { data: pending } = await supabase
+    .from('organization_registration_requests')
+    .select('id')
+    .eq('auth_user_id', user.id)
+    .eq('status', 'pending')
+    .maybeSingle()
+
+  return pending ? '/registration-pending' : '/app/calendar'
 }

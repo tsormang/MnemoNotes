@@ -9,6 +9,9 @@ interface TimeInputProps {
   'aria-label'?: string
   /** Include 24:00 (working-day end only). */
   includeEndOfDay?: boolean
+  /** Allow an empty value (no time chosen). */
+  allowEmpty?: boolean
+  emptyLabel?: string
   /** Dropdown step size in minutes. Defaults to 30 for working-day settings. */
   stepMinutes?: TimeStepMinutes
 }
@@ -21,6 +24,8 @@ export function TimeInput({
   id,
   'aria-label': ariaLabel,
   includeEndOfDay = false,
+  allowEmpty = false,
+  emptyLabel = '—',
   stepMinutes = 30,
 }: TimeInputProps) {
   const fallbackId = useId()
@@ -29,7 +34,12 @@ export function TimeInput({
     () => buildTimeSlots(stepMinutes, includeEndOfDay ? { includeEndOfDay: true } : undefined),
     [includeEndOfDay, stepMinutes],
   )
-  const selected = slots.includes(value) ? value : slots[0]
+  const selected =
+    allowEmpty && !value
+      ? ''
+      : slots.includes(value)
+        ? value
+        : (slots[0] ?? '')
 
   return (
     <select
@@ -40,6 +50,7 @@ export function TimeInput({
       value={selected}
       onChange={(event) => onChange(event.target.value)}
     >
+      {allowEmpty ? <option value="">{emptyLabel}</option> : null}
       {slots.map((slot) => (
         <option key={slot} value={slot}>
           {slot}

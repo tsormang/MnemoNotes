@@ -37,7 +37,7 @@ Those belong in local `.env.local` or trusted CI for scripts and Edge Function d
 
 ## SPA routing
 
-`public/_redirects` sends all paths to `index.html` so React Router routes (`/login`, `/app/calendar`, `/admin`, `/accept-invite`) work on refresh and direct links.
+`public/_redirects` sends all paths to `index.html` so React Router routes (`/login`, `/register-owner`, `/app/calendar`, `/admin`, `/admin/approvals`, `/accept-invite`) work on refresh and direct links.
 
 ## Supabase Auth URLs
 

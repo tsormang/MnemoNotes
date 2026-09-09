@@ -49,6 +49,7 @@
     "email": "Email",
     "password": "Password",
     "fullName": "Full name",
+    "companyName": "Company name",
     "title": "Title",
     "name": "Name",
     "description": "Description",

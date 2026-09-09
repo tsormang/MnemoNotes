@@ -14,7 +14,7 @@ import { FieldLabel } from '../../components/FieldLabel'
 import { Modal } from '../../components/Modal'
 import { DatetimeInput } from '../../components/DatetimeInput'
 import { NotificationOffsetPicker } from '../../components/NotificationOffsetPicker'
-import { IconAvatar } from '../../components/icons/IconAvatar'
+import { PersonnelSelectButton } from '../../components/PersonnelSelectButton'
 import { IconPicker, syncNoteIconForCollection } from '../../components/icons/IconPicker'
 import { useAuth } from '../auth/AuthProvider'
 import { useWorkspace } from '../auth/WorkspaceProvider'
@@ -771,21 +771,12 @@ function CalendarEventModalContent({
             {personnel.map((person) => {
               const selected = assignedPersonnelIds?.includes(person.id) ?? false
               return (
-                <button
+                <PersonnelSelectButton
                   key={person.id}
-                  type="button"
-                  className={clsx('assignee-option', selected && 'is-selected')}
-                  aria-pressed={selected}
+                  person={person}
+                  selected={selected}
                   onClick={() => toggleAssignee(person.id)}
-                >
-                  <IconAvatar
-                    iconId={person.iconId}
-                    entityType="personnel"
-                    label={person.fullName}
-                    size="lg"
-                  />
-                  <span className="assignee-option__name">{person.fullName}</span>
-                </button>
+                />
               )
             })}
           </div>

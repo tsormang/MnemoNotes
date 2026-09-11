@@ -195,6 +195,8 @@ pnpm android:apk:debug
 | `device_subscriptions` missing | Run Step 2 migrations |
 | Push works but no in-app toast | Expected when push marks job `sent` before app opens |
 | In-app works but no system notification | Rebuild APK after fixes; confirm Supabase cron runs every 2 min |
+| System notification appears but tap does nothing | Rebuild APK; FCM must not send a custom `click_action` |
+| App is open and no shade notification | Rebuild APK so `presentationOptions` includes `alert` |
 | Verify Firebase end-to-end | `node scripts/test-fcm-push.mjs user@example.com` (phone backgrounded) |
 
 ---

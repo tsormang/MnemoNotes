@@ -45,7 +45,7 @@ export function CalendarScheduleCopyModal({
   const { t } = useTranslation('calendar')
 
   return (
-    <Modal open={open} onClose={onClose} title={t('scheduleCopy.title')}>
+    <Modal open={open} onClose={onClose} title={t('scheduleCopy.title')} busy={isPending}>
       <p className="schedule-copy-modal__hint">{t('scheduleCopy.sundayHint')}</p>
       <div className="schedule-copy-modal__options" role="menu" aria-label={t('scheduleCopy.title')}>
         {copyOptions[scope].map((entry) => (
@@ -61,6 +61,11 @@ export function CalendarScheduleCopyModal({
           </button>
         ))}
       </div>
+      {isPending ? (
+        <p className="schedule-copy-modal__busy" role="status" aria-live="polite">
+          {t('scheduleCopy.working')}
+        </p>
+      ) : null}
       {errorMessage ? <p className="schedule-copy-modal__error">{errorMessage}</p> : null}
     </Modal>
   )

@@ -4,7 +4,17 @@ import FullCalendar from '@fullcalendar/react'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import clsx from 'clsx'
 import { addDays, format, startOfDay, startOfWeek } from 'date-fns'
-import { CalendarDays, ChevronLeft, ChevronRight, Copy, MoonStar, Plus, Printer } from 'lucide-react'
+import {
+  CalendarDays,
+  ChartGantt,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  MoonStar,
+  Plus,
+  Printer,
+} from 'lucide-react'
 import { useMemo, useRef, useState, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -26,6 +36,7 @@ import { formatShiftStaffLabel, getCalendarItemDisplayLabel } from '../../lib/ca
 import { itemHasShiftConflict } from '../../lib/calendar-conflicts'
 import { defaultEventEnd, allDayEventRange, isAllDayCalendarItem, isCalendarItemPassed, normalizeEventRange } from '../../lib/calendar-datetime'
 import { IconAvatar } from '../../components/icons/IconAvatar'
+import { BusyOverlay } from '../../components/BusyOverlay'
 import { defaultIconIdForKind } from '../../lib/icons/defaults'
 import { useMediaQuery } from '../../lib/use-media-query'
 import {
@@ -56,16 +67,9 @@ import { useLocaleStore } from '../../store/locale'
 import type { CalendarItem, CalendarItemKind, Personnel } from '../../types/domain'
 import { useDisplayPreferences } from '../../store/display-preferences'
 import { filterCalendarItems, useCalendarShell } from './CalendarShellContext'
-import {
-  analyzeCopyConflicts,
-  canReplaceCopyConflicts,
-  type CopyConflictAnalysis,
-} from '../../lib/calendar-copy-overwrite'
-import { buildDuplicateTargets } from '../../lib/calendar-series'
 import { buildScheduleCopyTargets, type ScheduleAction } from '../../lib/calendar-schedule-copy'
 import { buildSchedulePrintModel } from './calendar-print'
 import { renderSchedulePdf } from './calendar-print-pdf'
-import { CopyOverwriteConfirmModal } from './CopyOverwriteConfirmModal'
 import {
   CalendarScheduleCopyModal,
   type ScheduleCopyScope,
@@ -75,8 +79,10 @@ import {
   EventSeriesMenu,
   type EventSeriesMenuState,
 } from './EventSeriesMenu'
+import { DayEventsModal } from './DayEventsModal'
 import { MobileCalendarAgenda } from './MobileCalendarAgenda'
 import { WeekScheduleModal } from './WeekScheduleModal'
+import { ShiftOverlapDiagramModal } from './ShiftOverlapDiagramModal'
 
 const MOBILE_CALENDAR_QUERY = '(max-width: 720px)'
 
@@ -99,23 +105,6 @@ const calendarViews = [
 ] as const
 
 type CalendarViewId = (typeof calendarViews)[number]['id']
-
-type PendingCopyOverwrite =
-  | {
-      kind: 'schedule'
-      action: ScheduleAction
-      analysis: CopyConflictAnalysis
-    }
-  | {
-      kind: 'series'
-      action: CalendarSeriesAction
-      analysis: CopyConflictAnalysis
-    }
-
-interface CopyExecutionOptions {
-  overwriteItemIds?: string[]
-  skipConflictedTargetKeys?: string[]
-}
 
 function getInitialView(): CalendarViewId {
   if (typeof window !== 'undefined' && window.matchMedia(MOBILE_CALENDAR_QUERY).matches) {
@@ -240,10 +229,12 @@ function CalendarUtilityRibbon({
   onPrint,
   printBusy = false,
   onCreateAllDay,
+  onShowShiftOverlap,
   showViewSwitch = true,
   showCopy = true,
   showPrint = true,
   showCreateAllDay = true,
+  showShiftOverlap = true,
   showNightShift = true,
 }: {
   title: string
@@ -259,10 +250,12 @@ function CalendarUtilityRibbon({
   onPrint: () => void
   printBusy?: boolean
   onCreateAllDay: () => void
+  onShowShiftOverlap: () => void
   showViewSwitch?: boolean
   showCopy?: boolean
   showPrint?: boolean
   showCreateAllDay?: boolean
+  showShiftOverlap?: boolean
   showNightShift?: boolean
 }) {
   const { t } = useTranslation(['calendar', 'common'])
@@ -287,7 +280,7 @@ function CalendarUtilityRibbon({
       <h2 className="calendar-utility-ribbon__title">{title}</h2>
 
       <div className="calendar-utility-ribbon__tools">
-        {showCreateAllDay || showCopy || showPrint || showNightShift ? (
+        {showCreateAllDay || showShiftOverlap || showCopy || showPrint || showNightShift ? (
           <div className="calendar-utility-ribbon__icons">
             {showCreateAllDay ? (
               <button
@@ -298,6 +291,18 @@ function CalendarUtilityRibbon({
                 onClick={onCreateAllDay}
               >
                 <CalendarDays size={18} aria-hidden="true" />
+              </button>
+            ) : null}
+
+            {showShiftOverlap ? (
+              <button
+                type="button"
+                className="calendar-ribbon-btn calendar-ribbon-btn--icon"
+                aria-label={t('calendar:aria.showShiftOverlap')}
+                title={t('calendar:aria.showShiftOverlap')}
+                onClick={onShowShiftOverlap}
+              >
+                <ChartGantt size={18} aria-hidden="true" />
               </button>
             ) : null}
 
@@ -344,17 +349,21 @@ function CalendarUtilityRibbon({
 
         {showViewSwitch ? (
           <div className="calendar-view-switch" role="group" aria-label={t('calendar:aria.viewSwitch')}>
-            {calendarViews.map((view) => (
-              <button
-                key={view.id}
-                type="button"
-                className={clsx('calendar-ribbon-btn', activeView === view.id && 'is-active')}
-                aria-pressed={activeView === view.id}
-                onClick={() => onChangeView(view.id)}
-              >
-                {t(`calendar:${view.labelKey}`)}
-              </button>
-            ))}
+            {calendarViews.map((view) => {
+              const isActive = activeView === view.id
+              return (
+                <button
+                  key={view.id}
+                  type="button"
+                  className={clsx('calendar-ribbon-btn', isActive && 'is-active')}
+                  aria-pressed={isActive}
+                  onClick={() => onChangeView(view.id)}
+                >
+                  {isActive ? <Check size={14} aria-hidden="true" strokeWidth={2.75} /> : null}
+                  {t(`calendar:${view.labelKey}`)}
+                </button>
+              )
+            })}
           </div>
         ) : null}
       </div>
@@ -383,8 +392,9 @@ export function PharmacyCalendar() {
   const calendarRef = useRef<FullCalendar>(null)
   const [scheduleCopyOpen, setScheduleCopyOpen] = useState(false)
   const [weekScheduleOpen, setWeekScheduleOpen] = useState(false)
+  const [shiftOverlapOpen, setShiftOverlapOpen] = useState(false)
   const [scheduleCopyError, setScheduleCopyError] = useState<string | null>(null)
-  const [pendingCopyOverwrite, setPendingCopyOverwrite] = useState<PendingCopyOverwrite | null>(null)
+  const [calendarBusyLabel, setCalendarBusyLabel] = useState<string | null>(null)
   const [printBusy, setPrintBusy] = useState(false)
   const [printError, setPrintError] = useState<string | null>(null)
   const suppressEventClickUntilRef = useRef(0)
@@ -406,6 +416,7 @@ export function PharmacyCalendar() {
   const [agendaDate, setAgendaDate] = useState(() => new Date())
   const [seriesMenu, setSeriesMenu] = useState<EventSeriesMenuState | null>(null)
   const [seriesMenuError, setSeriesMenuError] = useState<string | null>(null)
+  const [dayOverflowDate, setDayOverflowDate] = useState<Date | null>(null)
   const [passedTick, setPassedTick] = useState(0)
 
   useEffect(() => {
@@ -484,12 +495,19 @@ export function PharmacyCalendar() {
     suppressEventClickUntilRef.current = Date.now() + 400
   }, [])
 
-  const closeSeriesMenu = useCallback(() => {
-    setSeriesMenu(null)
-    setSeriesMenuError(null)
-  }, [])
+  const closeSeriesMenu = useCallback(
+    (options?: { force?: boolean }) => {
+      if (seriesActions.isPending && !options?.force) return
+      setSeriesMenu(null)
+      setSeriesMenuError(null)
+    },
+    [seriesActions.isPending],
+  )
+
+  const closeDayOverflow = useCallback(() => setDayOverflowDate(null), [])
 
   const openSeriesMenu = useCallback((item: CalendarItem, x: number, y: number) => {
+    setDayOverflowDate(null)
     setSeriesMenuError(null)
     setSeriesMenu({ item, x, y })
   }, [])
@@ -499,10 +517,14 @@ export function PharmacyCalendar() {
     return { start, end: addDays(start, 7) }
   }, [agendaDate])
 
-  const closeScheduleCopyModal = useCallback(() => {
-    setScheduleCopyOpen(false)
-    setScheduleCopyError(null)
-  }, [])
+  const closeScheduleCopyModal = useCallback(
+    (options?: { force?: boolean }) => {
+      if (scheduleActions.isPending && !options?.force) return
+      setScheduleCopyOpen(false)
+      setScheduleCopyError(null)
+    },
+    [scheduleActions.isPending],
+  )
 
   const scheduleCopyScope = useMemo((): ScheduleCopyScope => {
     if (showMobileWeekAgenda || activeView === 'timeGridWeek') return 'week'
@@ -552,20 +574,24 @@ export function PharmacyCalendar() {
   )
 
   const executeScheduleAction = useCallback(
-    async (action: ScheduleAction, options: CopyExecutionOptions = {}) => {
+    async (action: ScheduleAction) => {
       setScheduleCopyError(null)
-      await scheduleActions.mutateAsync({
-        action,
-        viewContext: scheduleViewContext,
-        timezone: orgQuery.data?.timezone,
-        allItems: calendarItems,
-        canCreateItem: canCreateCalendarItem,
-        canDeleteItem: canDeleteCalendarItem,
-        overwriteItemIds: options.overwriteItemIds,
-        skipConflictedTargetKeys: options.skipConflictedTargetKeys,
-      })
-      closeScheduleCopyModal()
-      setPendingCopyOverwrite(null)
+      setCalendarBusyLabel(
+        action.type === 'clear' ? t('scheduleCopy.clearing') : t('scheduleCopy.working'),
+      )
+      try {
+        await scheduleActions.mutateAsync({
+          action,
+          viewContext: scheduleViewContext,
+          timezone: orgQuery.data?.timezone,
+          allItems: calendarItems,
+          canCreateItem: canCreateCalendarItem,
+          canDeleteItem: canDeleteCalendarItem,
+        })
+        closeScheduleCopyModal({ force: true })
+      } finally {
+        setCalendarBusyLabel(null)
+      }
     },
     [
       scheduleActions,
@@ -575,6 +601,7 @@ export function PharmacyCalendar() {
       canCreateCalendarItem,
       canDeleteCalendarItem,
       closeScheduleCopyModal,
+      t,
     ],
   )
 
@@ -759,21 +786,25 @@ export function PharmacyCalendar() {
     (canEditCalendar && activeView === 'timeGridDay') || showWeekScheduleFab
 
   const executeSeriesAction = useCallback(
-    async (action: CalendarSeriesAction, options: CopyExecutionOptions = {}) => {
+    async (action: CalendarSeriesAction) => {
       if (!seriesMenu) return
 
       setSeriesMenuError(null)
-      await seriesActions.mutateAsync({
-        action,
-        item: seriesMenu.item,
-        viewContext: scheduleViewContext,
-        timezone: orgQuery.data?.timezone,
-        allItems: calendarItems,
-        overwriteItemIds: options.overwriteItemIds,
-        skipConflictedTargetKeys: options.skipConflictedTargetKeys,
-      })
-      closeSeriesMenu()
-      setPendingCopyOverwrite(null)
+      setCalendarBusyLabel(
+        action.type === 'duplicate' ? t('series.copying') : t('series.working'),
+      )
+      try {
+        await seriesActions.mutateAsync({
+          action,
+          item: seriesMenu.item,
+          viewContext: scheduleViewContext,
+          timezone: orgQuery.data?.timezone,
+          allItems: calendarItems,
+        })
+        closeSeriesMenu({ force: true })
+      } finally {
+        setCalendarBusyLabel(null)
+      }
     },
     [
       seriesMenu,
@@ -782,6 +813,7 @@ export function PharmacyCalendar() {
       orgQuery.data?.timezone,
       calendarItems,
       closeSeriesMenu,
+      t,
     ],
   )
 
@@ -789,84 +821,13 @@ export function PharmacyCalendar() {
     async (action: CalendarSeriesAction) => {
       if (!seriesMenu) return
 
-      if (action.type === 'duplicate') {
-        const targets = buildDuplicateTargets(seriesMenu.item, action.mode, scheduleViewContext)
-        if (targets.length === 0) {
-          setSeriesMenuError(t('series.error'))
-          return
-        }
-
-        const copyTargets = targets.map((target) => ({
-          ...target,
-          sourceItem: seriesMenu.item,
-        }))
-        const analysis = analyzeCopyConflicts(
-          copyTargets,
-          calendarItems,
-          canDeleteCalendarItem,
-          [seriesMenu.item.id],
-        )
-        if (analysis.hasConflicts) {
-          if (!canReplaceCopyConflicts(analysis) && analysis.clearTargetCount === 0) {
-            setSeriesMenuError(t('copyOverwrite.noPermission'))
-            return
-          }
-          setPendingCopyOverwrite({ kind: 'series', action, analysis })
-          return
-        }
-      }
-
       try {
         await executeSeriesAction(action)
       } catch (error) {
         setSeriesMenuError(error instanceof Error ? error.message : t('series.error'))
       }
     },
-    [
-      seriesMenu,
-      scheduleViewContext,
-      calendarItems,
-      canDeleteCalendarItem,
-      executeSeriesAction,
-      t,
-    ],
-  )
-
-  const runPendingCopyAction = useCallback(
-    async (mode: 'replace' | 'ignore') => {
-      if (!pendingCopyOverwrite) return
-
-      const { analysis } = pendingCopyOverwrite
-      const options: CopyExecutionOptions =
-        mode === 'replace'
-          ? { overwriteItemIds: analysis.replaceableItemIds }
-          : { skipConflictedTargetKeys: analysis.conflictedTargetKeys }
-
-      try {
-        if (pendingCopyOverwrite.kind === 'schedule') {
-          await executeScheduleAction(pendingCopyOverwrite.action, options)
-          return
-        }
-
-        await executeSeriesAction(pendingCopyOverwrite.action, options)
-      } catch (error) {
-        const message =
-          error instanceof Error
-            ? error.message === 'No copies to create after skipping overlapping events.'
-              ? t('copyOverwrite.nothingAfterIgnore')
-              : error.message
-            : pendingCopyOverwrite.kind === 'schedule'
-              ? t('scheduleCopy.error')
-              : t('series.error')
-        if (pendingCopyOverwrite.kind === 'schedule') {
-          setScheduleCopyError(message)
-        } else {
-          setSeriesMenuError(message)
-        }
-        setPendingCopyOverwrite(null)
-      }
-    },
-    [pendingCopyOverwrite, executeScheduleAction, executeSeriesAction, t],
+    [seriesMenu, executeSeriesAction, t],
   )
 
   const canOpenSeriesMenu = useCallback(
@@ -968,6 +929,7 @@ export function PharmacyCalendar() {
   const handleEventClick = (arg: { event: { extendedProps: Record<string, unknown> } }) => {
     if (Date.now() < suppressEventClickUntilRef.current) return
     const item = arg.event.extendedProps.item as CalendarItem
+    setDayOverflowDate(null)
     openEditEvent(item)
   }
 
@@ -1047,6 +1009,7 @@ export function PharmacyCalendar() {
         onPrint={handlePrint}
         printBusy={printBusy}
         onCreateAllDay={handleCreateAllDay}
+        onShowShiftOverlap={() => setShiftOverlapOpen(true)}
         showCopy={canEditCalendar}
         showCreateAllDay={canCreateAllDay}
         showNightShift={!isMobileCalendar}
@@ -1100,6 +1063,10 @@ export function PharmacyCalendar() {
             height="100%"
             events={events}
             dayMaxEvents={3}
+            moreLinkClick={(info) => {
+              info.jsEvent.preventDefault()
+              setDayOverflowDate(info.date)
+            }}
             datesSet={handleDatesSet}
             dayHeaderContent={(arg) => {
               const showAdd = canEditCalendar && arg.view.type === 'timeGridWeek'
@@ -1178,32 +1145,26 @@ export function PharmacyCalendar() {
         onAction={handleScheduleAction}
       />
 
-      <CopyOverwriteConfirmModal
-        open={pendingCopyOverwrite !== null}
-        analysis={
-          pendingCopyOverwrite?.analysis ?? {
-            clearTargetCount: 0,
-            conflictTargetCount: 0,
-            conflictingItemIds: [],
-            replaceableItemIds: [],
-            noteConflicts: 0,
-            shiftConflicts: 0,
-            hasConflicts: false,
-            conflictedTargetKeys: [],
-          }
-        }
-        canReplace={
-          pendingCopyOverwrite ? canReplaceCopyConflicts(pendingCopyOverwrite.analysis) : false
-        }
-        isPending={scheduleActions.isPending || seriesActions.isPending}
-        onCancel={() => setPendingCopyOverwrite(null)}
-        onIgnore={() => runPendingCopyAction('ignore')}
-        onReplace={() => runPendingCopyAction('replace')}
+      <DayEventsModal
+        date={dayOverflowDate}
+        items={filteredItems}
+        allItems={calendarItems}
+        personnel={personnel}
+        onClose={closeDayOverflow}
+        onOpenItem={(item) => {
+          if (Date.now() < suppressEventClickUntilRef.current) return
+          setDayOverflowDate(null)
+          openEditEvent(item)
+        }}
+        onOpenSeriesMenu={openSeriesMenu}
+        onSuppressItemClick={suppressEventClick}
+        canOpenSeriesMenu={canOpenSeriesMenu}
       />
 
       <EventSeriesMenu
         menu={seriesMenu}
         allItems={calendarItems}
+        personnel={personnel}
         canCreate={seriesMenu ? canCreateKind(can, seriesMenu.item.kind) : false}
         canDelete={seriesMenu ? canDeleteKind(can, seriesMenu.item.kind) : false}
         isPending={seriesActions.isPending}
@@ -1212,10 +1173,39 @@ export function PharmacyCalendar() {
         onAction={handleSeriesAction}
       />
 
+      <BusyOverlay
+        open={scheduleActions.isPending || seriesActions.isPending}
+        label={
+          calendarBusyLabel ??
+          (scheduleActions.isPending ? t('scheduleCopy.working') : t('series.working'))
+        }
+      />
+
       <WeekScheduleModal
         open={weekScheduleOpen}
         weekStart={mobileWeekStart}
         onClose={() => setWeekScheduleOpen(false)}
+      />
+
+      <ShiftOverlapDiagramModal
+        open={shiftOverlapOpen}
+        date={showMobileListView ? agendaDate : calendarDate}
+        daySelectScope={
+          activeView === 'dayGridMonth'
+            ? 'month'
+            : activeView === 'timeGridWeek' || showMobileWeekAgenda
+              ? 'week'
+              : null
+        }
+        items={filteredItems}
+        personnel={personnel}
+        windowStart={nightShiftEnabled ? FULL_DAY_START : workingDayStart}
+        windowEnd={nightShiftEnabled ? FULL_DAY_END : workingDayEnd}
+        onClose={() => setShiftOverlapOpen(false)}
+        onOpenItem={(item) => {
+          setShiftOverlapOpen(false)
+          openEditEvent(item)
+        }}
       />
 
       {showAddFab ? (

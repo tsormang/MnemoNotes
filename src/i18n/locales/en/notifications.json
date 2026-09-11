@@ -17,7 +17,7 @@
   "mobile": {
     "enable": "Enable mobile alerts",
     "on": "Mobile alerts on",
-    "onHint": "This device can receive push reminders when the app is in the background.",
+    "onHint": "This device can receive system reminders even when the app is in the background or closed.",
     "blocked": "Mobile alerts blocked in device settings",
     "registering": "Registering device…",
     "retry": "Retry mobile registration",

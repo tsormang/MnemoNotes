@@ -10,6 +10,24 @@ import { invokeEdgeFunction } from '../../lib/edge-functions'
 import { getNativePlatform, isNativeApp } from '../../lib/capacitor'
 import { isSupabaseConfigured } from '../../lib/supabase'
 
+const REMINDERS_CHANNEL_ID = 'reminders'
+
+async function ensureRemindersChannel() {
+  try {
+    await PushNotifications.createChannel({
+      id: REMINDERS_CHANNEL_ID,
+      name: 'Shift reminders',
+      description: 'MnemoNotes shift and acknowledgement reminders',
+      importance: 5,
+      visibility: 1,
+      vibration: true,
+      lights: true,
+    })
+  } catch {
+    /* Channel APIs are Android 8+; ignore if unavailable. */
+  }
+}
+
 export type MobilePushPermission = 'prompt' | 'granted' | 'denied' | 'unsupported'
 
 export interface PushDeepLinkPayload {
@@ -88,6 +106,7 @@ export function useNativePushNotifications({
     setIsRegistering(true)
 
     try {
+      await ensureRemindersChannel()
       await PushNotifications.register()
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Push registration failed.'
@@ -191,8 +210,11 @@ export function useNativePushNotifications({
 
       setPermission(next)
 
-      if (next === 'granted' && !tokenRef.current) {
-        await registerForPush()
+      if (next === 'granted') {
+        await ensureRemindersChannel()
+        if (!tokenRef.current) {
+          await registerForPush()
+        }
       }
     })
 

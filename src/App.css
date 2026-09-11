@@ -380,6 +380,42 @@
   }
 }
 
+.busy-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: rgb(23 33 29 / 48%);
+  cursor: wait;
+}
+
+.busy-overlay__card {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  min-width: min(100%, 220px);
+  padding: 20px 24px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  color: var(--color-text);
+  text-align: center;
+}
+
+.busy-overlay__spinner {
+  color: var(--color-brand);
+  animation: spin 0.8s linear infinite;
+}
+
+.busy-overlay__label {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .eyebrow {
   color: var(--color-text-subtle);
   font-size: 12px;
@@ -603,6 +639,21 @@
   background: var(--color-brand-soft);
   border-color: var(--color-brand);
   color: var(--color-brand);
+}
+
+.calendar-view-switch .calendar-ribbon-btn {
+  gap: 6px;
+}
+
+.calendar-view-switch .calendar-ribbon-btn.is-active {
+  border-width: 2px;
+  border-color: var(--color-brand);
+  background: var(--color-brand-soft);
+  color: var(--color-brand-dark);
+  box-shadow:
+    0 0 0 1px var(--color-brand-soft-border),
+    inset 0 0 0 1px rgb(255 255 255 / 55%);
+  font-weight: 700;
 }
 
 .calendar-ribbon-btn:focus-visible,
@@ -1774,7 +1825,7 @@
 .modal-root {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: 11000;
   display: grid;
   place-items: center;
   padding: 24px 16px;
@@ -1833,10 +1884,215 @@
   -webkit-overflow-scrolling: touch;
 }
 
+.modal-body:has(.shift-overlap-diagram) {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.shift-overlap-diagram {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  height: min(62dvh, 560px);
+  overflow: hidden;
+}
+
+.shift-overlap-diagram--empty {
+  height: auto;
+}
+
+.shift-overlap-diagram__subtitle {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.shift-overlap-diagram__day-field {
+  display: grid;
+  gap: 6px;
+  flex-shrink: 0;
+  max-width: 280px;
+}
+
+.shift-overlap-diagram__day-field .form-select {
+  min-height: 38px;
+}
+
+.shift-overlap-diagram__chart {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.shift-overlap-diagram__axis,
+.shift-overlap-diagram__lane {
+  display: grid;
+  grid-template-columns: minmax(88px, 132px) minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.shift-overlap-diagram__lanes {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.shift-overlap-diagram__lane {
+  flex: 1 1 0;
+  min-height: 44px;
+}
+
+.shift-overlap-diagram__lane-label {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  color: var(--color-text);
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+}
+
+.shift-overlap-diagram__lane-label span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shift-overlap-diagram__track {
+  position: relative;
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background:
+    linear-gradient(to right, transparent 0, transparent calc(100% - 1px), var(--color-border) calc(100% - 1px)),
+    repeating-linear-gradient(
+      to right,
+      var(--color-bg) 0,
+      var(--color-bg) calc(100% / 7 - 1px),
+      var(--color-border) calc(100% / 7 - 1px),
+      var(--color-border) calc(100% / 7)
+    );
+  overflow: hidden;
+}
+
+.shift-overlap-diagram__track--axis {
+  min-height: 22px;
+  border-color: transparent;
+  background: transparent;
+  overflow: visible;
+}
+
+.shift-overlap-diagram__tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.shift-overlap-diagram__tick[data-edge='start'] {
+  transform: translateX(0);
+}
+
+.shift-overlap-diagram__tick[data-edge='end'] {
+  transform: translateX(-100%);
+}
+
+.shift-overlap-diagram__bar {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 8px 0 5px;
+  border: 1.5px solid;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  overflow: hidden;
+  font: inherit;
+  text-align: left;
+}
+
+.shift-overlap-diagram__bar:hover {
+  filter: brightness(0.97);
+}
+
+.shift-overlap-diagram__bar:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 1px;
+  z-index: 1;
+}
+
+.shift-overlap-diagram__bar .entity-avatar {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  font-size: 12px;
+  box-shadow:
+    0 0 0 2px rgb(255 255 255 / 90%),
+    0 1px 3px rgb(28 42 38 / 18%);
+}
+
+.shift-overlap-diagram__bar .entity-avatar img {
+  width: 100%;
+  height: 100%;
+}
+
+.shift-overlap-diagram__bar-time {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .shift-overlap-diagram {
+    height: min(68dvh, 520px);
+  }
+
+  .shift-overlap-diagram__axis,
+  .shift-overlap-diagram__lane {
+    grid-template-columns: minmax(72px, 96px) minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .shift-overlap-diagram__bar-time {
+    font-size: 10px;
+  }
+}
+
+
 .modal-hint {
   color: var(--color-text-muted);
   font-size: 13px;
   margin-top: 12px;
+}
+
+.day-events-modal__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
 }
 
 .print-preview-subtitle {
@@ -2063,7 +2319,7 @@
 
 .event-series-menu {
   position: fixed;
-  z-index: 1200;
+  z-index: 11100;
   min-width: 240px;
   max-width: min(320px, calc(100vw - 16px));
   padding: 6px;
@@ -2071,6 +2327,16 @@
   border-radius: var(--radius-md);
   background: var(--color-surface);
   box-shadow: var(--shadow-lg, 0 16px 40px rgba(15, 23, 42, 0.18));
+}
+
+.event-series-menu__label {
+  margin: 0 4px 4px;
+  padding: 6px 8px 8px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .event-series-menu__item {
@@ -2108,6 +2374,19 @@
   color: var(--color-danger, #b42318);
   font-size: 13px;
   line-height: 1.4;
+}
+
+.event-series-menu__busy,
+.schedule-copy-modal__busy {
+  margin: 8px 0 0;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.event-series-menu__busy {
+  margin: 6px 4px 0;
 }
 
 .schedule-copy-modal__hint {
@@ -2151,11 +2430,6 @@
   color: var(--color-danger, #b42318);
   font-size: 13px;
   line-height: 1.4;
-}
-
-.copy-overwrite-modal__message {
-  margin: 0 0 16px;
-  line-height: 1.5;
 }
 
 .create-event-form .field-readonly,
@@ -2599,7 +2873,7 @@
   position: fixed;
   right: 16px;
   bottom: 16px;
-  z-index: 1200;
+  z-index: 11500;
   display: grid;
   gap: 10px;
   width: min(360px, calc(100vw - 32px));
@@ -4288,6 +4562,9 @@ button.auth-form__link {
   .calendar-fill--mobile .calendar-view-switch .calendar-ribbon-btn {
     width: 100%;
     justify-content: center;
+    gap: 4px;
+    padding: 0.35em 0.45em;
+    font-size: 13px;
   }
 
   .calendar-fill--mobile:not(.calendar-fill--mobile-agenda) .calendar-print-body {

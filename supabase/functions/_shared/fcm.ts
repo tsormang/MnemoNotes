@@ -103,7 +103,6 @@ export async function sendFcmMessage(token: string, payload: FcmPayload): Promis
             priority: 'HIGH',
             notification: {
               channel_id: 'reminders',
-              click_action: 'OPEN_EVENT',
             },
           },
         },

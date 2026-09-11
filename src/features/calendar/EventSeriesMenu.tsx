@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import type { CalendarItem } from '../../types/domain'
+import type { CalendarItem, Personnel } from '../../types/domain'
+import { getCalendarItemDisplayLabel } from '../../lib/calendar-display'
 import { getSeriesSiblings } from '../../lib/calendar-series'
+import { useExclusiveOverlay } from '../../lib/exclusive-overlay'
 import type { CalendarSeriesAction } from '../../lib/queries/mutations'
 
 export interface EventSeriesMenuState {
@@ -14,6 +16,7 @@ export interface EventSeriesMenuState {
 interface EventSeriesMenuProps {
   menu: EventSeriesMenuState | null
   allItems: CalendarItem[]
+  personnel: Personnel[]
   canCreate: boolean
   canDelete: boolean
   isPending: boolean
@@ -55,6 +58,7 @@ const menuItems: Array<{
 export function EventSeriesMenu({
   menu,
   allItems,
+  personnel,
   canCreate,
   canDelete,
   isPending,
@@ -65,23 +69,28 @@ export function EventSeriesMenu({
   const { t } = useTranslation('calendar')
   const menuRef = useRef<HTMLDivElement>(null)
 
+  useExclusiveOverlay(menu != null, onClose, isPending)
+
   useEffect(() => {
     if (!menu) return
 
     const onPointerDown = (event: MouseEvent | TouchEvent) => {
+      if (isPending) return
       const target = event.target as Node | null
       if (menuRef.current?.contains(target)) return
       onClose()
     }
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape' && !isPending) onClose()
     }
 
     window.addEventListener('mousedown', onPointerDown)
     window.addEventListener('touchstart', onPointerDown)
     window.addEventListener('keydown', onKeyDown)
-    window.addEventListener('scroll', onClose, true)
+    if (!isPending) {
+      window.addEventListener('scroll', onClose, true)
+    }
 
     return () => {
       window.removeEventListener('mousedown', onPointerDown)
@@ -89,7 +98,7 @@ export function EventSeriesMenu({
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('scroll', onClose, true)
     }
-  }, [menu, onClose])
+  }, [menu, onClose, isPending])
 
   useEffect(() => {
     if (!menu || !menuRef.current) return
@@ -108,7 +117,7 @@ export function EventSeriesMenu({
 
     menuRef.current.style.left = `${left}px`
     menuRef.current.style.top = `${top}px`
-  }, [menu, errorMessage])
+  }, [menu, errorMessage, isPending])
 
   if (!menu) return null
 
@@ -120,8 +129,10 @@ export function EventSeriesMenu({
       className="event-series-menu"
       style={{ left: menu.x, top: menu.y }}
       role="menu"
-      aria-label="Event actions"
+      aria-label={t('series.menuLabel')}
+      aria-busy={isPending || undefined}
     >
+      <p className="event-series-menu__label">{getCalendarItemDisplayLabel(menu.item, personnel)}</p>
       {menuItems.map((entry) => {
         const disabled =
           isPending ||
@@ -145,6 +156,11 @@ export function EventSeriesMenu({
           </button>
         )
       })}
+      {isPending ? (
+        <p className="event-series-menu__busy" role="status" aria-live="polite">
+          {t('series.working')}
+        </p>
+      ) : null}
       {errorMessage ? <p className="event-series-menu__error">{errorMessage}</p> : null}
     </div>,
     document.body,

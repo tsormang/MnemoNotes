@@ -10,11 +10,9 @@ import {
   buildScheduleCopyTargets,
   getScheduleClearItemIds,
   type ScheduleAction,
-  type ScheduleCopyTarget,
 } from '../calendar-schedule-copy'
-import { filterCopyTargetsByKeys, type CopyTargetLike } from '../calendar-copy-overwrite'
 import { resolveNotificationOffsets } from '../notification-schedule'
-import { invokeEdgeFunction } from '../edge-functions'
+import { scheduleAndDispatchNotifications } from './notifications'
 import { supabase } from '../supabase'
 import { DEFAULT_ROLE_ICON_ID } from '../icons/role-icons.generated'
 import type { CalendarItemInput, CompanyRoleInput } from '../validation'
@@ -451,7 +449,7 @@ export function useUpsertCalendarItem(organizationId: string | null, userId: str
     },
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey })
-      void invokeEdgeFunction('schedule-notifications', {}).catch(() => undefined)
+      void scheduleAndDispatchNotifications().catch(() => undefined)
     },
   })
 }
@@ -551,19 +549,6 @@ async function insertCalendarItemClone(
   return data.id
 }
 
-async function deleteCalendarItemsByIds(organizationId: string, ids: string[]) {
-  if (!supabase) throw new Error('Supabase is not configured.')
-  if (ids.length === 0) return
-
-  const { error } = await supabase
-    .from('calendar_items')
-    .delete()
-    .in('id', ids)
-    .eq('organization_id', organizationId)
-
-  if (error) throw error
-}
-
 export type CalendarSeriesAction =
   | { type: 'duplicate'; mode: SeriesDuplicateMode }
   | { type: 'delete' }
@@ -580,16 +565,12 @@ export function useCalendarSeriesActions(organizationId: string | null, userId: 
       viewContext,
       timezone,
       allItems,
-      overwriteItemIds = [],
-      skipConflictedTargetKeys = [],
     }: {
       action: CalendarSeriesAction
       item: CalendarItem
       viewContext: CalendarSeriesViewContext
       timezone?: string
       allItems: CalendarItem[]
-      overwriteItemIds?: string[]
-      skipConflictedTargetKeys?: string[]
     }) => {
       if (!organizationId || !supabase) {
         throw new Error('Organization is not available.')
@@ -632,23 +613,12 @@ export function useCalendarSeriesActions(organizationId: string | null, userId: 
         throw new Error('No new copies to create — target days may be empty or fall on Sunday.')
       }
 
-      const copyTargets: CopyTargetLike[] = targets.map((target) => ({
-        ...target,
-        sourceItem: item,
-      }))
-      const targetsToInsert = filterCopyTargetsByKeys(copyTargets, skipConflictedTargetKeys)
-      if (targetsToInsert.length === 0) {
-        throw new Error('No copies to create after skipping overlapping events.')
-      }
-
-      await deleteCalendarItemsByIds(organizationId, overwriteItemIds)
-
       const seriesId = item.seriesId ?? crypto.randomUUID()
       if (!item.seriesId) {
         await setItemSeriesId(organizationId, item.id, seriesId)
       }
 
-      for (const target of targetsToInsert) {
+      for (const target of targets) {
         await insertCalendarItemClone(
           organizationId,
           userId,
@@ -656,7 +626,7 @@ export function useCalendarSeriesActions(organizationId: string | null, userId: 
         )
       }
 
-      return { created: targetsToInsert.length, deleted: overwriteItemIds.length }
+      return { created: targets.length, deleted: 0 }
     },
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey })
@@ -676,8 +646,6 @@ export function useCalendarScheduleActions(organizationId: string | null, userId
       allItems,
       canCreateItem,
       canDeleteItem,
-      overwriteItemIds = [],
-      skipConflictedTargetKeys = [],
     }: {
       action: ScheduleAction
       viewContext: CalendarSeriesViewContext
@@ -685,8 +653,6 @@ export function useCalendarScheduleActions(organizationId: string | null, userId
       allItems: CalendarItem[]
       canCreateItem: (item: CalendarItem) => boolean
       canDeleteItem: (item: CalendarItem) => boolean
-      overwriteItemIds?: string[]
-      skipConflictedTargetKeys?: string[]
     }) => {
       if (!organizationId || !supabase) {
         throw new Error('Organization is not available.')
@@ -718,21 +684,7 @@ export function useCalendarScheduleActions(organizationId: string | null, userId
         throw new Error('No new copies to create — the range may be empty or targets fall on Sunday.')
       }
 
-      const targetsToInsert = filterCopyTargetsByKeys(
-        targets as CopyTargetLike[],
-        skipConflictedTargetKeys,
-      )
-      if (targetsToInsert.length === 0) {
-        throw new Error('No copies to create after skipping overlapping events.')
-      }
-
-      const deletableOverwriteIds = overwriteItemIds.filter((id) => {
-        const item = allItems.find((entry) => entry.id === id)
-        return item ? canDeleteItem(item) : false
-      })
-      await deleteCalendarItemsByIds(organizationId, deletableOverwriteIds)
-
-      for (const target of targetsToInsert as ScheduleCopyTarget[]) {
+      for (const target of targets) {
         await insertCalendarItemClone(
           organizationId,
           userId,
@@ -746,7 +698,7 @@ export function useCalendarScheduleActions(organizationId: string | null, userId
         )
       }
 
-      return { created: targetsToInsert.length, deleted: deletableOverwriteIds.length }
+      return { created: targets.length, deleted: 0 }
     },
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey })

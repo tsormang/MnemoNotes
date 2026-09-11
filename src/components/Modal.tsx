@@ -2,6 +2,7 @@ import { X } from 'lucide-react'
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
+import { useExclusiveOverlay } from '../lib/exclusive-overlay'
 
 type ModalVariant = 'modal' | 'panel'
 
@@ -12,6 +13,13 @@ interface ModalProps {
   children: ReactNode
   variant?: ModalVariant
   wide?: boolean
+  /** When true, Escape / backdrop / close button do not dismiss the dialog. */
+  busy?: boolean
+  /**
+   * When true (default), opening this dialog closes other root popups, and
+   * another exclusive overlay will close this one.
+   */
+  exclusive?: boolean
 }
 
 export function Modal({
@@ -21,10 +29,14 @@ export function Modal({
   children,
   variant = 'modal',
   wide = false,
+  busy = false,
+  exclusive = true,
 }: ModalProps) {
   const { t } = useTranslation('common')
   const titleId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
+
+  useExclusiveOverlay(open && exclusive, onClose, busy)
 
   useEffect(() => {
     if (!open) return
@@ -33,7 +45,7 @@ export function Modal({
     document.body.style.overflow = 'hidden'
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape' && !busy) onClose()
     }
 
     window.addEventListener('keydown', onKeyDown)
@@ -43,7 +55,7 @@ export function Modal({
       document.body.style.overflow = previousOverflow
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [open, onClose])
+  }, [open, onClose, busy])
 
   if (!open) return null
 
@@ -52,6 +64,7 @@ export function Modal({
       className={`modal-root ${variant === 'panel' ? 'modal-root--panel' : ''}`}
       role="presentation"
       onMouseDown={(event) => {
+        if (busy) return
         if (event.target === event.currentTarget) onClose()
       }}
     >
@@ -63,11 +76,18 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        aria-busy={busy || undefined}
         tabIndex={-1}
       >
         <header className="modal-header">
           <h2 id={titleId}>{title}</h2>
-          <button className="icon-ghost" type="button" aria-label={t('actions.close')} onClick={onClose}>
+          <button
+            className="icon-ghost"
+            type="button"
+            aria-label={t('actions.close')}
+            onClick={onClose}
+            disabled={busy}
+          >
             <X size={18} aria-hidden="true" />
           </button>
         </header>

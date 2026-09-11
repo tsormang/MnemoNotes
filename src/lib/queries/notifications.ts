@@ -318,10 +318,25 @@ export function useAcknowledgeCalendarItem(organizationId: string | null, userId
   })
 }
 
+/** Create due jobs, then try to send FCM immediately instead of waiting for cron. */
+export async function scheduleAndDispatchNotifications() {
+  await invokeEdgeFunction<{ ok: boolean }>('schedule-notifications', {})
+  try {
+    await invokeEdgeFunction<{ ok: boolean }>('dispatch-push-notifications', {})
+  } catch {
+    // Dispatch requires notifications.manage; cron still delivers push.
+  }
+}
+
 export function useRefreshNotifications() {
+  const queryClient = useQueryClient()
+
   return useMutation({
     mutationFn: async () => {
-      await invokeEdgeFunction<{ ok: boolean }>('schedule-notifications', {})
+      await scheduleAndDispatchNotifications()
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['notifications'] })
     },
   })
 }

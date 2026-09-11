@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   isActiveDueNotification,
   markAndFilterNewDueNotifications,
@@ -78,5 +78,36 @@ describe('markAndFilterNewDueNotifications', () => {
 
     expect(markAndFilterNewDueNotifications([notification], shownIds)).toHaveLength(1)
     expect(markAndFilterNewDueNotifications([notification], shownIds)).toHaveLength(0)
+  })
+})
+
+vi.mock('../edge-functions', () => ({
+  invokeEdgeFunction: vi.fn(),
+}))
+
+describe('scheduleAndDispatchNotifications', () => {
+  it('schedules jobs then dispatches push', async () => {
+    const { invokeEdgeFunction } = await import('../edge-functions')
+    const { scheduleAndDispatchNotifications } = await import('./notifications')
+    const invoke = vi.mocked(invokeEdgeFunction)
+    invoke.mockReset()
+    invoke.mockResolvedValue({ ok: true })
+
+    await scheduleAndDispatchNotifications()
+
+    expect(invoke).toHaveBeenNthCalledWith(1, 'schedule-notifications', {})
+    expect(invoke).toHaveBeenNthCalledWith(2, 'dispatch-push-notifications', {})
+  })
+
+  it('still succeeds when dispatch is forbidden', async () => {
+    const { invokeEdgeFunction } = await import('../edge-functions')
+    const { scheduleAndDispatchNotifications } = await import('./notifications')
+    const invoke = vi.mocked(invokeEdgeFunction)
+    invoke.mockReset()
+    invoke
+      .mockResolvedValueOnce({ ok: true })
+      .mockRejectedValueOnce(new Error('Forbidden.'))
+
+    await expect(scheduleAndDispatchNotifications()).resolves.toBeUndefined()
   })
 })

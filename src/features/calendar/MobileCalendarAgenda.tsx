@@ -46,7 +46,7 @@ function formatEventTime(item: CalendarItem, allDayLabel: string): string {
   return `${format(start, 'HH:mm')} – ${format(end, 'HH:mm')}`
 }
 
-function MobileAgendaCard({
+export function MobileAgendaCard({
   item,
   personnel,
   hasConflict,

@@ -85,18 +85,20 @@ export function EventSeriesMenu({
       if (event.key === 'Escape' && !isPending) onClose()
     }
 
+    const onScroll = () => {
+      if (!isPending) onClose()
+    }
+
     window.addEventListener('mousedown', onPointerDown)
     window.addEventListener('touchstart', onPointerDown)
     window.addEventListener('keydown', onKeyDown)
-    if (!isPending) {
-      window.addEventListener('scroll', onClose, true)
-    }
+    window.addEventListener('scroll', onScroll, true)
 
     return () => {
       window.removeEventListener('mousedown', onPointerDown)
       window.removeEventListener('touchstart', onPointerDown)
       window.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('scroll', onClose, true)
+      window.removeEventListener('scroll', onScroll, true)
     }
   }, [menu, onClose, isPending])
 

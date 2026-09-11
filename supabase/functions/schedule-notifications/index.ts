@@ -16,7 +16,15 @@ interface NotificationRuleRow {
     title: string
     kind: string
     requires_acknowledgement: boolean
+    created_by: string | null
   }
+}
+
+function asCalendarItem(
+  raw: NotificationRuleRow['calendar_items'] | NotificationRuleRow['calendar_items'][] | null | undefined,
+): NotificationRuleRow['calendar_items'] | null {
+  if (!raw) return null
+  return Array.isArray(raw) ? (raw[0] ?? null) : raw
 }
 
 function computeScheduledFor(
@@ -48,8 +56,9 @@ async function resolveRecipientIds(
   serviceClient: SupabaseClient,
   rule: NotificationRuleRow,
 ): Promise<Set<string>> {
-  const item = rule.calendar_items
+  const item = asCalendarItem(rule.calendar_items)
   const recipientIds = new Set<string>()
+  if (!item) return recipientIds
 
   if (item.kind === 'shift') {
     const { data: assignments } = await serviceClient
@@ -65,6 +74,18 @@ async function resolveRecipientIds(
     return recipientIds
   }
 
+  // Notes/tasks: every signed-in org member. Owners and managers often have no
+  // personnel.profile_id, so roster-only fan-out skipped them (empty panel, no FCM).
+  const { data: members } = await serviceClient
+    .from('organization_members')
+    .select('user_id')
+    .eq('organization_id', rule.organization_id)
+    .eq('status', 'active')
+
+  for (const row of members ?? []) {
+    if (row.user_id) recipientIds.add(row.user_id)
+  }
+
   const { data: personnel } = await serviceClient
     .from('personnel')
     .select('profile_id')
@@ -75,6 +96,8 @@ async function resolveRecipientIds(
   for (const row of personnel ?? []) {
     if (row.profile_id) recipientIds.add(row.profile_id)
   }
+
+  if (item.created_by) recipientIds.add(item.created_by)
 
   return recipientIds
 }
@@ -102,7 +125,7 @@ Deno.serve(async (request) => {
     const { data: rules, error: rulesError } = await serviceClient
       .from('notification_rules')
       .select(
-        'id, organization_id, calendar_item_id, trigger_kind, offset_minutes, calendar_items!inner(starts_at, ends_at, title, kind, requires_acknowledgement)',
+        'id, organization_id, calendar_item_id, trigger_kind, offset_minutes, calendar_items!inner(starts_at, ends_at, title, kind, requires_acknowledgement, created_by)',
       )
       .eq('enabled', true)
       .lte('calendar_items.starts_at', horizon.toISOString())
@@ -113,8 +136,8 @@ Deno.serve(async (request) => {
     let delivered = 0
 
     for (const rule of (rules ?? []) as NotificationRuleRow[]) {
-      const item = rule.calendar_items
-      if (new Date(item.ends_at).getTime() <= now.getTime()) continue
+      const item = asCalendarItem(rule.calendar_items)
+      if (!item || new Date(item.ends_at).getTime() <= now.getTime()) continue
 
       const scheduledFor = computeScheduledFor(
         item.starts_at,

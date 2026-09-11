@@ -79,6 +79,14 @@ Deno.serve(async (request) => {
       }
 
       if ((subscriptions ?? []).length === 0) {
+        await serviceClient
+          .from('notification_jobs')
+          .update({
+            attempts: job.attempts + 1,
+            last_error: 'No FCM device token for recipient',
+            updated_at: now,
+          })
+          .eq('id', job.id)
         continue
       }
 

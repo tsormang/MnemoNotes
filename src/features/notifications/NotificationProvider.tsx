@@ -8,6 +8,8 @@ import {
   useState,
   type PropsWithChildren,
 } from 'react'
+import { App as CapacitorApp } from '@capacitor/app'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthProvider'
 import { useWorkspace } from '../auth/WorkspaceProvider'
 import { useCalendarShell } from '../calendar/CalendarShellContext'
@@ -20,6 +22,7 @@ import {
   getDemoPendingAcknowledgements,
   isActiveDueNotification,
   markAndFilterNewDueNotifications,
+  scheduleAndDispatchNotifications,
   shouldPopupNotification,
   useAcknowledgeCalendarItem,
   useDismissNotificationJob,
@@ -90,9 +93,13 @@ interface NotificationContextValue {
 
 const NotificationContext = createContext<NotificationContextValue | null>(null)
 
+const NATIVE_NOTIFICATION_PUMP_MS = 60_000
+
 export function NotificationProvider({ children }: PropsWithChildren) {
   const { user } = useAuth()
-  const { organizationId } = useWorkspace()
+  const { organizationId, can } = useWorkspace()
+  const canManageNotifications = can('notifications.manage')
+  const queryClient = useQueryClient()
   const { openEditEvent } = useCalendarShell()
   const showTasks = useDisplayPreferences((state) => state.showTasks)
   const calendarQuery = useCalendarItems(organizationId)
@@ -159,6 +166,37 @@ export function NotificationProvider({ children }: PropsWithChildren) {
     const intervalId = window.setInterval(() => setDueTick((tick) => tick + 1), 30_000)
     return () => window.clearInterval(intervalId)
   }, [])
+
+  // Native skips in-app toasts. Promote due jobs and send FCM while the APK is
+  // open so the system shade still fires if cron is late.
+  useEffect(() => {
+    if (!isNativeApp() || !isSupabaseConfigured || !canManageNotifications) return
+
+    let cancelled = false
+
+    const pump = async () => {
+      try {
+        await scheduleAndDispatchNotifications()
+        if (!cancelled) {
+          await queryClient.invalidateQueries({ queryKey: ['notifications'] })
+        }
+      } catch {
+        /* Cron still delivers when the client cannot manage notifications. */
+      }
+    }
+
+    void pump()
+    const intervalId = window.setInterval(() => void pump(), NATIVE_NOTIFICATION_PUMP_MS)
+    const listenerPromise = CapacitorApp.addListener('appStateChange', (state) => {
+      if (state.isActive) void pump()
+    })
+
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
+      void listenerPromise.then((handle) => handle.remove())
+    }
+  }, [canManageNotifications, queryClient])
 
   useEffect(() => {
     if (!isSupabaseConfigured || activeDueNotifications.length === 0) return

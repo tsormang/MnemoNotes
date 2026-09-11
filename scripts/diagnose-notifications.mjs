@@ -95,10 +95,22 @@ for (const user of filtered) {
     ['queued', 'delivered', 'sent'].includes(job.status),
   )
 
+  const { data: personnelRows } = await sb
+    .from('personnel')
+    .select('id, organization_id, status, profile_id')
+    .eq('profile_id', user.id)
+
   console.log(`\n${user.email} (${user.id.slice(0, 8)}…)`)
   console.log(`  Orgs: ${(memberships ?? []).map((m) => `${m.organization_id.slice(0, 8)}… (${m.role})`).join(', ') || 'none'}`)
+  console.log(`  Linked personnel rows: ${(personnelRows ?? []).length}`)
   console.log(`  Push tokens: ${userSubs.length}`)
   console.log(`  Recent notification jobs: ${userJobs.length} (${activeJobs.length} active)`)
+
+  if ((memberships ?? []).some((m) => m.role === 'owner' || m.role === 'manager') && (personnelRows ?? []).length === 0) {
+    console.log(
+      '  ⚠ Owner/manager with no personnel.profile_id — older schedule-notifications builds skipped this user for notes.',
+    )
+  }
 
   for (const sub of userSubs) {
     const orgMatch = (memberships ?? []).some((m) => m.organization_id === sub.organization_id)
